@@ -141,6 +141,7 @@ Your Builder Center article must include:
 
 ## See Also
 
+- **[initial-pitch.md](./initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for submission)**
 - **[process.md](./process.md)** - Submission process stages
 - **[checklist.md](./checklist.md)** - Pre-submission checklist
 - **[article-requirements.md](./article-requirements.md)** - Detailed article requirements
@@ -149,4 +150,5 @@ Your Builder Center article must include:
 - **[../competition/timeline.md](../competition/timeline.md)** - Timeline
 - **[../competition/eligibility.md](../competition/eligibility.md)** - Eligibility requirements
 - **[../technical/aws-services.md](../technical/aws-services.md)** - AWS services
+- **[../project/ideas.md](../project/ideas.md)** - CostGuard AI project idea
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

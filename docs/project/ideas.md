@@ -1,6 +1,6 @@
 # Project Ideas & Brainstorming
 
-**Keywords:** ideas, brainstorming, concepts, AI applications, use cases, problem solving, innovation, features, tracks
+**Keywords:** ideas, brainstorming, concepts, AI applications, use cases, problem solving, innovation, features, tracks, CostGuard AI, cost management, cost prevention, cost forecasting, AWS cost optimization, predictive analytics, automated prevention, AI advisor, commercial potential, B2B SaaS, FinOps, surprise billing, budget management
 
 ## Related Files
 - **[planning.md](./planning.md)** - Project planning based on selected idea
@@ -25,47 +25,83 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 ## Brainstorming Process
 
 ### Problem Identification
-- [Problem 1 - To be explored]
+- ✅ **Problem 1: AWS Cost Management & Surprise Billing** - 95% of organizations find AWS billing confusing, leading to unexpected costs and budget overruns. Cloud waste typically 30%+ of spending.
 - [Problem 2 - To be explored]
 - [Problem 3 - To be explored]
 
 ### Target Users
-- [User group 1 - To be defined]
-- [User group 2 - To be defined]
+- ✅ **Primary: Small to Medium Businesses (SMBs)** - Companies spending $100-$10,000/month on AWS, need affordable cost management
+- ✅ **Secondary: Startups** - Early-stage companies on AWS Free Tier or low usage, need to prevent surprise bills
+- ✅ **Tertiary: Enterprise Teams** - Individual teams/departments within large organizations needing cost visibility
 
 ### Track Selection
 - [ ] Workplace Efficiency
 - [ ] Daily Life Enhancement
-- [ ] Commercial Potential
+- [x] Commercial Potential ⭐ **SELECTED**
 - [ ] Social Good
 - [ ] Personal Expression
 
 ## Idea List
 
-### Idea 1: [Name]
-**Track:** [Selected track]  
-**Problem:** [Description]  
-**Solution:** [Description]  
-**Target Users:** [Description]  
-**AWS Services Needed:** [List]  
-**Kiro Usage Plan:** [How Kiro will be used]  
-**Feasibility:** [High/Medium/Low]  
-**Status:** [Exploring/Selected/Rejected]
+### Idea 1: CostGuard AI
+**Track:** Commercial Potential ⭐ **SELECTED**  
+**Problem:** 95% of organizations find AWS billing confusing, leading to unexpected costs and budget overruns. Existing cost management tools are either too expensive (enterprise-only) or lack predictive prevention capabilities. Cloud waste averages 30%+ of cloud spending.  
+**Solution:** AI-powered AWS cost prevention and forecasting platform combining: (1) Predictive cost forecasting using ML models, (2) Automated cost prevention (auto-shutdown, budget guards), (3) AI-powered conversational cost advisor.  
+**Target Users:** Small to medium businesses, startups, and enterprise teams needing affordable, proactive cost management  
+**AWS Services Needed:** 
+- AWS Cost Explorer API (cost data)
+- Amazon Bedrock with Nova models (AI forecasting & advisor)
+- AWS Lambda (serverless compute)
+- AWS Budgets API (budget management)
+- Amazon DynamoDB (data storage)
+- Amazon S3 (static hosting & reports)
+- Amazon SNS (notifications)
+- Amazon API Gateway (REST API)
+- AWS IAM (security)
+
+**Kiro Usage Plan:** 
+- **Overall Usage: ~65% of development**
+- **Phase 1 - Infrastructure (70%):** Lambda scaffolding, AWS SDK integration, API Gateway setup
+- **Phase 2 - AI/ML Integration (80%):** Bedrock integration, NLP processing, prompt engineering
+- **Phase 3 - Automation (60%):** Auto-shutdown logic, budget guards, resource management
+- **Phase 4 - Testing (90%):** Automated test generation, documentation
+- **Phase 5 - Frontend (40%):** API client generation
+- **Key Workflows:** Cost forecasting Lambda, budget guard automation, conversational AI advisor
+
+**Feasibility:** High  
+**Status:** Selected
 
 **Pros:**
-- [Pro 1]
-- [Pro 2]
+- Addresses universal problem (95% of organizations affected)
+- High market impact potential (direct financial savings)
+- Strong commercial viability (B2B SaaS model)
+- Clear differentiation (prevention vs. reactive alerts)
+- Aligns with competition focus (AI/ML, Free Tier)
+- Measurable ROI for customers
 
 **Cons:**
-- [Con 1]
-- [Con 2]
+- Complex solution (multiple components)
+- Requires careful AWS Free Tier management
+- Competition from existing tools (but addresses gaps)
 
 **Market Impact:**
-- [Impact description]
+- **Problem Scale:** 95% of organizations find AWS billing confusing
+- **Financial Impact:** Prevents surprise bills, reduces cloud waste (typically 30%+)
+- **Market Size:** Millions of AWS customers, underserved SMB/startup market
+- **Commercial Viability:** High - companies pay for cost-saving tools
+- **Scalability:** Works for startups to enterprises
+- **Measurable Value:** Direct cost savings, budget protection
 
 **Next Steps:**
-- [Action item 1]
-- [Action item 2]
+- ✅ Track selected (Commercial Potential)
+- ✅ Solution concept defined (CostGuard AI)
+- ✅ Feature set detailed
+- ✅ AWS services planned
+- ✅ Kiro usage plan designed
+- ✅ Architecture design created
+- ✅ Initial submission pitch drafted (see [../submission/initial-pitch.md](../submission/initial-pitch.md))
+- ⏭️ Review and finalize submission pitch
+- ⏭️ Submit by January 21, 2026 11:59pm PT
 
 ---
 
@@ -81,10 +117,17 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 
 ## Selected Idea
 
-**Selected:** [Idea Name]  
-**Track:** [Track name]  
-**Selection Date:** [Date]  
-**Rationale:** [Why this idea was chosen]
+**Selected:** CostGuard AI  
+**Track:** Commercial Potential  
+**Selection Date:** January 15, 2026  
+**Rationale:** 
+- **Highest Market Impact:** Addresses problem affecting 95% of organizations (AWS cost confusion)
+- **Direct Financial Value:** Prevents surprise bills, reduces cloud waste (30%+ savings potential)
+- **Strong Commercial Viability:** B2B SaaS model with proven market demand
+- **Clear Differentiation:** Combines predictive forecasting + automated prevention + AI advisor (unique combination)
+- **Competition Alignment:** AI/ML focus, Free Tier compatible, addresses real-world problem
+- **Scalability:** Works for startups to enterprises
+- **Measurable Impact:** Direct cost savings, budget protection, ROI demonstrable
 
 ## Evaluation Criteria
 
@@ -100,16 +143,51 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 
 ## Notes
 
-[Additional brainstorming notes]
+### CostGuard AI - Research Summary
+
+**Market Research Findings:**
+- 95% of organizations find AWS billing confusing (source: hivelocity.net)
+- Cloud waste typically 30%+ of cloud spending
+- Existing tools: Enterprise-focused (expensive) or lack prevention capabilities
+- Gap identified: Affordable, predictive, prevention-focused solution
+
+**Competitive Analysis:**
+- **Existing Solutions:** CloudZero, nOps, CloudCheckr, Binadox (enterprise-priced)
+- **AWS Native:** Cost Explorer, Budgets, Cost Anomaly Detection (reactive, not preventive)
+- **Gaps Addressed:** Predictive forecasting, automated prevention, affordable pricing, AI advisor
+
+**Solution Components:**
+1. **Predictive Cost Forecasting:** ML models predict future costs with confidence intervals
+2. **Automated Cost Prevention:** Budget guards, auto-shutdown, smart scaling
+3. **AI-Powered Cost Advisor:** Conversational AI explains costs and recommends actions
+
+**AWS Services Strategy:**
+- All services within Free Tier limits
+- Serverless architecture (Lambda, API Gateway, DynamoDB)
+- AI-powered (Bedrock with Nova models)
+- Cost-effective (no infrastructure management)
+
+**Kiro Integration Strategy:**
+- ~65% of development using Kiro
+- Focus on: Lambda development, AWS SDK integration, Bedrock integration, testing
+- Benefits: Speed, quality, consistency, AWS best practices
+
+**Market Impact Potential:**
+- **Universal Problem:** Affects 95% of AWS users
+- **Financial Impact:** Prevents surprise bills, reduces waste
+- **Commercial Viability:** High - proven B2B SaaS model
+- **Scalability:** Millions of potential customers
+- **Measurable Value:** Direct cost savings
 
 ---
 
 ## See Also
 
-- **[planning.md](./planning.md)** - Project plan for selected idea
-- **[../technical/architecture.md](../technical/architecture.md)** - Technical design
-- **[../competition/tracks.md](../competition/tracks.md)** - Competition tracks
-- **[../submission/requirements.md](../submission/requirements.md)** - Requirements validation
-- **[../resources/research.md](../resources/research.md)** - Supporting research
-- **[../technical/aws-services.md](../technical/aws-services.md)** - Implementation services
+- **[planning.md](./planning.md)** - Project plan for CostGuard AI
+- **[../technical/architecture.md](../technical/architecture.md)** - CostGuard AI technical architecture and design
+- **[../technical/aws-services.md](../technical/aws-services.md)** - AWS services for CostGuard AI implementation
+- **[../competition/tracks.md](../competition/tracks.md)** - Commercial Potential track details
+- **[../submission/requirements.md](../submission/requirements.md)** - Submission requirements for CostGuard AI
+- **[../submission/judging-criteria.md](../submission/judging-criteria.md)** - Judging criteria (market impact focus)
+- **[../resources/research.md](../resources/research.md)** - Market research and competitive analysis
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

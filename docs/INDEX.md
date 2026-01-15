@@ -33,6 +33,7 @@
 - **[competition/prizes.md](./competition/prizes.md)** - Prize categories, amounts, and recognition
 
 ### Submission
+- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for Jan 21, 2026)**
 - **[submission/requirements.md](./submission/requirements.md)** - Initial and semi-finalist submission requirements
 - **[submission/process.md](./submission/process.md)** - Five-stage submission process
 - **[submission/judging-criteria.md](./submission/judging-criteria.md)** - Judging criteria for each stage
@@ -40,12 +41,12 @@
 - **[submission/article-requirements.md](./submission/article-requirements.md)** - Builder Center article requirements
 
 ### Project Planning
-- **[project/ideas.md](./project/ideas.md)** - Brainstorming notes and project ideas by track
-- **[project/planning.md](./project/planning.md)** - Project plan, milestones, timeline aligned with competition
+- **[project/ideas.md](./project/ideas.md)** - CostGuard AI project idea, brainstorming, and selected solution
+- **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition
 
 ### Technical Documentation
-- **[technical/architecture.md](./technical/architecture.md)** - Technical architecture and design decisions
-- **[technical/aws-services.md](./technical/aws-services.md)** - AWS services research, selection, Free Tier usage
+- **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
+- **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
 - **[technical/api-design.md](./technical/api-design.md)** - API specifications and endpoints
 - **[technical/database-design.md](./technical/database-design.md)** - Database schema and data models
 - **[technical/development-notes.md](./technical/development-notes.md)** - Development progress and notes
@@ -66,16 +67,18 @@
 - **Article Requirements:** [submission/article-requirements.md](./submission/article-requirements.md)
 
 ### AI & Machine Learning
-- **AI Concepts:** [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
-- **AWS AI Services:** [technical/aws-services.md](./technical/aws-services.md), [resources/research.md](./resources/research.md)
-- **Bedrock & Nova:** [technical/aws-services.md](./technical/aws-services.md), [resources/research.md](./resources/research.md)
-- **Model Selection:** [technical/architecture.md](./technical/architecture.md), [resources/research.md](./resources/research.md)
+- **AI Concepts:** [project/ideas.md](./project/ideas.md) (CostGuard AI), [technical/architecture.md](./technical/architecture.md) (Bedrock integration)
+- **AWS AI Services:** [technical/aws-services.md](./technical/aws-services.md) (Bedrock, Nova), [resources/research.md](./resources/research.md)
+- **Bedrock & Nova:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md) (CostGuard AI forecasting & advisor)
+- **Model Selection:** [technical/architecture.md](./technical/architecture.md) (Nova models for CostGuard AI), [resources/research.md](./resources/research.md)
+- **CostGuard AI:** [project/ideas.md](./project/ideas.md) (features), [technical/architecture.md](./technical/architecture.md) (AI integration)
 
 ### AWS Infrastructure
-- **Services:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md)
-- **Free Tier:** [technical/aws-services.md](./technical/aws-services.md), [resources/best-practices.md](./resources/best-practices.md)
-- **Architecture:** [technical/architecture.md](./technical/architecture.md), [project/planning.md](./project/planning.md)
+- **Services:** [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services), [technical/architecture.md](./technical/architecture.md) (serverless architecture)
+- **Free Tier:** [technical/aws-services.md](./technical/aws-services.md), [resources/best-practices.md](./resources/best-practices.md), [technical/architecture.md](./technical/architecture.md) (Free Tier compliance)
+- **Architecture:** [technical/architecture.md](./technical/architecture.md) (CostGuard AI serverless design), [project/planning.md](./project/planning.md)
 - **Best Practices:** [resources/best-practices.md](./resources/best-practices.md), [technical/aws-services.md](./technical/aws-services.md)
+- **CostGuard AI Stack:** [technical/architecture.md](./technical/architecture.md) (Lambda, API Gateway, DynamoDB, Bedrock, SNS, S3)
 
 ### Kiro Development
 - **Kiro Usage:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md)
@@ -112,10 +115,12 @@
 - **...see judging criteria** → [submission/judging-criteria.md](./submission/judging-criteria.md)
 - **...check submission checklist** → [submission/checklist.md](./submission/checklist.md)
 - **...see article requirements** → [submission/article-requirements.md](./submission/article-requirements.md)
-- **...brainstorm ideas** → [project/ideas.md](./project/ideas.md)
-- **...plan the project** → [project/planning.md](./project/planning.md)
-- **...design architecture** → [technical/architecture.md](./technical/architecture.md)
-- **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md)
+- **...brainstorm ideas** → [project/ideas.md](./project/ideas.md) (CostGuard AI)
+- **...see selected project idea** → [project/ideas.md](./project/ideas.md) (CostGuard AI - Commercial Potential track)
+- **...plan the project** → [project/planning.md](./project/planning.md) (CostGuard AI)
+- **...design architecture** → [technical/architecture.md](./technical/architecture.md) (CostGuard AI serverless architecture)
+- **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
+- **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
 - **...learn about Kiro** → [technical/aws-services.md](./technical/aws-services.md), [resources/learning-notes.md](./resources/learning-notes.md)
 - **...track development progress** → [technical/development-notes.md](./technical/development-notes.md)
