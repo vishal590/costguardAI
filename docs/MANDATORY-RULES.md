@@ -111,12 +111,14 @@
 
 ## See Also
 
+- **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - ✅ Alignment analysis validating compliance with hackathon goals
 - **[competition/faq.md](./competition/faq.md)** - Frequently Asked Questions
 - **[competition/terms.md](./competition/terms.md)** - Complete Terms and Conditions
 - **[competition/eligibility.md](./competition/eligibility.md)** - Eligibility requirements
 - **[competition/overview.md](./competition/overview.md)** - Competition overview (Get Started section)
 - **[competition/important-notes.md](./competition/important-notes.md)** - Important clarifications
 - **[submission/requirements.md](./submission/requirements.md)** - Submission requirements (written pitch, no code required)
+- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ Initial submission pitch
 - **[submission/checklist.md](./submission/checklist.md)** - Pre-submission checklist
 - **[submission/process.md](./submission/process.md)** - Submission process stages
 - **[INDEX.md](./INDEX.md)** - Master documentation index

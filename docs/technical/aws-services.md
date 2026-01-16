@@ -91,13 +91,23 @@ When building your app using Kiro agentic IDE on the AWS Free Tier, you are **en
 - **Expected Cost:** $0 (within Free Tier limits)
 
 #### AWS Cost Explorer API
-- **Purpose:** Programmatic access to AWS cost and usage data
+- **Purpose:** Programmatic access to AWS cost and usage data (historical billing data)
 - **Free Tier:** Free (data retrieval only, no charges for API calls)
 - **Use Case:** Fetch historical cost data (12 months) for forecasting and analysis
-- **Justification:** Required for cost data access, free API calls
+- **Limitation:** Actual billing data has 24-hour delay (fundamental AWS limitation)
+- **Justification:** Required for historical cost data access, free API calls
 - **Documentation:** [AWS Cost Explorer API Documentation](https://docs.aws.amazon.com/cost-management/latest/APIReference/)
 - **Kiro Integration:** Kiro generates Cost Explorer API client code and data processing logic
 - **Expected Cost:** $0 (free API access)
+
+#### CloudWatch Metrics API
+- **Purpose:** Real-time usage metrics for near-real-time cost estimation
+- **Free Tier:** Free (standard CloudWatch metrics included, custom metrics may have costs)
+- **Use Case:** Monitor usage metrics (EC2 CPU, Lambda invocations, S3 requests, DynamoDB read/write units) every 5-15 minutes to estimate costs in near-real-time (minutes vs. 24hr billing delay)
+- **Justification:** Enables near-real-time cost estimation when actual billing data has 24-hour delay. Provides usage-based anomaly detection.
+- **Documentation:** [AWS CloudWatch Metrics Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/working_with_metrics.html)
+- **Kiro Integration:** Kiro generates CloudWatch Metrics API client code, cost estimation logic, and anomaly detection algorithms
+- **Expected Cost:** $0 (standard metrics within Free Tier)
 
 #### AWS Budgets API
 - **Purpose:** Programmatic budget management and monitoring

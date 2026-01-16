@@ -6,355 +6,177 @@
 
 ---
 
-## 1. Project Description
+## 1. What's Your Big Idea?
 
-### What We Want to Build
+**CostGuard AI** is an AI-powered AWS cost prevention and forecasting platform. It estimates costs in near-real-time using usage metrics (detecting anomalies in minutes, not days), automatically prevents overspending across 20+ AWS services (vs. AWS Budget Actions' 5), and provides a conversational AI advisor that explains costs in plain language. All built affordably for SMBs and startups who can't afford $500+/month enterprise tools.
 
-**CostGuard AI** is an AI-powered AWS cost prevention and forecasting platform that combines predictive analytics, automated prevention, and intelligent advisory services to help organizations proactively manage and optimize their AWS spending.
-
-### The Problem
-
-A staggering **95% of organizations find AWS billing confusing**, leading to unexpected costs and budget overruns. Existing cost management tools are either prohibitively expensive (enterprise-only solutions costing hundreds to thousands per month) or lack the predictive and preventive capabilities needed to truly prevent surprise bills. Cloud waste averages **30%+ of cloud spending**, representing billions in unnecessary costs across the AWS ecosystem.
-
-### Why It Matters
-
-CostGuard AI addresses a universal pain point affecting millions of AWS users—from startups to enterprises. Unlike reactive tools that only alert after costs spike, CostGuard AI **prevents** problems before they occur through:
-
-1. **Predictive Cost Forecasting** - ML-powered predictions that forecast future bills with high accuracy
-2. **Automated Cost Prevention** - Budget guards and auto-shutdown mechanisms that prevent overspending
-3. **AI-Powered Cost Advisor** - Conversational AI that explains costs and recommends actions in plain language
-
-### How It Makes a Real Difference
-
-**For Small Businesses & Startups:**
-- Prevents devastating surprise bills that can derail budgets
-- Affordable solution (targeting underserved SMB market)
-- Helps stay within AWS Free Tier limits
-
-**For Enterprise Teams:**
-- Provides cost visibility and control at team/department level
-- Reduces cloud waste through automated optimization
-- Enables proactive budget management
-
-**Market Impact:**
-- Addresses problem affecting **95% of organizations**
-- Prevents financial losses through automated prevention
-- Reduces cloud waste (typically 30%+ savings potential)
-- Serves millions of underserved AWS users
-- Measurable ROI - direct cost savings and budget protection
+**Who it's for:** Small to medium businesses, startups, and development teams spending $100-$10,000/month on AWS who struggle with unexpected bills and need affordable, proactive cost management with automated prevention.
 
 ---
 
-## 2. Detailed Documentation of Kiro Implementation
+## 2. What Exactly Will You Build?
 
-### Overview
+**Core Feature 1: Near-Real-Time Cost Estimation & Anomaly Detection**
+- Monitors CloudWatch metrics every 5-15 minutes to estimate costs using usage × pricing models
+- Detects usage anomalies in real-time (API spikes, sudden resource provisioning, configuration changes)
+- Provides cost estimates within minutes (note: actual billing data has 24-hour delay, but we estimate from usage)
+- Identifies cost trends and anomalies before they become problems
+- **Why this matters:** Most tools only alert after 24-hour billing delay. We detect usage anomalies immediately.
 
-Kiro will be used for approximately **65% of total development**, focusing on areas where it provides the most value: AWS service integration, Lambda function development, AI/ML integration, and automated testing.
+**Core Feature 2: Automated Cost Prevention (20+ Services)**
+- Monitors AWS Budgets API and CloudWatch metrics for threshold breaches
+- Automatically stops idle resources across 20+ services (EC2, RDS, EBS, Lambda, S3, DynamoDB, SNS, SQS, etc.)
+- **Safety-first approach:** Tag-based rules (e.g., never touch "production" resources), usage-based idle detection, approval workflows, dry-run mode
+- Implements budget guard rules that prevent overspending before it happens
+- Sends alerts via SNS when cost estimates spike or anomalies are detected
+- **Why this matters:** AWS Budget Actions only supports 5 services. We prevent costs across 20+ services.
 
-### Kiro Usage by Development Phase
+**Core Feature 3: AI-Powered Cost Advisor**
+- Conversational interface powered by Bedrock that answers questions like "Why did my bill increase?" or "What's using the most storage?"
+- Analyzes cost data and provides plain-language explanations
+- Recommends specific optimization actions based on usage patterns
+- Maintains conversation context for follow-up questions
 
-#### Phase 1: Infrastructure Development (70% Kiro Usage)
-
-**Lambda Function Scaffolding:**
-- Kiro will generate Lambda handler templates with AWS SDK integration
-- Auto-generate error handling, logging, and IAM permission structures
-- Create complete function structure (handler, tests, configuration files)
-
-**AWS SDK Integration:**
-- Kiro will generate service client code for Cost Explorer API, Budgets API, DynamoDB, Bedrock, SNS
-- Auto-generate retry logic and exponential backoff patterns
-- Implement connection pooling and optimization patterns
-
-**API Gateway Integration:**
-- Kiro will generate API Gateway integration code
-- Auto-generate request validation and response serialization
-- Create API endpoint structures with proper error handling
-
-**Example Workflow:**
-1. Developer provides spec: "Create Lambda function to fetch cost data from Cost Explorer API"
-2. Kiro generates: Complete handler code, AWS SDK client setup, error handling, logging, IAM permissions, unit tests
-3. Developer reviews, customizes, and deploys
-
-#### Phase 2: AI/ML Integration (80% Kiro Usage)
-
-**Bedrock Integration for Forecasting:**
-- Kiro will generate Bedrock client code for Nova model integration
-- Auto-generate prompt templates for cost forecasting
-- Create response parsing and formatting logic
-- Implement prompt engineering patterns
-
-**Conversational AI Advisor:**
-- Kiro will generate NLP processing code for user queries
-- Auto-generate context management for conversations
-- Create response generation and formatting logic
-
-**Example Workflow:**
-1. Developer specifies: "Use Bedrock Nova model to predict AWS costs based on historical data"
-2. Kiro generates: Model invocation code, prompt templates, data transformation logic, response parsing
-3. Developer fine-tunes prompts and deploys
-
-#### Phase 3: Automation & Prevention (60% Kiro Usage)
-
-**Automated Cost Prevention Logic:**
-- Kiro will generate conditional logic for auto-shutdown rules
-- Auto-generate resource management code (EC2, S3 APIs)
-- Create safety checks and validation before auto-actions
-
-**Budget Guard System:**
-- Kiro will generate event-driven budget monitoring logic
-- Auto-generate threshold detection and action triggers
-- Create state management for budget enforcement
-
-**Example Workflow:**
-1. Developer defines: "Create auto-shutdown logic for idle EC2 instances after 7 days"
-2. Kiro generates: Detection logic, shutdown code, notification triggers, safety checks
-3. Developer adds approval workflows and deploys
-
-#### Phase 4: Testing & Quality (90% Kiro Usage)
-
-**Automated Test Generation:**
-- Kiro will generate comprehensive test suites for all Lambda functions
-- Auto-generate unit tests, integration tests, and API tests
-- Create AWS service mocks for testing
-- Generate test cases covering edge cases and error scenarios
-
-**Documentation Generation:**
-- Kiro will auto-generate API documentation from code
-- Create README files with usage examples
-- Generate code comments and inline documentation
-
-#### Phase 5: Frontend Integration (40% Kiro Usage)
-
-**API Client Code:**
-- Kiro will generate TypeScript/JavaScript API clients
-- Auto-generate TypeScript type definitions from API schemas
-- Create error handling and retry logic for frontend
-
-### Key Kiro Workflows
-
-**Workflow 1: Cost Forecasting Lambda**
-```
-1. Developer provides spec: "Create Lambda function that:
-   - Fetches last 12 months cost data from Cost Explorer API
-   - Sends data to Bedrock Nova model for forecasting
-   - Returns 30-day cost prediction"
-
-2. Kiro generates:
-   - Lambda handler with Cost Explorer API integration
-   - Bedrock client setup with Nova model
-   - Data transformation logic
-   - Error handling and logging
-   - Unit tests with mocks
-
-3. Developer reviews, fine-tunes, and deploys
-```
-
-**Workflow 2: Budget Guard Automation**
-```
-1. Developer provides spec: "Create automated budget guard that:
-   - Monitors AWS Budgets API
-   - When budget reaches 90%, sends alert
-   - When budget reaches 100%, auto-stops non-critical services"
-
-2. Kiro generates:
-   - Event-driven Lambda function
-   - Budget monitoring logic
-   - Service identification and stopping code
-   - SNS notification integration
-   - Safety checks and rollback capability
-
-3. Developer configures service priorities and deploys
-```
-
-**Workflow 3: Conversational AI Advisor**
-```
-1. Developer provides spec: "Create conversational AI that:
-   - Takes natural language questions about costs
-   - Uses Bedrock to analyze cost data
-   - Returns plain-language explanations"
-
-2. Kiro generates:
-   - Query processing logic
-   - Bedrock integration with prompt templates
-   - Context management for conversations
-   - Response formatting
-   - API endpoint integration
-
-3. Developer fine-tunes prompts and tests conversation flows
-```
-
-### Benefits of Using Kiro
-
-1. **Speed:** Reduces development time by 60-70% through automated code generation
-2. **Quality:** Ensures AWS best practices and patterns are followed consistently
-3. **Consistency:** Maintains uniform code structure across all Lambda functions
-4. **Testing:** Auto-generates comprehensive test suites
-5. **Documentation:** Keeps documentation up-to-date automatically
-6. **Learning:** Helps developers understand AWS service integration patterns
-
-### Kiro Integration Summary
-
-- **Overall Usage:** ~65% of total development
-- **Primary Focus Areas:** Lambda development, AWS SDK integration, Bedrock integration, testing
-- **Key Features Leveraged:** Spec-driven development, intelligent code generation, automated testing, documentation generation
-- **Integration Approach:** Kiro generates code → Developer reviews/customizes → Commits to repository → Deploys via CDK/SAM
+**What we're NOT building:** This isn't just another cost alerting tool. We're building prevention, not reaction. Most tools tell you after you've overspent; CostGuard AI stops the problem before it happens through near-real-time detection and broader automated prevention than AWS native tools.
 
 ---
 
-## 3. AWS Services to be Used
+## 3. What's Your Plan for Building This?
+
+You don't need a detailed project plan, just show you've thought about the steps. Break it into phases: what you'll build first, what comes next, how you'll test it. Mention the tools and services you'll use. Keep it realistic for the competition timeframe.
+
+### Phase 1: Core Cost Data Pipeline (Weeks 1-2)
+**What I'll build first:** The foundation - Lambda function that fetches cost data from AWS Cost Explorer API (historical billing data), stores it in DynamoDB, and exposes it via API Gateway. This gives us the historical data we need for forecasting.
+
+**How I'll use Kiro:** Kiro will generate the Lambda handler code with Cost Explorer API integration, DynamoDB client setup, error handling, and IAM permissions. I'll provide a spec like "Create Lambda function to fetch last 12 months of cost data from Cost Explorer API and store in DynamoDB," and Kiro will generate the complete implementation with tests.
+
+**Tools:** AWS Lambda, AWS Cost Explorer API, DynamoDB, API Gateway, Kiro for code generation
+
+### Phase 1.5: Near-Real-Time Cost Estimation (Weeks 2-2.5)
+**What I'll add:** Lambda function that monitors CloudWatch metrics every 5-15 minutes, estimates costs using usage × pricing models, and detects anomalies in real-time. This enables near-real-time detection (minutes) vs. 24-hour billing delay.
+
+**How I'll use Kiro:** Kiro will generate CloudWatch metrics fetching code, pricing model calculations, anomaly detection logic, and cost estimation algorithms. I'll specify "Create Lambda function to monitor CloudWatch metrics, estimate costs from usage, and detect anomalies," and Kiro will generate the implementation.
+
+**Tools:** CloudWatch Metrics API, Lambda, DynamoDB for storing estimates, Kiro for metrics integration and cost estimation logic
+
+### Phase 2: AI Forecasting Engine (Weeks 2-3)
+**What comes next:** Add the predictive forecasting using Bedrock. Lambda function that takes historical cost data, sends it to Bedrock Nova model with a prompt for cost forecasting, and returns 30-day predictions.
+
+**How I'll use Kiro:** Kiro will generate the Bedrock client code, prompt templates for cost forecasting, data transformation logic, and response parsing. I'll specify "Use Bedrock Nova model to predict AWS costs based on historical data," and Kiro will scaffold the integration code.
+
+**Tools:** Amazon Bedrock (Nova models), Lambda, DynamoDB for caching forecasts, Kiro for Bedrock integration code
+
+### Phase 3: Automated Prevention System (Weeks 3-4)
+**What I'll add:** Budget guard automation - Lambda function that monitors AWS Budgets API and CloudWatch cost estimates, detects when budgets approach thresholds, and automatically stops idle resources across 20+ services (EC2, RDS, EBS, Lambda, S3, DynamoDB, SNS, SQS, etc.) with safety checks.
+
+**How I'll use Kiro:** Kiro will generate the event-driven budget monitoring logic, resource identification code for multiple services (EC2, RDS, EBS, Lambda, S3, DynamoDB APIs), auto-shutdown logic with safety checks (tag-based rules, idle detection, dry-run mode), approval workflow logic, and SNS notification integration. I'll define the rules and safety mechanisms, and Kiro will generate the automation code.
+
+**Tools:** AWS Budgets API, Lambda, SNS for alerts, EC2/RDS/EBS/Lambda/S3/DynamoDB/SNS/SQS APIs for resource management, Kiro for automation logic and safety mechanisms
+
+### Phase 4: AI Cost Advisor (Weeks 4-5)
+**What I'll build:** Conversational AI advisor using Bedrock - Lambda function that takes natural language questions, analyzes cost data, and returns plain-language explanations via API Gateway.
+
+**How I'll use Kiro:** Kiro will generate the query processing logic, Bedrock integration for conversational AI, context management for multi-turn conversations, and response formatting. I'll specify the conversation flow, and Kiro will generate the NLP integration code.
+
+**Tools:** Amazon Bedrock (Nova models), Lambda, API Gateway, DynamoDB for conversation history, Kiro for NLP integration
+
+### Phase 5: Frontend & Testing (Weeks 5-6)
+**Finally:** Simple React frontend hosted on S3, API client code, and comprehensive testing. Frontend will display forecasts, budget status, and the AI advisor interface.
+
+**How I'll use Kiro:** Kiro will generate TypeScript API client code from our backend API schemas, unit tests for all Lambda functions, integration tests, and AWS service mocks. I'll use Kiro's automated testing features to ensure quality.
+
+**Tools:** React, S3 for hosting, TypeScript, Kiro for test generation and API client code
+
+### Kiro Usage Summary
+
+**Overall:** Kiro will be used for approximately **65% of total development**, focusing on:
+- Lambda function scaffolding and AWS SDK integration (70% Kiro usage)
+- Bedrock integration for AI features (80% Kiro usage)
+- Automated testing and documentation (90% Kiro usage)
+- API client code generation (40% Kiro usage)
+
+**Integration approach:** I'll use Kiro's spec-driven development - provide natural language specs for each component, Kiro generates the code, I review and customize, then deploy. This accelerates development while ensuring AWS best practices are followed.
+
+---
+
+## 5. AWS Services to be Used
 
 All services will be used within **AWS Free Tier limits** to ensure zero cost during development and operation.
 
-### Core Services
+**Core Services:**
+- **AWS Lambda** - Serverless compute for all business logic (1M requests/month free)
+- **Amazon API Gateway** - REST API layer for frontend communication (1M API calls/month free)
+- **Amazon DynamoDB** - NoSQL database for user data and cached forecasts (25 GB storage, 25 RCU/WCU free)
+- **Amazon Bedrock (Nova Models)** - AI models for forecasting and conversational advisor (check current Free Tier)
 
-#### AWS Lambda
-- **Purpose:** Serverless compute for all business logic (cost data fetching, forecasting, prevention, AI advisor)
-- **Free Tier:** 1M requests/month, 400,000 GB-seconds compute time
-- **Rationale:** Serverless, cost-effective, auto-scaling, perfect for Free Tier. No infrastructure management needed. Enables rapid development and deployment.
+**Data & Integration:**
+- **AWS Cost Explorer API** - Programmatic access to historical cost data (free API calls, 24-hour delay for actual billing data)
+- **CloudWatch Metrics API** - Real-time usage metrics for cost estimation (free API calls, near-real-time)
+- **AWS Budgets API** - Budget management and monitoring (2 budgets per account free)
+- **Amazon SNS** - Alerts and notifications (1M publishes/month free)
+- **Amazon S3** - Static frontend hosting and file storage (5 GB storage, 20K GET requests/month free)
+- **AWS IAM** - Security and permissions (always free)
 
-#### Amazon API Gateway
-- **Purpose:** REST API layer for frontend to backend communication
-- **Free Tier:** 1M API calls/month
-- **Rationale:** Managed API layer, scales automatically, Free Tier sufficient for MVP. Simplifies API management and security.
+**Technical Note:** AWS Cost Explorer API provides actual billing data with a 24-hour delay (fundamental AWS limitation). To enable near-real-time detection, we use CloudWatch Metrics to estimate costs from usage patterns. This provides cost estimates within minutes, though actual billing data confirms accuracy after 24 hours.
 
-#### Amazon DynamoDB
-- **Purpose:** NoSQL database for user preferences, cached forecasts, budget settings, alert history
-- **Free Tier:** 25 GB storage, 25 read capacity units, 25 write capacity units
-- **Rationale:** Serverless, auto-scaling, no capacity planning, Free Tier sufficient. Fast read/write performance for real-time operations.
-
-#### Amazon Bedrock (Nova Models)
-- **Purpose:** AI models for cost forecasting and conversational cost advisor
-- **Free Tier:** Check current Bedrock Free Tier (typically includes some model invocations)
-- **Rationale:** Managed AI service, no model training needed, Nova models optimized for AWS use cases. Cost-effective pay-per-token pricing. Enables rapid AI integration without ML expertise.
-
-### Data & Integration Services
-
-#### AWS Cost Explorer API
-- **Purpose:** Programmatic access to AWS cost and usage data
-- **Free Tier:** Free (data retrieval only, no charges for API calls)
-- **Rationale:** Required for cost data access. Free API calls make it ideal for cost management applications.
-
-#### AWS Budgets API
-- **Purpose:** Programmatic budget management and monitoring
-- **Free Tier:** 2 budgets per account (free)
-- **Rationale:** Enables automated budget protection and budget guard system. Essential for prevention features.
-
-#### Amazon SNS (Simple Notification Service)
-- **Purpose:** Send alerts and notifications (budget thresholds, anomalies, summaries)
-- **Free Tier:** 1M publishes, 100 deliveries/month
-- **Rationale:** Reliable notification delivery, Free Tier sufficient for MVP. Supports email and SMS alerts.
-
-#### Amazon S3
-- **Purpose:** Static frontend hosting and file storage (cost reports, exports)
-- **Free Tier:** 5 GB storage, 20,000 GET requests/month
-- **Rationale:** Cost-effective storage and hosting, Free Tier sufficient. Perfect for static React/Next.js frontend.
-
-#### AWS IAM
-- **Purpose:** Security and permissions management
-- **Free Tier:** Always free
-- **Rationale:** Security requirement, always free. Manages Lambda permissions and API access securely.
-
-### Free Tier Compliance
-
-All services are configured to stay within Free Tier limits:
-- **Lambda:** Expected usage: ~10K-50K requests/month (well within 1M limit)
-- **DynamoDB:** Expected usage: <1 GB storage, <10 RCU/WCU (within 25 GB/25 RCU/WCU limits)
-- **API Gateway:** Expected usage: ~10K-50K calls/month (within 1M limit)
-- **SNS:** Expected usage: <10K publishes/month (within 1M limit)
-- **S3:** Expected usage: <100 MB storage (within 5 GB limit)
-- **Bedrock:** Usage will be monitored to stay within Free Tier limits
-
-**Total Expected Cost:** $0 (all within Free Tier)
+**Free Tier Compliance:** All services configured to stay within Free Tier limits. Expected usage: Lambda ~10K-50K requests/month, DynamoDB <1 GB storage, API Gateway ~10K-50K calls/month, SNS <10K publishes/month, S3 <100 MB storage, Bedrock usage monitored to stay within Free Tier. **Total Expected Cost: $0**
 
 ---
 
-## 4. Market Impact
+## 4. How Will Your Solution Make a Difference?
 
-### Problem Scale
+**Who benefits and why they care:**
 
-- **95% of organizations** find AWS billing confusing (source: industry research)
-- **Cloud waste averages 30%+** of cloud spending across organizations
-- **Millions of AWS customers** struggle with cost management
-- **Underserved market:** Small businesses and startups lack affordable solutions
+**Small businesses and startups spending $100-$10,000/month on AWS** - These organizations are the most vulnerable to surprise bills. A $500 unexpected charge can derail a startup's monthly budget. Existing enterprise cost management tools cost hundreds to thousands per month, which is unaffordable for them. CostGuard AI fills this gap by providing prevention-focused cost management at an affordable price point.
 
-### Financial Impact Potential
+**Development teams and DevOps engineers** - They're tired of getting blamed for unexpected AWS bills. They need tools that prevent problems, not just alert after the fact. CostGuard AI's automated prevention and AI advisor help them proactively manage costs without constant manual monitoring.
 
-**For Individual Organizations:**
-- **Prevents surprise bills** that can derail budgets and projects
-- **Reduces cloud waste** by 30%+ through automated optimization
-- **Enables proactive budget management** instead of reactive firefighting
-- **Measurable ROI:** Direct cost savings and budget protection
+**Why it matters:** The problem isn't that cost management tools don't exist—it's that they don't work for SMBs/startups. Enterprise tools cost $500+/month (unaffordable), AWS native tools have 24-hour delays (too slow), and AWS Budget Actions only protect 5 services (too limited). SMBs/startups are left vulnerable to surprise bills. CostGuard AI solves this by making cost prevention accessible, fast, and comprehensive:
+- **Near-real-time detection:** Estimates costs in minutes using usage metrics (vs. 24-hour billing delay)
+- **Broader prevention:** Automates cost prevention across 20+ services (vs. AWS Budget Actions' 5)
+- **Affordability:** Enterprise features at $10-50/month (vs. $500+/month for enterprise tools)
+- **Safety-first automation:** Tag-based rules, approval workflows, dry-run mode to prevent production issues
 
-**Market-Wide Impact:**
-- If CostGuard AI helps just 1% of AWS customers reduce waste by 20%, that represents **millions in cost savings**
-- **Prevents financial losses** from unexpected AWS bills
-- **Enables better cloud adoption** by removing cost uncertainty barrier
+This directly translates to measurable cost savings and budget protection for organizations that can't afford expensive enterprise solutions.
 
-### Commercial Viability
-
-**Target Market:**
-- **Primary:** Small to Medium Businesses (SMBs) spending $100-$10,000/month on AWS
-- **Secondary:** Startups on AWS Free Tier or low usage
-- **Tertiary:** Enterprise teams/departments needing cost visibility
-
-**Market Size:**
-- AWS has **millions of active customers**
-- **Underserved SMB/startup market** with limited affordable options
-- **Growing FinOps market** - companies increasingly investing in cost management
-
-**Business Model:**
-- **B2B SaaS** with proven market demand
-- **Freemium model** possible (Free Tier monitoring, paid for advanced features)
-- **Enterprise pricing** for larger organizations
-- **High retention** - ongoing need for cost management
-
-### Scalability Potential
-
-- **Works for startups to enterprises** - scalable architecture
-- **Serverless design** - automatically scales with usage
-- **Multi-account support** - can expand to enterprise features
-- **Global reach** - AWS customers worldwide
-
-### Differentiation
-
-**Unique Value Proposition:**
-- **Prevention vs. Reaction:** Most tools alert after problems occur; CostGuard AI prevents them
-- **Affordability:** Targets underserved SMB market vs. expensive enterprise tools
-- **AI-Powered:** Combines predictive forecasting + automated prevention + conversational advisor
-- **Free Tier Focus:** Helps users stay within Free Tier limits (competition requirement)
-
-**Competitive Advantages:**
-- Addresses gaps in existing solutions (predictive prevention, affordability)
-- AI-powered insights make cost management accessible to non-technical users
-- Automated prevention reduces manual intervention
-- Comprehensive solution (forecasting + prevention + advisor) vs. point solutions
-
-### Measurable Impact
-
-**Success Metrics:**
-- **Cost savings:** Percentage reduction in AWS spending
-- **Budget adherence:** Reduction in budget overruns
-- **User satisfaction:** Time saved on cost management
-- **Prevention rate:** Number of surprise bills prevented
-
-**Long-Term Vision:**
-- Become the go-to cost management solution for SMBs and startups
-- Expand to multi-cloud cost management
-- Build community around cost optimization best practices
-- Contribute to reducing global cloud waste
+**Market impact:** AWS has millions of active customers, and the SMB/startup market is significantly underserved. If CostGuard AI helps just 1% of AWS customers reduce waste by 20%, that represents millions in cost savings. More importantly, it removes the cost uncertainty barrier that prevents many organizations from fully adopting cloud technologies.
 
 ---
 
 ## Summary
 
-CostGuard AI addresses a critical, universal problem affecting 95% of AWS users through an innovative combination of AI-powered forecasting, automated prevention, and intelligent advisory services. By leveraging AWS Free Tier services and Kiro for rapid development, we can deliver a comprehensive solution that prevents surprise bills, reduces cloud waste, and makes cost management accessible to organizations of all sizes.
+CostGuard AI solves a real problem: SMBs and startups can't effectively prevent AWS cost surprises because existing solutions are inaccessible (too expensive), too slow (24-hour delay), or too limited (only 5 services). CostGuard AI makes cost prevention accessible, fast, and comprehensive:
+- **Near-real-time cost estimation** (minutes vs. 24-hour billing delay)
+- **Broader automated prevention** (20+ services vs. AWS Budget Actions' 5)
+- **Affordable pricing** ($10-50/month vs. $500+/month enterprise tools)
+- **Safety-first automation** (tag-based rules, approval workflows, dry-run mode)
+
+Built entirely within AWS Free Tier using Kiro for 65% of development, it targets the underserved SMB and startup market that can't afford expensive enterprise cost management tools.
 
 **Track:** Commercial Potential  
-**Innovation:** AI-powered prevention (not just alerts)  
-**Impact:** Addresses problem affecting 95% of organizations  
+**Problem:** SMBs/startups can't prevent AWS cost surprises—existing solutions are too expensive ($500+/month), too slow (24hr delay), or too limited (5 services). Underserved market with real financial impact.  
+**Solution:** Near-real-time prevention (estimation + broader automation + advisor)  
+**Target Users:** SMBs, startups, and development teams spending $100-$10K/month on AWS  
 **Feasibility:** All within AWS Free Tier, ~65% development with Kiro  
-**Market Potential:** Millions of underserved AWS users, proven B2B SaaS model
+**Market Impact:** Millions of underserved AWS users, proven B2B SaaS model  
+**Key Differentiators:** Speed (minutes vs. 24 hours), breadth (20+ vs. 5 services), affordability ($10-50 vs. $500+/month)
 
 ---
 
-**Keywords:** CostGuard AI, cost management, cost prevention, cost forecasting, AWS cost optimization, predictive analytics, automated prevention, AI advisor, commercial potential, B2B SaaS, FinOps, surprise billing, budget management, serverless, Lambda, Bedrock, DynamoDB, Kiro
+**Keywords:** CostGuard AI, cost management, cost prevention, cost forecasting, near-real-time cost estimation, AWS cost optimization, predictive analytics, automated prevention, AI advisor, commercial potential, B2B SaaS, FinOps, surprise billing, budget management, serverless, Lambda, Bedrock, DynamoDB, Kiro, CloudWatch metrics, cost estimation, 24-hour delay, broader prevention, safety-first automation, initial submission, pitch, Ana Cunha article, alignment, technical feasibility
+
+---
+
+## See Also
+
+- **[../PROBLEM-STATEMENT.md](../PROBLEM-STATEMENT.md)** - 🎯 **The REAL problem - why CostGuard AI solves a real problem, not generic features**
+- **[../IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
+- **[../TECHNICAL-FEASIBILITY-ASSESSMENT.md](../TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - ⚠️ **Brutal honest technical feasibility - can we actually deliver on claims?**
+- **[../COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md)** - 🔍 Brutal honest competitive analysis and market positioning
+- **[../ALIGNMENT-ANALYSIS.md](../ALIGNMENT-ANALYSIS.md)** - ✅ Comprehensive alignment analysis with hackathon goals and Ana Cunha's article
+- **[requirements.md](./requirements.md)** - Submission requirements
+- **[project/ideas.md](../project/ideas.md)** - CostGuard AI project idea and concept
+- **[technical/aws-services.md](../technical/aws-services.md)** - AWS services used
+- **[technical/architecture.md](../technical/architecture.md)** - Technical architecture
+- **[competition/tracks.md](../competition/tracks.md)** - Commercial Potential track
+- **[INDEX.md](../INDEX.md)** - Master documentation index

@@ -34,6 +34,11 @@
 
 ### Submission
 - **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for Jan 21, 2026)**
+- **[PROBLEM-STATEMENT.md](./PROBLEM-STATEMENT.md)** - 🎯 **The REAL problem - why CostGuard AI solves a real problem, not generic features**
+- **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
+- **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - ✅ **Comprehensive alignment analysis with hackathon goals and Ana Cunha's article**
+- **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - 🔍 **Brutal honest competitive analysis - market positioning and differentiation strategy**
+- **[TECHNICAL-FEASIBILITY-ASSESSMENT.md](./TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - ⚠️ **Brutal honest technical feasibility - can we actually deliver on claims?**
 - **[submission/requirements.md](./submission/requirements.md)** - Initial and semi-finalist submission requirements
 - **[submission/process.md](./submission/process.md)** - Five-stage submission process
 - **[submission/judging-criteria.md](./submission/judging-criteria.md)** - Judging criteria for each stage

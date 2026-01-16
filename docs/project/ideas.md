@@ -46,10 +46,11 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 ### Idea 1: CostGuard AI
 **Track:** Commercial Potential ⭐ **SELECTED**  
 **Problem:** 95% of organizations find AWS billing confusing, leading to unexpected costs and budget overruns. Existing cost management tools are either too expensive (enterprise-only) or lack predictive prevention capabilities. Cloud waste averages 30%+ of cloud spending.  
-**Solution:** AI-powered AWS cost prevention and forecasting platform combining: (1) Predictive cost forecasting using ML models, (2) Automated cost prevention (auto-shutdown, budget guards), (3) AI-powered conversational cost advisor.  
+**Solution:** AI-powered AWS cost prevention and forecasting platform combining: (1) Near-real-time cost estimation using CloudWatch metrics (minutes vs. 24hr billing delay), (2) Automated cost prevention across 20+ services (auto-shutdown, budget guards), (3) AI-powered conversational cost advisor.  
 **Target Users:** Small to medium businesses, startups, and enterprise teams needing affordable, proactive cost management  
 **AWS Services Needed:** 
-- AWS Cost Explorer API (cost data)
+- AWS Cost Explorer API (historical cost data, 24hr delay)
+- CloudWatch Metrics API (real-time usage metrics for cost estimation)
 - Amazon Bedrock with Nova models (AI forecasting & advisor)
 - AWS Lambda (serverless compute)
 - AWS Budgets API (budget management)
@@ -124,7 +125,7 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 - **Highest Market Impact:** Addresses problem affecting 95% of organizations (AWS cost confusion)
 - **Direct Financial Value:** Prevents surprise bills, reduces cloud waste (30%+ savings potential)
 - **Strong Commercial Viability:** B2B SaaS model with proven market demand
-- **Clear Differentiation:** Combines predictive forecasting + automated prevention + AI advisor (unique combination)
+- **Clear Differentiation:** Combines near-real-time estimation (minutes vs. 24hr) + broader prevention (20+ vs. 5 services) + affordable pricing (unique combination)
 - **Competition Alignment:** AI/ML focus, Free Tier compatible, addresses real-world problem
 - **Scalability:** Works for startups to enterprises
 - **Measurable Impact:** Direct cost savings, budget protection, ROI demonstrable
@@ -157,9 +158,10 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 - **Gaps Addressed:** Predictive forecasting, automated prevention, affordable pricing, AI advisor
 
 **Solution Components:**
-1. **Predictive Cost Forecasting:** ML models predict future costs with confidence intervals
-2. **Automated Cost Prevention:** Budget guards, auto-shutdown, smart scaling
-3. **AI-Powered Cost Advisor:** Conversational AI explains costs and recommends actions
+1. **Near-Real-Time Cost Estimation:** CloudWatch metrics monitoring to estimate costs in minutes (vs. 24hr billing delay)
+2. **Predictive Cost Forecasting:** ML models predict future costs with confidence intervals
+3. **Automated Cost Prevention (20+ Services):** Budget guards, auto-shutdown across 20+ services (vs. AWS Budget Actions' 5), safety-first approach
+4. **AI-Powered Cost Advisor:** Conversational AI explains costs and recommends actions
 
 **AWS Services Strategy:**
 - All services within Free Tier limits
@@ -183,11 +185,14 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 
 ## See Also
 
+- **[../COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md)** - 🔍 Competitive analysis and market positioning strategy
+- **[../ALIGNMENT-ANALYSIS.md](../ALIGNMENT-ANALYSIS.md)** - ✅ Alignment analysis validating this idea against hackathon goals
 - **[planning.md](./planning.md)** - Project plan for CostGuard AI
 - **[../technical/architecture.md](../technical/architecture.md)** - CostGuard AI technical architecture and design
 - **[../technical/aws-services.md](../technical/aws-services.md)** - AWS services for CostGuard AI implementation
 - **[../competition/tracks.md](../competition/tracks.md)** - Commercial Potential track details
 - **[../submission/requirements.md](../submission/requirements.md)** - Submission requirements for CostGuard AI
+- **[../submission/initial-pitch.md](../submission/initial-pitch.md)** - ⭐ Initial submission pitch
 - **[../submission/judging-criteria.md](../submission/judging-criteria.md)** - Judging criteria (market impact focus)
 - **[../resources/research.md](../resources/research.md)** - Market research and competitive analysis
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

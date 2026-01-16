@@ -142,6 +142,7 @@ Your Builder Center article must include:
 ## See Also
 
 - **[initial-pitch.md](./initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for submission)**
+- **[../ALIGNMENT-ANALYSIS.md](../ALIGNMENT-ANALYSIS.md)** - ✅ **Alignment analysis validating submission against hackathon goals**
 - **[process.md](./process.md)** - Submission process stages
 - **[checklist.md](./checklist.md)** - Pre-submission checklist
 - **[article-requirements.md](./article-requirements.md)** - Detailed article requirements

@@ -97,7 +97,7 @@
 - **Description:** Single-page application providing dashboard, cost forecasts, budget management, and AI advisor interface
 - **Free Tier:** S3: 5 GB storage, 20,000 GET requests/month
 - **Features:**
-  - Real-time cost dashboard
+  - Near-real-time cost estimation dashboard (updates every 5-15 minutes using CloudWatch metrics)
   - Interactive forecast charts
   - Budget configuration UI
   - Conversational AI advisor chat interface
@@ -215,13 +215,14 @@
 8. **Response:** Lambda returns forecast to frontend via API Gateway
 
 ### Automated Prevention Flow
-1. **Scheduled Trigger:** CloudWatch Events triggers `PreventionController` Lambda (daily)
+1. **Scheduled Trigger:** CloudWatch Events triggers `PreventionController` Lambda (every 5-15 minutes)
 2. **Budget Check:** Lambda calls Budgets API to check current spending vs. thresholds
-3. **Cost Analysis:** Lambda fetches current costs from Cost Explorer API
+3. **Cost Analysis:** Lambda fetches cost estimates from CloudWatch Metrics (near-real-time) and historical data from Cost Explorer API
 4. **Decision Logic:** If budget threshold reached (e.g., 90%), trigger prevention actions
-5. **Resource Management:** Lambda calls EC2/S3 APIs to stop/terminate resources
-6. **Notification:** Lambda publishes to SNS to alert user
-7. **Logging:** All actions logged to DynamoDB for audit
+5. **Safety Checks:** Lambda verifies resource tags (e.g., never touch "production"), checks idle status, runs dry-run mode
+6. **Resource Management:** Lambda calls EC2/RDS/EBS/Lambda/S3/DynamoDB/SNS/SQS APIs to stop/terminate idle resources across 20+ services
+7. **Notification:** Lambda publishes to SNS to alert user before/after actions
+8. **Logging:** All actions logged to DynamoDB for audit and rollback capability
 
 ### AI Advisor Flow
 1. **User Query:** User asks question in frontend chat interface
@@ -232,9 +233,18 @@
 6. **AI Response:** Bedrock generates natural language explanation
 7. **Response:** Lambda returns explanation to frontend
 
-### Anomaly Detection Flow
+### Near-Real-Time Cost Estimation Flow
+1. **Scheduled Trigger:** CloudWatch Events triggers `CostEstimator` Lambda (every 5-15 minutes)
+2. **Metrics Fetch:** Lambda calls CloudWatch Metrics API to get usage data (EC2 CPU, Lambda invocations, S3 requests, DynamoDB read/write units, etc.)
+3. **Cost Estimation:** Lambda calculates estimated costs using usage × AWS pricing models
+4. **Anomaly Detection:** Lambda compares estimated costs to historical patterns, detects spikes
+5. **Storage:** Cost estimates stored in DynamoDB for dashboard display
+6. **Alert:** If anomaly detected, Lambda publishes to SNS immediately (minutes vs. 24hr billing delay)
+7. **Prevention:** Optionally triggers prevention actions if severe
+
+### Anomaly Detection Flow (Historical)
 1. **Scheduled Check:** CloudWatch Events triggers `AnomalyDetector` Lambda (hourly)
-2. **Cost Fetch:** Lambda gets recent cost data from Cost Explorer API
+2. **Cost Fetch:** Lambda gets historical cost data from Cost Explorer API (24hr delay)
 3. **Pattern Analysis:** Lambda analyzes spending patterns using ML logic
 4. **Anomaly Detection:** Identifies unusual spending spikes or patterns
 5. **Alert:** If anomaly detected, Lambda publishes to SNS
