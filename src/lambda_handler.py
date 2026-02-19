@@ -54,7 +54,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Route to appropriate handler
         if http_method == 'POST' and '/fetch' in path:
             return handle_fetch(event)
-        elif http_method == 'GET' and '/cost-data' in path:
+        elif http_method == 'GET' and path.endswith('/cost-data'):
             return handle_query(event)
         else:
             return create_error_response(

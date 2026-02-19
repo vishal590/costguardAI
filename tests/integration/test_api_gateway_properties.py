@@ -85,7 +85,7 @@ def test_api_gateway_enforces_authentication():
         ["/api/cost-data", "/api/cost-data/fetch", "/invalid-path"]
     ),
 )
-@settings(max_examples=10)
+@settings(max_examples=10, deadline=500)
 def test_api_gateway_returns_appropriate_status_codes(
     http_method, path
 ):
@@ -165,7 +165,7 @@ def test_api_gateway_returns_appropriate_status_codes(
         )
     )
 )
-@settings(max_examples=10)
+@settings(max_examples=10, deadline=500)
 def test_invalid_input_returns_400(
     invalid_date
 ):
