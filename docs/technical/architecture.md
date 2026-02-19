@@ -3,12 +3,15 @@
 **Keywords:** architecture, design, AWS, infrastructure, services, system design, components, integration, scalability, security, Kiro, Free Tier, CostGuard AI, serverless, Lambda, API Gateway, DynamoDB, Bedrock, cost management, cost prevention, cost forecasting, AI advisor, predictive analytics, automated prevention, microservices, event-driven
 
 ## Related Files
+- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
+- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
 - **[../project/ideas.md](../project/ideas.md)** - CostGuard AI project idea and concept
 - **[aws-services.md](./aws-services.md)** - AWS services used in CostGuard AI architecture
 - **[api-design.md](./api-design.md)** - CostGuard AI API specifications and endpoints
 - **[database-design.md](./database-design.md)** - DynamoDB schema for CostGuard AI
 - **[development-notes.md](./development-notes.md)** - Development progress and implementation notes
 - **[../submission/requirements.md](../submission/requirements.md)** - Requirements driving architecture
+- **[../submission/FORM-FIELD-RESPONSES.md](../submission/FORM-FIELD-RESPONSES.md)** - Original submission with game plan
 - **[../project/planning.md](../project/planning.md)** - CostGuard AI project planning and timeline
 - **[../resources/best-practices.md](../resources/best-practices.md)** - AWS best practices for CostGuard AI
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

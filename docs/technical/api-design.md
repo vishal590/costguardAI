@@ -3,10 +3,12 @@
 **Keywords:** API, endpoints, REST, GraphQL, design, specifications, requests, responses, authentication, integration, AWS, Lambda, API Gateway
 
 ## Related Files
+- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - API Gateway endpoints**
 - **[architecture.md](./architecture.md)** - System architecture
 - **[database-design.md](./database-design.md)** - Data models
 - **[development-notes.md](./development-notes.md)** - Implementation progress
 - **[aws-services.md](./aws-services.md)** - AWS services used (e.g., API Gateway, Lambda)
+- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - Current phase requirements
 - **[../INDEX.md](../INDEX.md)** - Master documentation index
 
 ---

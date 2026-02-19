@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\utils\date_utils.py
+# hypothesis_version: 6.151.9
+
+[365, '%Y-%m-%d', '^\\d{4}-\\d{2}-\\d{2}$']

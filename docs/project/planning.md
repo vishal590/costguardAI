@@ -3,6 +3,9 @@
 **Keywords:** planning, timeline, milestones, tasks, schedule, project management, deadlines, phases, Kiro, Free Tier, CostGuard AI, cost management, cost prevention, forecasting, AI advisor, commercial potential
 
 ## Related Files
+- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
+- **[../technical/phase1-kiro-spec.md](../technical/phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
+- **[../submission/FORM-FIELD-RESPONSES.md](../submission/FORM-FIELD-RESPONSES.md)** - Original submission with game plan
 - **[ideas.md](./ideas.md)** - CostGuard AI project idea and concept
 - **[../competition/timeline.md](../competition/timeline.md)** - Competition timeline and deadlines
 - **[../competition/overview.md](../competition/overview.md)** - Competition overview

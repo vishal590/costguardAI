@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\utils\error_handler.py
+# hypothesis_version: 6.151.9
+
+[0.5, 400, 401, 403, 429, 503, 'Code', 'DYNAMODB_THROTTLING', 'Error', 'HTTPStatusCode', 'INTERNAL_ERROR', 'Message', 'RequestId', 'RequestLimitExceeded', 'ResponseMetadata', 'ServiceUnavailable', 'T', 'ThrottlingException', 'UNKNOWN', 'VALIDATION_ERROR', 'ValidationException', 'ValueError', 'aws_error_code', 'error_type', 'request_id']

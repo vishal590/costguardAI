@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\cost_explorer.py
+# hypothesis_version: 6.151.9
+
+[1.0, 8.0, '0', 'Amount', 'BlendedCost', 'DIMENSION', 'End', 'Granularity', 'GroupBy', 'Groups', 'Key', 'Keys', 'MONTHLY', 'Metrics', 'NextPageToken', 'ResultsByTime', 'SERVICE', 'Start', 'TimePeriod', 'Type', 'USD', 'UnblendedCost', 'Unit', 'Unknown', 'ce']

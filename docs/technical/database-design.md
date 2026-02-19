@@ -112,8 +112,10 @@
 
 ## See Also
 
+- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - DynamoDB table design**
 - **[architecture.md](./architecture.md)** - System architecture
 - **[api-design.md](./api-design.md)** - API design
 - **[aws-services.md](./aws-services.md)** - AWS database services
 - **[development-notes.md](./development-notes.md)** - Implementation
+- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - Current phase requirements
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

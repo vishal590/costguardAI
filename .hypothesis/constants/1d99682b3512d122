@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\lambda_handler.py
+# hypothesis_version: 6.151.9
+
+[200, 400, 500, '*', '/cost-data', '/fetch', '100', 'Content-Type', 'GET', 'INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE', 'INVALID_GRANULARITY', 'INVALID_PARAMETER', 'INVALID_REQUEST', 'MONTHLY', 'POST', 'application/json', 'blendedCost', 'body', 'code', 'count', 'currency', 'data', 'date', 'dateRange', 'details', 'end', 'endDate', 'error', 'granularity', 'headers', 'httpMethod', 'limit', 'message', 'path', 'recordCount', 'recordsProcessed', 'service', 'services', 'start', 'startDate', 'statusCode', 'success', 'totalCost', 'unblendedCost', '{}']

@@ -3,6 +3,8 @@
 **Keywords:** Builder Center, article, requirements, demo, AWS services, documentation, semi-finalist, finalist, publication
 
 ## Related Files
+- **[SEMI-FINALIST-PHASE.md](./SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
+- **[FORM-FIELD-RESPONSES.md](./FORM-FIELD-RESPONSES.md)** - Original submission form responses
 - **[requirements.md](./requirements.md)** - Overall submission requirements
 - **[process.md](./process.md)** - Submission process
 - **[checklist.md](./checklist.md)** - Pre-submission checklist

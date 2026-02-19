@@ -33,7 +33,11 @@
 - **[competition/prizes.md](./competition/prizes.md)** - Prize categories, amounts, and recognition
 
 ### Submission
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for Jan 21, 2026)**
+- **[submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements (February 2026)**
+- **[submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)** - 📋 **Original submission form responses with game plan**
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐⭐ **READY TO COPY - Submission-ready pitch (fill in [YOUR NAME] and submit)**
+- **[submission/SUBMISSION-GUIDE.md](./submission/SUBMISSION-GUIDE.md)** - 📋 **Step-by-step submission guide**
+- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Reference version)**
 - **[PROBLEM-STATEMENT.md](./PROBLEM-STATEMENT.md)** - 🎯 **The REAL problem - why CostGuard AI solves a real problem, not generic features**
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
 - **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - ✅ **Comprehensive alignment analysis with hackathon goals and Ana Cunha's article**
@@ -50,6 +54,7 @@
 - **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition
 
 ### Technical Documentation
+- **[technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
 - **[technical/api-design.md](./technical/api-design.md)** - API specifications and endpoints
@@ -68,8 +73,10 @@
 - **Timeline & Deadlines:** [competition/timeline.md](./competition/timeline.md), [submission/process.md](./submission/process.md)
 - **Tracks:** [competition/tracks.md](./competition/tracks.md), [project/ideas.md](./project/ideas.md)
 - **Prizes:** [competition/prizes.md](./competition/prizes.md)
+- **Semi-Finalist Phase:** [submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md) 🚀 **CURRENT PHASE**
 - **Submission Requirements:** [submission/requirements.md](./submission/requirements.md), [submission/checklist.md](./submission/checklist.md)
 - **Article Requirements:** [submission/article-requirements.md](./submission/article-requirements.md)
+- **Form Responses:** [submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)
 
 ### AI & Machine Learning
 - **AI Concepts:** [project/ideas.md](./project/ideas.md) (CostGuard AI), [technical/architecture.md](./technical/architecture.md) (Bedrock integration)
@@ -86,6 +93,7 @@
 - **CostGuard AI Stack:** [technical/architecture.md](./technical/architecture.md) (Lambda, API Gateway, DynamoDB, Bedrock, SNS, S3)
 
 ### Kiro Development
+- **Phase 1 Kiro Spec:** [technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md) 🚀 **Ready for code generation**
 - **Kiro Usage:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md)
 - **Kiro Integration:** [technical/development-notes.md](./technical/development-notes.md), [resources/learning-notes.md](./resources/learning-notes.md)
 - **Kiro Best Practices:** [resources/best-practices.md](./resources/best-practices.md)
@@ -117,13 +125,16 @@
 - **...know what AWS resources I can use** → [competition/faq.md](./competition/faq.md), [technical/aws-services.md](./technical/aws-services.md)
 - **...see submission requirements** → [submission/requirements.md](./submission/requirements.md)
 - **...understand submission process** → [submission/process.md](./submission/process.md)
+- **...see semi-finalist requirements** → [submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md) 🚀 **CURRENT PHASE**
 - **...see judging criteria** → [submission/judging-criteria.md](./submission/judging-criteria.md)
 - **...check submission checklist** → [submission/checklist.md](./submission/checklist.md)
 - **...see article requirements** → [submission/article-requirements.md](./submission/article-requirements.md)
+- **...see original form responses** → [submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)
 - **...brainstorm ideas** → [project/ideas.md](./project/ideas.md) (CostGuard AI)
 - **...see selected project idea** → [project/ideas.md](./project/ideas.md) (CostGuard AI - Commercial Potential track)
 - **...plan the project** → [project/planning.md](./project/planning.md) (CostGuard AI)
 - **...design architecture** → [technical/architecture.md](./technical/architecture.md) (CostGuard AI serverless architecture)
+- **...start Phase 1 development** → [technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md) 🚀 **Ready for Kiro**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
@@ -184,6 +195,8 @@ docs/
 │   └── important-notes.md   # Important clarifications
 │
 ├── submission/
+│   ├── SEMI-FINALIST-PHASE.md  # 🚀 CURRENT PHASE - Semi-finalist building & article requirements
+│   ├── FORM-FIELD-RESPONSES.md # Original submission form responses
 │   ├── requirements.md      # Submission requirements
 │   ├── process.md           # Five-stage submission process
 │   ├── judging-criteria.md  # Judging criteria for each stage
@@ -195,6 +208,7 @@ docs/
 │   └── planning.md          # Project planning and timeline
 │
 ├── technical/
+│   ├── phase1-kiro-spec.md  # 🚀 Phase 1 Kiro Specification - Ready for code generation
 │   ├── architecture.md      # Technical architecture
 │   ├── aws-services.md      # AWS services research and selection
 │   ├── api-design.md        # API specifications

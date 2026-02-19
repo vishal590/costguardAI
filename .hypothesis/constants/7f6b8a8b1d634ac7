@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\dynamodb.py
+# hypothesis_version: 6.151.9
+
+[1.0, 8.0, 365, ' AND sk = :sk', '-', ':pk', ':sk', 'Items', 'Z', 'blendedCost', 'costguard-cost-data', 'currency', 'date', 'dynamodb', 'pk', 'pk = :pk', 'service', 'sk', 'timestamp', 'ttl', 'unblendedCost', 'unit']

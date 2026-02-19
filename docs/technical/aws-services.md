@@ -3,6 +3,8 @@
 **Keywords:** AWS, services, Free Tier, Kiro, Bedrock, Bedrock AgentCore, Nova, Strands Agents, Lambda, DynamoDB, S3, CloudFront, Cognito, research, selection, comparison, cost optimization, CostGuard AI, cost management, cost prevention, API Gateway, SNS, Cost Explorer API, Budgets API
 
 ## Related Files
+- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - AWS services usage**
+- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
 - **[../project/ideas.md](../project/ideas.md)** - CostGuard AI project idea and AWS services needed
 - **[architecture.md](./architecture.md)** - CostGuard AI architecture using these services
 - **[../competition/faq.md](../competition/faq.md)** - FAQ (What AWS resources can I use?)
