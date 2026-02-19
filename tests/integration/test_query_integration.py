@@ -113,18 +113,21 @@ def dynamodb_table_with_data():
 class TestQueryIntegration:
     """Integration tests for query endpoint"""
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_returns_all_data(self, dynamodb_table_with_data):
         """
         Test query endpoint returns all data when no filters are provided
 
         Requirements: 6.2, 7.1
         """
-        # Create Lambda event
+        # Create Lambda event with start date to enable querying
         event = {
             "httpMethod": "GET",
             "path": "/api/cost-data",
-            "queryStringParameters": None,
+            "queryStringParameters": {
+                "startDate": "2025-01-01",
+                "endDate": "2025-12-31",
+            },
         }
 
         # Invoke Lambda handler
@@ -139,7 +142,7 @@ class TestQueryIntegration:
         assert body["count"] == 5
         assert len(body["data"]) == 5
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_with_date_range_filter(self, dynamodb_table_with_data):
         """
         Test query endpoint filters by date range
@@ -171,18 +174,20 @@ class TestQueryIntegration:
             assert date >= "2025-01-01"
             assert date <= "2025-02-28"
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_with_service_filter(self, dynamodb_table_with_data):
         """
         Test query endpoint filters by service
 
         Requirements: 7.3
         """
-        # Create Lambda event with service filter
+        # Create Lambda event with service filter and date range
         event = {
             "httpMethod": "GET",
             "path": "/api/cost-data",
             "queryStringParameters": {
+                "startDate": "2025-01-01",
+                "endDate": "2025-12-31",
                 "service": "Amazon Simple Storage Service",
             },
         }
@@ -200,18 +205,22 @@ class TestQueryIntegration:
         for record in body["data"]:
             assert record["service"] == "Amazon Simple Storage Service"
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_with_limit(self, dynamodb_table_with_data):
         """
         Test query endpoint respects limit parameter
 
         Requirements: 7.4
         """
-        # Create Lambda event with limit
+        # Create Lambda event with limit and date range
         event = {
             "httpMethod": "GET",
             "path": "/api/cost-data",
-            "queryStringParameters": {"limit": "2"},
+            "queryStringParameters": {
+                "startDate": "2025-01-01",
+                "endDate": "2025-12-31",
+                "limit": "2",
+            },
         }
 
         # Invoke Lambda handler
@@ -224,7 +233,7 @@ class TestQueryIntegration:
         assert body["count"] == 2
         assert len(body["data"]) == 2
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_with_multiple_filters(self, dynamodb_table_with_data):
         """
         Test query endpoint with multiple filters combined
@@ -258,7 +267,7 @@ class TestQueryIntegration:
             assert record["date"] >= "2025-01-01"
             assert record["date"] <= "2025-02-28"
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_response_contains_required_fields(self, dynamodb_table_with_data):
         """
         Test query response contains all required fields
@@ -293,7 +302,7 @@ class TestQueryIntegration:
             assert "unblendedCost" in record
             assert "currency" in record
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_with_no_results(self, dynamodb_table_with_data):
         """
         Test query endpoint returns empty array when no data matches filters
@@ -320,7 +329,7 @@ class TestQueryIntegration:
         assert body["count"] == 0
         assert len(body["data"]) == 0
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_handles_invalid_date_format(self, dynamodb_table_with_data):
         """
         Test query endpoint handles invalid date format
@@ -345,7 +354,7 @@ class TestQueryIntegration:
         assert body["success"] is False
         assert "error" in body
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     def test_query_handles_invalid_date_range(self, dynamodb_table_with_data):
         """
         Test query endpoint handles invalid date range (start after end)

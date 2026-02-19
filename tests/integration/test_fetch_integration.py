@@ -97,7 +97,7 @@ def mock_cost_explorer_response():
 class TestFetchIntegration:
     """Integration tests for fetch endpoint"""
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     @patch("src.services.cost_explorer.boto3.client")
     def test_fetch_stores_data_in_dynamodb(
         self, mock_ce_client, dynamodb_table, mock_cost_explorer_response
@@ -154,7 +154,7 @@ class TestFetchIntegration:
             assert "currency" in item
             assert "timestamp" in item
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     @patch("src.services.cost_explorer.boto3.client")
     def test_fetch_with_default_parameters(
         self, mock_ce_client, dynamodb_table, mock_cost_explorer_response
@@ -190,7 +190,7 @@ class TestFetchIntegration:
         assert call_args is not None
         assert call_args[1]["Granularity"] == "MONTHLY"
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     @patch("src.services.cost_explorer.boto3.client")
     def test_fetch_response_contains_correct_summary(
         self, mock_ce_client, dynamodb_table, mock_cost_explorer_response
@@ -244,7 +244,7 @@ class TestFetchIntegration:
         assert "Amazon Elastic Compute Cloud - Compute" in data["services"]
         assert "Amazon Simple Storage Service" in data["services"]
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     @patch("src.services.cost_explorer.boto3.client")
     def test_fetch_handles_empty_response(self, mock_ce_client, dynamodb_table):
         """
@@ -285,7 +285,7 @@ class TestFetchIntegration:
         items = list(dynamodb_table.scan()["Items"])
         assert len(items) == 0
 
-    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data"})
+    @patch.dict("os.environ", {"DYNAMODB_TABLE_NAME": "costguard-cost-data", "AWS_DEFAULT_REGION": "us-east-1"})
     @patch("src.services.cost_explorer.boto3.client")
     def test_fetch_handles_cost_explorer_error(self, mock_ce_client, dynamodb_table):
         """
