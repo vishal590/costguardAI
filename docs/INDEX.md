@@ -54,8 +54,12 @@
 - **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition
 
 ### Technical Documentation
-- **[technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md)** - ✅ **Phase 1 Kiro Specification - COMPLETE**
-- **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1 Complete (91.51% test coverage)**
+- **[technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/)** - ✅ **Phase 1: Cost Data Pipeline (COMPLETE)**
+  - **[specification.md](./technical/phase1-cost-pipeline/specification.md)** - Phase 1 Kiro specification
+  - **[implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md)** - Test results (134/134 passing, 94.43% coverage)
+  - **[README.md](./technical/phase1-cost-pipeline/README.md)** - Setup, deployment & API usage guide
+  - **[tasks.md](./technical/phase1-cost-pipeline/tasks.md)** - Implementation tasks (14/14 complete)
+- **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1 Complete**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
 - **[technical/api-design.md](./technical/api-design.md)** - API specifications and endpoints
@@ -135,14 +139,15 @@
 - **...see selected project idea** → [project/ideas.md](./project/ideas.md) (CostGuard AI - Commercial Potential track)
 - **...plan the project** → [project/planning.md](./project/planning.md) (CostGuard AI)
 - **...design architecture** → [technical/architecture.md](./technical/architecture.md) (CostGuard AI serverless architecture)
-- **...see Phase 1 completion** → [technical/development-notes.md](./technical/development-notes.md) ✅ **Phase 1 Complete**
-- **...start Phase 1.5 development** → [technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md) (Phase 1.5 spec pending)
+- **...see Phase 1 completion** → [technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/) ✅ **Phase 1 Complete**
+- **...see Phase 1 implementation** → [technical/phase1-cost-pipeline/implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md) ✅ **94.43% coverage**
+- **...see Phase 1 setup guide** → [technical/phase1-cost-pipeline/README.md](./technical/phase1-cost-pipeline/README.md)
+- **...start Phase 1.5 development** → [technical/development-notes.md](./technical/development-notes.md) (Phase 1.5 spec pending)
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
 - **...learn about Kiro** → [technical/aws-services.md](./technical/aws-services.md), [resources/learning-notes.md](./resources/learning-notes.md)
 - **...track development progress** → [technical/development-notes.md](./technical/development-notes.md) ✅ **Phase 1 Complete**
-- **...see Phase 1 implementation details** → [technical/development-notes.md](./technical/development-notes.md) ✅ **91.51% test coverage**
 - **...learn AWS best practices** → [resources/best-practices.md](./resources/best-practices.md)
 - **...find research materials** → [resources/research.md](./resources/research.md)
 
@@ -211,7 +216,11 @@ docs/
 │   └── planning.md          # Project planning and timeline
 │
 ├── technical/
-│   ├── phase1-kiro-spec.md  # ✅ Phase 1 Kiro Specification - COMPLETE
+│   ├── phase1-cost-pipeline/    # ✅ Phase 1: Cost Data Pipeline (COMPLETE)
+│   │   ├── specification.md     # Phase 1 Kiro specification
+│   │   ├── implementation-summary.md  # Test results & deliverables
+│   │   ├── README.md            # Setup, deployment & API usage
+│   │   └── tasks.md             # Implementation tasks
 │   ├── development-notes.md # ✅ Development Progress - Phase 1 Complete
 │   ├── architecture.md      # Technical architecture
 │   ├── aws-services.md      # AWS services research and selection

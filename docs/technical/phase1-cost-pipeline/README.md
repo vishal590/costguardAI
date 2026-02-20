@@ -1,4 +1,8 @@
-# Cost Data Pipeline
+# Phase 1: Cost Data Pipeline
+
+> **Part of CostGuard AI** - AWS Cost Management & Optimization Platform  
+> **Documentation Location:** `docs/technical/phase1-cost-pipeline/`  
+> **Related:** [Project README](../../../README.md) | [Docs Index](../../INDEX.md) | [Development Notes](../development-notes.md)
 
 A serverless AWS cost data pipeline that fetches historical cost data from AWS Cost Explorer and makes it available through REST API endpoints. Built with AWS Lambda, DynamoDB, and API Gateway.
 

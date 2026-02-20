@@ -3,15 +3,17 @@
 **Keywords:** development, progress, notes, implementation, tasks, bugs, issues, solutions, code, changes, Kiro, Free Tier
 
 ## Related Files
-- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - ✅ **Phase 1 Specification (COMPLETE)**
+- **[phase1-cost-pipeline/](./phase1-cost-pipeline/)** - ✅ **Phase 1 Complete Documentation**
+  - **[specification.md](./phase1-cost-pipeline/specification.md)** - Phase 1 Kiro specification
+  - **[implementation-summary.md](./phase1-cost-pipeline/implementation-summary.md)** - Test results & deliverables
+  - **[README.md](./phase1-cost-pipeline/README.md)** - Setup, deployment & API usage
+  - **[tasks.md](./phase1-cost-pipeline/tasks.md)** - Implementation tasks
 - **[../project/planning.md](../project/planning.md)** - Project plan and timeline
 - **[architecture.md](./architecture.md)** - Technical architecture being implemented
 - **[api-design.md](./api-design.md)** - API being developed
 - **[database-design.md](./database-design.md)** - Database being implemented
 - **[aws-services.md](./aws-services.md)** - AWS services being used
 - **[../INDEX.md](../INDEX.md)** - Master documentation index
-- **[../../IMPLEMENTATION_SUMMARY.md](../../IMPLEMENTATION_SUMMARY.md)** - Phase 1 implementation summary
-- **[../../COST_PIPELINE_README.md](../../COST_PIPELINE_README.md)** - Phase 1 project README
 
 ---
 
@@ -185,13 +187,15 @@
 
 ## See Also
 
-- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - ✅ Phase 1 Specification (COMPLETE)
+- **[phase1-cost-pipeline/](./phase1-cost-pipeline/)** - ✅ Phase 1 Complete Documentation
+  - **[specification.md](./phase1-cost-pipeline/specification.md)** - Phase 1 Kiro specification
+  - **[implementation-summary.md](./phase1-cost-pipeline/implementation-summary.md)** - Test results & deliverables
+  - **[README.md](./phase1-cost-pipeline/README.md)** - Setup, deployment & API usage
+  - **[tasks.md](./phase1-cost-pipeline/tasks.md)** - Implementation tasks
 - **[../project/planning.md](../project/planning.md)** - Project plan and timeline
 - **[architecture.md](./architecture.md)** - Technical architecture
 - **[api-design.md](./api-design.md)** - API design and endpoints
 - **[database-design.md](./database-design.md)** - Database schema
 - **[aws-services.md](./aws-services.md)** - AWS services documentation
 - **[../INDEX.md](../INDEX.md)** - Master documentation index
-- **[../../IMPLEMENTATION_SUMMARY.md](../../IMPLEMENTATION_SUMMARY.md)** - Phase 1 implementation summary (test results, deliverables)
-- **[../../COST_PIPELINE_README.md](../../COST_PIPELINE_README.md)** - Phase 1 project README (setup, deployment, API usage)
 - **[../API_EXAMPLES.md](../API_EXAMPLES.md)** - API request/response examples
