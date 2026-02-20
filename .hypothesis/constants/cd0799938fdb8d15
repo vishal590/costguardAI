@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\cloudwatch_collector.py
+# hypothesis_version: 6.151.9
+
+[300, 3600, '0', 'AWS/DynamoDB', 'AWS/EC2', 'AWS/Lambda', 'AWS/RDS', 'AWS/S3', 'AllStorageTypes', 'AllocatedStorage', 'Average', 'BucketName', 'BucketSizeBytes', 'Buckets', 'CPUUtilization', 'Count', 'DBInstanceClass', 'DBInstanceIdentifier', 'DBInstances', 'DatabaseConnections', 'Datapoints', 'DiskReadBytes', 'Duration', 'Errors', 'FunctionName', 'Functions', 'InstanceId', 'InstanceType', 'Instances', 'Invocations', 'MemorySize', 'Name', 'NetworkIn', 'NetworkOut', 'NumberOfObjects', 'Percent', 'ReadIOPS', 'Reservations', 'StandardStorage', 'StorageType', 'Sum', 'TableName', 'TableNames', 'Value', 'Values', 'WriteIOPS', 'cloudwatch', 'dynamodb', 'ec2', 'instance-state-name', 'lambda', 'rds', 'running', 's3', 'stopped', 'us-east-1']

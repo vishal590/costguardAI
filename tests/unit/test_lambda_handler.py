@@ -5,9 +5,17 @@ Tests specific examples and edge cases for Lambda handler integration.
 """
 import pytest
 import json
+from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 
-from src.lambda_handler import handler, handle_fetch, handle_query, create_error_response
+from src.lambda_handler import (
+    handler,
+    handle_fetch,
+    handle_query,
+    handle_estimation_current,
+    handle_estimation_service,
+    create_error_response
+)
 
 
 class TestHandlerRouting:
@@ -348,3 +356,404 @@ class TestCreateErrorResponse:
         
         body = json.loads(response['body'])
         assert 'details' not in body['error']
+
+
+
+class TestHandleEstimationCurrent:
+    """Test handle_estimation_current function."""
+    
+    def test_estimation_current_with_default_time_range(self):
+        """Test GET /cost-estimation/current with default time range (1 hour)."""
+        mock_metrics = {
+            'ec2': [Mock()],
+            'lambda': [Mock()]
+        }
+        mock_estimate = Mock(
+            service='ec2',
+            estimated_cost=50.0,
+            currency='USD',
+            confidence_lower=45.0,
+            confidence_upper=55.0,
+            timestamp=datetime(2025, 1, 1),
+            period_start=datetime(2025, 1, 1, 0, 0),
+            period_end=datetime(2025, 1, 1, 1, 0),
+            metrics_count=10
+        )
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = mock_metrics
+                    
+                    mock_pricing = mock_pricing_class.return_value
+                    mock_pricing.get_pricing_data.return_value = Mock()
+                    
+                    mock_estimator = mock_estimator_class.return_value
+                    mock_estimator.estimate_cost.return_value = mock_estimate
+                    
+                    event = {
+                        'httpMethod': 'GET',
+                        'path': '/api/cost-estimation/current',
+                        'queryStringParameters': {}
+                    }
+                    
+                    response = handle_estimation_current(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    assert body['success'] is True
+                    assert 'estimates' in body
+                    assert 'totalCost' in body
+                    assert body['period'] == '1 hours'
+    
+    def test_estimation_current_with_custom_time_range(self):
+        """Test GET /cost-estimation/current with custom time range."""
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = {}
+                    
+                    event = {
+                        'queryStringParameters': {
+                            'hours': '24'
+                        }
+                    }
+                    
+                    response = handle_estimation_current(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    assert body['period'] == '24 hours'
+    
+    def test_estimation_current_with_invalid_hours(self):
+        """Test GET /cost-estimation/current with invalid hours parameter."""
+        event = {
+            'queryStringParameters': {
+                'hours': 'invalid'
+            }
+        }
+        
+        response = handle_estimation_current(event)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert 'INVALID_PARAMETER' in body['error']['code']
+    
+    def test_estimation_current_with_out_of_range_hours(self):
+        """Test GET /cost-estimation/current with out of range hours."""
+        event = {
+            'queryStringParameters': {
+                'hours': '200'  # More than 168 (7 days)
+            }
+        }
+        
+        response = handle_estimation_current(event)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert 'INVALID_TIME_RANGE' in body['error']['code']
+    
+    def test_estimation_current_response_format(self):
+        """Test response format for successful estimation."""
+        mock_estimate = Mock(
+            service='ec2',
+            estimated_cost=100.0,
+            currency='USD',
+            confidence_lower=90.0,
+            confidence_upper=110.0,
+            timestamp=datetime(2025, 1, 1, 12, 0),
+            period_start=datetime(2025, 1, 1, 11, 0),
+            period_end=datetime(2025, 1, 1, 12, 0),
+            metrics_count=20
+        )
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = {'ec2': [Mock()]}
+                    
+                    mock_pricing = mock_pricing_class.return_value
+                    mock_pricing.get_pricing_data.return_value = Mock()
+                    
+                    mock_estimator = mock_estimator_class.return_value
+                    mock_estimator.estimate_cost.return_value = mock_estimate
+                    
+                    event = {
+                        'queryStringParameters': {}
+                    }
+                    
+                    response = handle_estimation_current(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    
+                    # Verify response structure
+                    assert 'success' in body
+                    assert 'estimates' in body
+                    assert 'totalCost' in body
+                    assert 'currency' in body
+                    assert 'timestamp' in body
+                    assert 'period' in body
+                    
+                    # Verify estimate structure
+                    estimate = body['estimates'][0]
+                    assert 'service' in estimate
+                    assert 'estimatedCost' in estimate
+                    assert 'currency' in estimate
+                    assert 'confidenceLower' in estimate
+                    assert 'confidenceUpper' in estimate
+                    assert 'timestamp' in estimate
+                    assert 'periodStart' in estimate
+                    assert 'periodEnd' in estimate
+                    assert 'metricsCount' in estimate
+
+
+class TestHandleEstimationService:
+    """Test handle_estimation_service function."""
+    
+    def test_estimation_service_with_valid_service(self):
+        """Test GET /cost-estimation/service/{service} with valid service."""
+        mock_estimate = Mock(
+            service='ec2',
+            estimated_cost=75.0,
+            currency='USD',
+            confidence_lower=70.0,
+            confidence_upper=80.0,
+            timestamp=datetime(2025, 1, 1),
+            period_start=datetime(2025, 1, 1, 0, 0),
+            period_end=datetime(2025, 1, 1, 1, 0),
+            metrics_count=15
+        )
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = {'ec2': [Mock()]}
+                    
+                    mock_pricing = mock_pricing_class.return_value
+                    mock_pricing.get_pricing_data.return_value = Mock()
+                    
+                    mock_estimator = mock_estimator_class.return_value
+                    mock_estimator.estimate_cost.return_value = mock_estimate
+                    
+                    event = {
+                        'httpMethod': 'GET',
+                        'path': '/api/cost-estimation/service/ec2',
+                        'queryStringParameters': {}
+                    }
+                    
+                    response = handle_estimation_service(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    assert body['success'] is True
+                    assert body['service'] == 'ec2'
+                    assert body['estimatedCost'] == 75.0
+    
+    def test_estimation_service_with_no_metrics(self):
+        """Test GET /cost-estimation/service/{service} when no metrics found."""
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            mock_collector = mock_collector_class.return_value
+            mock_collector.collect_metrics.return_value = {'lambda': []}
+            
+            event = {
+                'path': '/api/cost-estimation/service/lambda',
+                'queryStringParameters': {}
+            }
+            
+            response = handle_estimation_service(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['estimatedCost'] == 0.0
+            assert 'No metrics found' in body['message']
+    
+    def test_estimation_service_with_invalid_service(self):
+        """Test GET /cost-estimation/service/{service} with invalid service."""
+        event = {
+            'path': '/api/cost-estimation/service/invalid-service',
+            'queryStringParameters': {}
+        }
+        
+        response = handle_estimation_service(event)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert 'INVALID_SERVICE' in body['error']['code']
+    
+    def test_estimation_service_with_missing_service(self):
+        """Test GET /cost-estimation/service/ with missing service name."""
+        event = {
+            'path': '/api/cost-estimation/service/',
+            'queryStringParameters': {}
+        }
+        
+        response = handle_estimation_service(event)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert 'MISSING_SERVICE' in body['error']['code']
+    
+    def test_estimation_service_with_custom_time_range(self):
+        """Test GET /cost-estimation/service/{service} with custom time range."""
+        mock_estimate = Mock(
+            service='s3',
+            estimated_cost=25.0,
+            currency='USD',
+            confidence_lower=22.0,
+            confidence_upper=28.0,
+            timestamp=datetime(2025, 1, 1),
+            period_start=datetime(2025, 1, 1, 0, 0),
+            period_end=datetime(2025, 1, 2, 0, 0),
+            metrics_count=50
+        )
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = {'s3': [Mock()]}
+                    
+                    mock_pricing = mock_pricing_class.return_value
+                    mock_pricing.get_pricing_data.return_value = Mock()
+                    
+                    mock_estimator = mock_estimator_class.return_value
+                    mock_estimator.estimate_cost.return_value = mock_estimate
+                    
+                    event = {
+                        'path': '/api/cost-estimation/service/s3',
+                        'queryStringParameters': {
+                            'hours': '24'
+                        }
+                    }
+                    
+                    response = handle_estimation_service(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    assert body['success'] is True
+    
+    def test_estimation_service_response_format(self):
+        """Test response format for successful service estimation."""
+        mock_estimate = Mock(
+            service='dynamodb',
+            estimated_cost=30.0,
+            currency='USD',
+            confidence_lower=27.0,
+            confidence_upper=33.0,
+            timestamp=datetime(2025, 1, 1, 12, 0),
+            period_start=datetime(2025, 1, 1, 11, 0),
+            period_end=datetime(2025, 1, 1, 12, 0),
+            metrics_count=25
+        )
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
+            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
+                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
+                    mock_collector = mock_collector_class.return_value
+                    mock_collector.collect_metrics.return_value = {'dynamodb': [Mock()]}
+                    
+                    mock_pricing = mock_pricing_class.return_value
+                    mock_pricing.get_pricing_data.return_value = Mock()
+                    
+                    mock_estimator = mock_estimator_class.return_value
+                    mock_estimator.estimate_cost.return_value = mock_estimate
+                    
+                    event = {
+                        'path': '/api/cost-estimation/service/dynamodb',
+                        'queryStringParameters': {}
+                    }
+                    
+                    response = handle_estimation_service(event)
+                    
+                    assert response['statusCode'] == 200
+                    body = json.loads(response['body'])
+                    
+                    # Verify response structure
+                    assert 'success' in body
+                    assert 'service' in body
+                    assert 'estimatedCost' in body
+                    assert 'currency' in body
+                    assert 'confidenceLower' in body
+                    assert 'confidenceUpper' in body
+                    assert 'timestamp' in body
+                    assert 'periodStart' in body
+                    assert 'periodEnd' in body
+                    assert 'metricsCount' in body
+
+
+class TestPhase1Compatibility:
+    """Test Phase 1 endpoints still work with Phase 1.5 changes."""
+    
+    def test_handler_still_routes_to_fetch(self):
+        """Test handler still routes POST /fetch correctly."""
+        with patch('src.lambda_handler.handle_fetch') as mock_fetch:
+            mock_fetch.return_value = {'statusCode': 200, 'body': '{}'}
+            
+            event = {
+                'httpMethod': 'POST',
+                'path': '/api/cost-data/fetch',
+                'body': '{}'
+            }
+            
+            response = handler(event, None)
+            
+            assert mock_fetch.called
+            assert response['statusCode'] == 200
+    
+    def test_handler_still_routes_to_query(self):
+        """Test handler still routes GET /cost-data correctly."""
+        with patch('src.lambda_handler.handle_query') as mock_query:
+            mock_query.return_value = {'statusCode': 200, 'body': '{}'}
+            
+            event = {
+                'httpMethod': 'GET',
+                'path': '/api/cost-data',
+                'queryStringParameters': {}
+            }
+            
+            response = handler(event, None)
+            
+            assert mock_query.called
+            assert response['statusCode'] == 200
+    
+    def test_handler_routes_to_estimation_current(self):
+        """Test handler routes GET /cost-estimation/current correctly."""
+        with patch('src.lambda_handler.handle_estimation_current') as mock_estimation:
+            mock_estimation.return_value = {'statusCode': 200, 'body': '{}'}
+            
+            event = {
+                'httpMethod': 'GET',
+                'path': '/api/cost-estimation/current',
+                'queryStringParameters': {}
+            }
+            
+            response = handler(event, None)
+            
+            assert mock_estimation.called
+            assert response['statusCode'] == 200
+    
+    def test_handler_routes_to_estimation_service(self):
+        """Test handler routes GET /cost-estimation/service/{service} correctly."""
+        with patch('src.lambda_handler.handle_estimation_service') as mock_estimation:
+            mock_estimation.return_value = {'statusCode': 200, 'body': '{}'}
+            
+            event = {
+                'httpMethod': 'GET',
+                'path': '/api/cost-estimation/service/ec2',
+                'queryStringParameters': {}
+            }
+            
+            response = handler(event, None)
+            
+            assert mock_estimation.called
+            assert response['statusCode'] == 200

@@ -4,9 +4,13 @@ Lambda Function Definition for Cost Data Pipeline
 This module defines the Lambda function infrastructure using AWS CDK (Python).
 The Lambda function handles cost data fetching and querying operations.
 
-Requirements:
+Phase 1 Requirements:
 - 10.1: Python 3.11 runtime
 - 10.2: 256 MB memory, 30 second timeout
+
+Phase 1.5 Requirements:
+- 3.2: Pricing cache TTL configuration
+- 7.2: Metrics collection period configuration
 """
 
 from aws_cdk import (
@@ -40,8 +44,13 @@ class CostDataLambda(Construct):
             memory_size=256,  # MB
             timeout=Duration.seconds(30),
             environment={
+                # Phase 1 environment variables
                 "DYNAMODB_TABLE_NAME": table.table_name,
                 "AWS_REGION": self.node.try_get_context("region") or "us-east-1",
+                # Phase 1.5 environment variables
+                "PRICING_CACHE_TTL_HOURS": "24",  # Refresh pricing data every 24 hours
+                "METRICS_COLLECTION_PERIOD": "300",  # 5 minutes (in seconds)
+                "ESTIMATION_CONFIDENCE_LEVEL": "0.95",  # 95% confidence interval
             },
         )
 

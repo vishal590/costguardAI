@@ -6,13 +6,16 @@ This handler processes API Gateway requests to fetch and query AWS cost data.
 import json
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from .services.cost_explorer import fetch_cost_data, CostExplorerParams
 from .services.dynamodb import store_cost_data, query_cost_data
-from .utils.types import QueryParams, ErrorResponse
+from .services.cloudwatch_collector import CloudWatchMetricsCollector
+from .services.pricing_manager import PricingManager
+from .services.cost_estimator import CostEstimator
+from .utils.types import QueryParams, ErrorResponse, EstimationResponse
 from .utils.error_handler import format_error
-from .utils.validation import validate_granularity
+from .utils.validation import validate_granularity, validate_service_name
 from .utils.date_utils import (
     validate_date_format,
     validate_date_range,
@@ -56,6 +59,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_fetch(event)
         elif http_method == 'GET' and path.endswith('/cost-data'):
             return handle_query(event)
+        elif http_method == 'GET' and path.endswith('/cost-estimation/current'):
+            return handle_estimation_current(event)
+        elif http_method == 'GET' and '/cost-estimation/service/' in path:
+            return handle_estimation_service(event)
         else:
             return create_error_response(
                 400,
@@ -327,3 +334,256 @@ def create_error_response(
         },
         'body': json.dumps(error_body)
     }
+
+
+
+def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /cost-estimation/current request to estimate current costs for all services.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        
+        # Extract time range parameters (default to last hour)
+        hours_str = query_params.get('hours', '1')
+        try:
+            hours = int(hours_str)
+        except ValueError:
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid hours: {hours_str}. Must be an integer'
+            )
+        
+        # Validate time range (1 hour to 7 days)
+        if hours < 1 or hours > 168:
+            return create_error_response(
+                400,
+                'INVALID_TIME_RANGE',
+                f'Invalid time range: {hours} hours. Must be between 1 and 168 (7 days)'
+            )
+        
+        # Calculate time range
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(hours=hours)
+        
+        logger.info(f"Estimating costs for all services: {start_time} to {end_time}")
+        
+        # Initialize services
+        metrics_collector = CloudWatchMetricsCollector()
+        pricing_manager = PricingManager()
+        cost_estimator = CostEstimator()
+        
+        # Collect metrics for all services
+        all_metrics = metrics_collector.collect_metrics(
+            services=['ec2', 'lambda', 'dynamodb', 's3', 'rds'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Calculate estimates for each service
+        estimates = []
+        total_cost = 0.0
+        
+        for service, metrics in all_metrics.items():
+            if not metrics:
+                continue
+            
+            # Get pricing data
+            region = query_params.get('region', 'us-east-1')
+            pricing_data = pricing_manager.get_pricing_data(service, region)
+            
+            # Calculate estimate
+            estimate = cost_estimator.estimate_cost(service, metrics, pricing_data)
+            estimates.append(estimate)
+            total_cost += float(estimate.estimated_cost)
+        
+        logger.info(f"Estimation completed: {len(estimates)} services, ${total_cost:.2f} total")
+        
+        # Build response
+        response_data = {
+            'success': True,
+            'estimates': [
+                {
+                    'service': est.service,
+                    'estimatedCost': float(est.estimated_cost),
+                    'currency': est.currency,
+                    'confidenceLower': float(est.confidence_lower),
+                    'confidenceUpper': float(est.confidence_upper),
+                    'timestamp': est.timestamp.isoformat(),
+                    'periodStart': est.period_start.isoformat(),
+                    'periodEnd': est.period_end.isoformat(),
+                    'metricsCount': est.metrics_count
+                }
+                for est in estimates
+            ],
+            'totalCost': total_cost,
+            'currency': 'USD',
+            'timestamp': datetime.now(UTC).isoformat(),
+            'period': f'{hours} hours'
+        }
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_estimation_current: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /cost-estimation/service/{service} request to estimate costs for a specific service.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Extract service name from path
+        path = event.get('path', '')
+        path_parts = path.split('/')
+        
+        # Find service name in path
+        service = None
+        for i, part in enumerate(path_parts):
+            if part == 'service' and i + 1 < len(path_parts):
+                service = path_parts[i + 1]
+                break
+        
+        if not service:
+            return create_error_response(
+                400,
+                'MISSING_SERVICE',
+                'Service name is required in path'
+            )
+        
+        # Validate service name
+        if not validate_service_name(service):
+            return create_error_response(
+                400,
+                'INVALID_SERVICE',
+                f'Invalid service name: {service}. Must be one of: ec2, lambda, dynamodb, s3, rds'
+            )
+        
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        
+        # Extract time range parameters (default to last hour)
+        hours_str = query_params.get('hours', '1')
+        try:
+            hours = int(hours_str)
+        except ValueError:
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid hours: {hours_str}. Must be an integer'
+            )
+        
+        # Validate time range (1 hour to 7 days)
+        if hours < 1 or hours > 168:
+            return create_error_response(
+                400,
+                'INVALID_TIME_RANGE',
+                f'Invalid time range: {hours} hours. Must be between 1 and 168 (7 days)'
+            )
+        
+        # Calculate time range
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(hours=hours)
+        
+        logger.info(f"Estimating costs for {service}: {start_time} to {end_time}")
+        
+        # Initialize services
+        metrics_collector = CloudWatchMetricsCollector()
+        pricing_manager = PricingManager()
+        cost_estimator = CostEstimator()
+        
+        # Collect metrics for specified service
+        all_metrics = metrics_collector.collect_metrics(
+            services=[service],
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        metrics = all_metrics.get(service, [])
+        
+        if not metrics:
+            logger.info(f"No metrics found for {service}")
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'success': True,
+                    'service': service,
+                    'estimatedCost': 0.0,
+                    'currency': 'USD',
+                    'message': 'No metrics found for the specified time range'
+                })
+            }
+        
+        # Get pricing data
+        region = query_params.get('region', 'us-east-1')
+        pricing_data = pricing_manager.get_pricing_data(service, region)
+        
+        # Calculate estimate
+        estimate = cost_estimator.estimate_cost(service, metrics, pricing_data)
+        
+        logger.info(f"Estimation completed for {service}: ${float(estimate.estimated_cost):.2f}")
+        
+        # Build response
+        response_data = {
+            'success': True,
+            'service': estimate.service,
+            'estimatedCost': float(estimate.estimated_cost),
+            'currency': estimate.currency,
+            'confidenceLower': float(estimate.confidence_lower),
+            'confidenceUpper': float(estimate.confidence_upper),
+            'timestamp': estimate.timestamp.isoformat(),
+            'periodStart': estimate.period_start.isoformat(),
+            'periodEnd': estimate.period_end.isoformat(),
+            'metricsCount': estimate.metrics_count
+        }
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_estimation_service: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )

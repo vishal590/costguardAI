@@ -59,7 +59,15 @@
   - **[implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md)** - Test results (134/134 passing, 94.43% coverage)
   - **[README.md](./technical/phase1-cost-pipeline/README.md)** - Setup, deployment & API usage guide
   - **[tasks.md](./technical/phase1-cost-pipeline/tasks.md)** - Implementation tasks (14/14 complete)
-- **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1 Complete**
+- **[technical/phase1.5-near-realtime/](./technical/phase1.5-near-realtime/)** - ✅ **Phase 1.5: Near-Real-Time Cost Estimation (COMPLETE)**
+  - **[README.md](./technical/phase1.5-near-realtime/README.md)** - Overview, features, and getting started
+  - **[specification.md](./technical/phase1.5-near-realtime/specification.md)** - Complete Phase 1.5 specification
+  - **[requirements.md](./technical/phase1.5-near-realtime/requirements.md)** - Detailed requirements
+  - **[design.md](./technical/phase1.5-near-realtime/design.md)** - System design and architecture
+  - **[implementation-summary.md](./technical/phase1.5-near-realtime/implementation-summary.md)** - Test results (236/236 passing, 89% coverage)
+  - **[infrastructure-updates.md](./technical/phase1.5-near-realtime/infrastructure-updates.md)** - CDK infrastructure changes
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1 and Phase 1.5**
+- **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1 & 1.5 Complete**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
 - **[technical/api-design.md](./technical/api-design.md)** - API specifications and endpoints
@@ -142,7 +150,11 @@
 - **...see Phase 1 completion** → [technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/) ✅ **Phase 1 Complete**
 - **...see Phase 1 implementation** → [technical/phase1-cost-pipeline/implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md) ✅ **94.43% coverage**
 - **...see Phase 1 setup guide** → [technical/phase1-cost-pipeline/README.md](./technical/phase1-cost-pipeline/README.md)
-- **...start Phase 1.5 development** → [technical/development-notes.md](./technical/development-notes.md) (Phase 1.5 spec pending)
+- **...see Phase 1.5 completion** → [technical/phase1.5-near-realtime/](./technical/phase1.5-near-realtime/) ✅ **Phase 1.5 Complete**
+- **...see Phase 1.5 implementation** → [technical/phase1.5-near-realtime/implementation-summary.md](./technical/phase1.5-near-realtime/implementation-summary.md) ✅ **89% coverage**
+- **...see Phase 1.5 setup guide** → [technical/phase1.5-near-realtime/README.md](./technical/phase1.5-near-realtime/README.md)
+- **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1 & 1.5 examples**
+- **...start Phase 2 development** → [technical/development-notes.md](./technical/development-notes.md) (Phase 2 spec pending)
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
@@ -221,11 +233,20 @@ docs/
 │   │   ├── implementation-summary.md  # Test results & deliverables
 │   │   ├── README.md            # Setup, deployment & API usage
 │   │   └── tasks.md             # Implementation tasks
-│   ├── development-notes.md # ✅ Development Progress - Phase 1 Complete
+│   ├── phase1.5-near-realtime/  # ✅ Phase 1.5: Near-Real-Time Cost Estimation (COMPLETE)
+│   │   ├── README.md            # Overview, features, and getting started
+│   │   ├── specification.md     # Complete Phase 1.5 specification
+│   │   ├── requirements.md      # Detailed requirements
+│   │   ├── design.md            # System design and architecture
+│   │   ├── implementation-summary.md  # Test results & deliverables
+│   │   └── infrastructure-updates.md  # CDK infrastructure changes
+│   ├── development-notes.md # ✅ Development Progress - Phase 1 & 1.5 Complete
 │   ├── architecture.md      # Technical architecture
 │   ├── aws-services.md      # AWS services research and selection
 │   ├── api-design.md        # API specifications
 │   └── database-design.md   # Database schema
+│
+├── API_EXAMPLES.md          # ✅ Complete API usage examples (Phase 1 & 1.5)
 │
 └── resources/
     ├── research.md          # Research and references

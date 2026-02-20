@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\lambda_handler.py
+# hypothesis_version: 6.151.9
+
+[0.0, 168, 200, 400, 500, '*', '/', '/cost-data', '/fetch', '1', '100', 'Content-Type', 'GET', 'INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE', 'INVALID_GRANULARITY', 'INVALID_PARAMETER', 'INVALID_REQUEST', 'INVALID_SERVICE', 'INVALID_TIME_RANGE', 'MISSING_SERVICE', 'MONTHLY', 'POST', 'USD', 'application/json', 'blendedCost', 'body', 'code', 'confidenceLower', 'confidenceUpper', 'count', 'currency', 'data', 'date', 'dateRange', 'details', 'dynamodb', 'ec2', 'end', 'endDate', 'error', 'estimatedCost', 'estimates', 'granularity', 'headers', 'hours', 'httpMethod', 'lambda', 'limit', 'message', 'metricsCount', 'path', 'period', 'periodEnd', 'periodStart', 'rds', 'recordCount', 'recordsProcessed', 'region', 's3', 'service', 'services', 'start', 'startDate', 'statusCode', 'success', 'timestamp', 'totalCost', 'unblendedCost', 'us-east-1', '{}']

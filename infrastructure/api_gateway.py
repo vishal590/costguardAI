@@ -4,10 +4,15 @@ API Gateway Definition for Cost Data Pipeline
 This module defines the API Gateway infrastructure using AWS CDK (Python).
 The API Gateway exposes REST endpoints for fetching and querying cost data.
 
-Requirements:
+Phase 1 Requirements:
 - 6.1: POST /api/cost-data/fetch endpoint
 - 6.2: GET /api/cost-data endpoint
 - 6.3: API key authentication
+
+Phase 1.5 Requirements:
+- 4.1: GET /api/cost-estimation/current endpoint
+- 4.3: GET /api/cost-estimation/service/{service} endpoint
+- 5.5: Reuse existing API key authentication
 """
 
 from aws_cdk import (
@@ -92,6 +97,26 @@ class CostDataAPI(Construct):
         # Add POST /api/cost-data/fetch endpoint (fetch and store cost data)
         fetch_resource.add_method(
             "POST",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Phase 1.5: Create /api/cost-estimation resource
+        cost_estimation_resource = api_resource.add_resource("cost-estimation")
+
+        # Add GET /api/cost-estimation/current endpoint (estimate current costs for all services)
+        current_resource = cost_estimation_resource.add_resource("current")
+        current_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Add GET /api/cost-estimation/service/{service} endpoint (estimate costs for specific service)
+        service_resource = cost_estimation_resource.add_resource("service")
+        service_name_resource = service_resource.add_resource("{service}")
+        service_name_resource.add_method(
+            "GET",
             lambda_integration,
             api_key_required=True,
         )

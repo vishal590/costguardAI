@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\cost_estimator.py
+# hypothesis_version: 6.151.9
+
+[100, '0', '0.0116', '0.017', '0.10', '0.15', '0.20', '0.30', '1000', '1024', '1073741824', '2']

@@ -6,8 +6,8 @@ This directory contains AWS CDK (Cloud Development Kit) infrastructure definitio
 
 - **dynamodb_table.py**: DynamoDB table definition with partition key (pk) and sort key (sk)
 - **lambda_function.py**: Lambda function configuration (Python 3.11, 256 MB, 30s timeout)
-- **iam_roles.py**: IAM roles and policies for Cost Explorer, DynamoDB, and CloudWatch access
-- **api_gateway.py**: REST API with POST /api/cost-data/fetch and GET /api/cost-data endpoints
+- **iam_roles.py**: IAM roles and policies for Cost Explorer, DynamoDB, CloudWatch, and Pricing API access
+- **api_gateway.py**: REST API with Phase 1 and Phase 1.5 endpoints
 - **app.py**: Main CDK application that ties all components together
 
 ## Prerequisites
@@ -73,18 +73,30 @@ aws apigateway get-api-key --api-key <API_KEY_ID> --include-value --query 'value
 - **Memory**: 256 MB
 - **Timeout**: 30 seconds
 - **Handler**: lambda_handler.handler
+- **Environment Variables**:
+  - DYNAMODB_TABLE_NAME: costguard-cost-data
+  - AWS_REGION: us-east-1 (or configured region)
+  - PRICING_CACHE_TTL_HOURS: 24 (Phase 1.5)
+  - METRICS_COLLECTION_PERIOD: 300 (Phase 1.5 - 5 minutes in seconds)
+  - ESTIMATION_CONFIDENCE_LEVEL: 0.95 (Phase 1.5 - 95% confidence interval)
 
 ### API Gateway
 - **Name**: costguard-cost-data-api
 - **Stage**: prod
 - **Endpoints**:
-  - POST /api/cost-data/fetch - Fetch and store cost data
-  - GET /api/cost-data - Query stored cost data
+  - Phase 1:
+    - POST /api/cost-data/fetch - Fetch and store cost data
+    - GET /api/cost-data - Query stored cost data
+  - Phase 1.5:
+    - GET /api/cost-estimation/current - Estimate current costs for all services
+    - GET /api/cost-estimation/service/{service} - Estimate costs for specific service
 - **Authentication**: API Key required
 - **Throttling**: 10 requests/second, 20 burst
 
 ### IAM Permissions
 - Cost Explorer: ce:GetCostAndUsage, ce:GetDimensionValues
+- CloudWatch Metrics: cloudwatch:GetMetricStatistics, cloudwatch:ListMetrics (Phase 1.5)
+- Pricing API: pricing:GetProducts (Phase 1.5)
 - DynamoDB: PutItem, GetItem, Query, BatchWriteItem
 - CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
 
@@ -104,5 +116,7 @@ This infrastructure is designed to stay within AWS Free Tier limits:
 - Lambda: 1M requests and 400,000 GB-seconds free per month
 - API Gateway: 1M API calls free for 12 months
 - CloudWatch Logs: 5 GB ingestion, 5 GB storage free
+- CloudWatch Metrics: 1M API requests free per month (Phase 1.5)
+- Pricing API: ~$0.01/month with caching (Phase 1.5)
 
 Monitor your usage to avoid unexpected charges.
