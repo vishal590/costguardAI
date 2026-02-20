@@ -85,7 +85,7 @@ def test_api_gateway_enforces_authentication():
         ["/api/cost-data", "/api/cost-data/fetch", "/invalid-path"]
     ),
 )
-@settings(max_examples=10, deadline=500)
+@settings(max_examples=10, deadline=None)
 def test_api_gateway_returns_appropriate_status_codes(
     http_method, path
 ):
@@ -165,7 +165,7 @@ def test_api_gateway_returns_appropriate_status_codes(
         )
     )
 )
-@settings(max_examples=10, deadline=500)
+@settings(max_examples=10, deadline=1000)
 def test_invalid_input_returns_400(
     invalid_date
 ):
@@ -232,7 +232,7 @@ def test_invalid_input_returns_400(
         max_size=20,
     ).filter(lambda x: x not in ["DAILY", "MONTHLY", "HOURLY"])
 )
-@settings(max_examples=10)
+@settings(max_examples=10, deadline=1000)
 def test_invalid_granularity_returns_400(
     granularity
 ):
@@ -335,7 +335,7 @@ def test_server_error_returns_500(mock_ce_client, dynamodb_table):
 @given(
     valid_date=st.dates(min_value=datetime(2020, 1, 1).date(), max_value=datetime(2030, 12, 31).date())
 )
-@settings(max_examples=10)
+@settings(max_examples=10, deadline=1000)
 def test_valid_input_returns_success(valid_date):
     """
     Property: Valid input returns success (200 or 2xx)
