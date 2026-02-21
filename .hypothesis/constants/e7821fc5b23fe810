@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\bedrock_client.py
+# hypothesis_version: 6.151.9
+
+[0.1, 0.8, 0.9, 0.95, 1.1, 1.2, 1000, 2000, 'ThrottlingException', '```', '```json', 'application/json', 'bedrock-runtime', 'body', 'confidence_lower', 'confidence_upper', 'content', 'cost', 'date', 'dates', 'forecasts', 'inferenceConfig', 'maxTokens', 'messages', 'predicted_cost', 'predictions', 'role', 'temperature', 'text', 'topP', 'us-east-1', 'user']

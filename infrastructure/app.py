@@ -22,12 +22,16 @@ class CostDataPipelineStack(CostDataStack):
     def __init__(self, scope: App, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # DynamoDB table (created by parent CostDataStack)
-        table = self.cost_data_table.table
+        # DynamoDB tables (created by parent CostDataStack)
+        cost_data_table = self.cost_data_table.table
+        forecast_cache_table = self.forecast_cache_table.table
 
         # Lambda function
         lambda_construct = CostDataLambda(
-            self, "CostDataLambdaConstruct", table=table
+            self,
+            "CostDataLambdaConstruct",
+            table=cost_data_table,
+            forecast_cache_table=forecast_cache_table,
         )
         lambda_function = lambda_construct.function
 
@@ -36,7 +40,8 @@ class CostDataPipelineStack(CostDataStack):
             self,
             "CostDataIAMRoleConstruct",
             lambda_function=lambda_function,
-            table=table,
+            table=cost_data_table,
+            forecast_cache_table=forecast_cache_table,
         )
 
         # API Gateway

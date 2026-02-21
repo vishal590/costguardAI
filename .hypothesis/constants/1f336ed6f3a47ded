@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\utils\validation.py
+# hypothesis_version: 6.151.9
+
+['+00:00', 'DAILY', 'HOURLY', 'MONTHLY', 'Z', 'confidence_lower', 'confidence_upper', 'currency', 'daily', 'date', 'dynamodb', 'ec2', 'lambda', 'predicted_cost', 'rds', 's3', 'weekly']

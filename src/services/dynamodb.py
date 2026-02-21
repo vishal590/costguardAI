@@ -11,6 +11,16 @@ from ..utils.error_handler import with_retry
 from ..utils.helpers import calculate_ttl, normalize_service_name
 
 
+def get_dynamodb_client():
+    """
+    Get DynamoDB client instance.
+    
+    Returns:
+        boto3 DynamoDB client
+    """
+    return boto3.client('dynamodb')
+
+
 def transform_to_dynamodb_record(record: CostRecord, ttl_days: int = 365) -> DynamoDBRecord:
     """
     Transform a CostRecord to DynamoDB format.

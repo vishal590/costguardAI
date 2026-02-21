@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\forecast_engine.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 0.95, 100, 'USD', 'confidence_lower', 'confidence_upper', 'currency', 'daily', 'date', 'forecast_data', 'forecast_horizon', 'granularity', 'historical_data_days', 'mape', 'metadata', 'model_used', 'predicted_cost', 'rmse', 'service', 'services_included', 'timestamp', 'weekly']

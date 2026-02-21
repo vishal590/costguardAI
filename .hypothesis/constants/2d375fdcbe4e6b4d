@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\historical_data.py
+# hypothesis_version: 6.151.9
+
+[0.0, '0', 'Items', 'LastEvaluatedKey', 'Unknown', 'cost', 'costguard-cost-data', 'date', 'service']

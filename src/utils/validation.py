@@ -85,3 +85,69 @@ def validate_time_range(start_time: str, end_time: str) -> bool:
         return start < end
     except (ValueError, AttributeError):
         return False
+
+
+# ============================================================================
+# Phase 2: AI Cost Forecasting Validation Functions
+# ============================================================================
+
+# Valid forecast horizons (days)
+VALID_FORECAST_DAYS: Set[int] = {7, 14, 30}
+
+# Valid forecast granularities
+VALID_FORECAST_GRANULARITIES: Set[str] = {'daily', 'weekly'}
+
+
+def validate_forecast_days(days: int) -> bool:
+    """
+    Validate forecast horizon is 7, 14, or 30 days.
+    
+    Args:
+        days: Number of days to forecast
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return days in VALID_FORECAST_DAYS
+
+
+def validate_forecast_granularity(granularity: str) -> bool:
+    """
+    Validate forecast granularity is 'daily' or 'weekly'.
+    
+    Args:
+        granularity: Granularity value to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return granularity.lower() in VALID_FORECAST_GRANULARITIES
+
+
+def validate_confidence_interval(lower: float, predicted: float, upper: float) -> bool:
+    """
+    Validate confidence interval bounds are correctly ordered.
+    
+    Args:
+        lower: Lower bound
+        predicted: Predicted value
+        upper: Upper bound
+        
+    Returns:
+        True if lower <= predicted <= upper, False otherwise
+    """
+    return lower <= predicted <= upper
+
+
+def validate_forecast_data_point(data_point: dict) -> bool:
+    """
+    Validate forecast data point has all required fields.
+    
+    Args:
+        data_point: Dictionary with forecast data
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    required_fields = {'date', 'predicted_cost', 'confidence_lower', 'confidence_upper', 'currency'}
+    return all(field in data_point for field in required_fields)

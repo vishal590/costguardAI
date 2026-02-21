@@ -9,13 +9,22 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timedelta, UTC
 
 from .services.cost_explorer import fetch_cost_data, CostExplorerParams
-from .services.dynamodb import store_cost_data, query_cost_data
+from .services.dynamodb import store_cost_data, query_cost_data, get_dynamodb_client
 from .services.cloudwatch_collector import CloudWatchMetricsCollector
 from .services.pricing_manager import PricingManager
 from .services.cost_estimator import CostEstimator
-from .utils.types import QueryParams, ErrorResponse, EstimationResponse
+from .services.forecast_engine import ForecastEngine
+from .services.bedrock_client import BedrockClient
+from .services.historical_data import HistoricalDataRetriever
+from .services.forecast_cache import ForecastCacheManager
+from .utils.types import QueryParams, ErrorResponse, EstimationResponse, InsufficientDataError, BedrockAPIError, BedrockRateLimitError
 from .utils.error_handler import format_error
-from .utils.validation import validate_granularity, validate_service_name
+from .utils.validation import (
+    validate_granularity, 
+    validate_service_name,
+    validate_forecast_days,
+    validate_forecast_granularity
+)
 from .utils.date_utils import (
     validate_date_format,
     validate_date_range,
@@ -55,14 +64,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         path = event.get('path', '')
         
         # Route to appropriate handler
+        # Phase 1 endpoints
         if http_method == 'POST' and '/fetch' in path:
             return handle_fetch(event)
         elif http_method == 'GET' and path.endswith('/cost-data'):
             return handle_query(event)
+        # Phase 1.5 endpoints
         elif http_method == 'GET' and path.endswith('/cost-estimation/current'):
             return handle_estimation_current(event)
         elif http_method == 'GET' and '/cost-estimation/service/' in path:
             return handle_estimation_service(event)
+        # Phase 2 endpoints
+        elif http_method == 'GET' and path.endswith('/cost-forecast'):
+            return handle_forecast_request(event)
+        elif http_method == 'GET' and '/cost-forecast/service/' in path:
+            return handle_forecast_service_request(event)
         else:
             return create_error_response(
                 400,
@@ -580,6 +596,303 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
     
     except Exception as e:
         logger.error(f"Error in handle_estimation_service: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+# ============================================================================
+# Phase 2: AI Cost Forecasting Handlers
+# ============================================================================
+
+def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/cost-forecast request for total cost forecast.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        days = query_params.get('days', '30')
+        granularity = query_params.get('granularity', 'daily')
+        
+        # Convert days to int
+        try:
+            days = int(days)
+        except ValueError:
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid days parameter: {days}. Must be an integer (7, 14, or 30)'
+            )
+        
+        # Validate parameters
+        if not validate_forecast_days(days):
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid days value: {days}. Must be 7, 14, or 30'
+            )
+        
+        if not validate_forecast_granularity(granularity):
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid granularity: {granularity}. Must be "daily" or "weekly"'
+            )
+        
+        logger.info(f"Generating forecast: days={days}, granularity={granularity}")
+        
+        # Initialize Phase 2 services
+        dynamodb_client = get_dynamodb_client()
+        bedrock_client = BedrockClient()
+        historical_data_retriever = HistoricalDataRetriever(dynamodb_client)
+        cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+        forecast_engine = ForecastEngine(
+            bedrock_client=bedrock_client,
+            historical_data_retriever=historical_data_retriever,
+            cache_manager=cache_manager
+        )
+        
+        # Generate forecast
+        forecast_response = forecast_engine.generate_forecast(
+            service=None,
+            days=days,
+            granularity=granularity
+        )
+        
+        # Format response
+        response_data = {
+            'success': forecast_response.success,
+            'forecast_data': [
+                {
+                    'date': point.date,
+                    'predicted_cost': float(point.predicted_cost),
+                    'confidence_lower': float(point.confidence_lower),
+                    'confidence_upper': float(point.confidence_upper),
+                    'currency': point.currency
+                }
+                for point in forecast_response.forecast_data
+            ],
+            'metadata': {
+                'timestamp': forecast_response.metadata.timestamp,
+                'forecast_horizon': forecast_response.metadata.forecast_horizon,
+                'granularity': forecast_response.metadata.granularity,
+                'model_used': forecast_response.metadata.model_used,
+                'service': forecast_response.metadata.service,
+                'services_included': forecast_response.metadata.services_included,
+                'cache_hit': forecast_response.metadata.cache_hit,
+                'historical_data_days': forecast_response.metadata.historical_data_days
+            }
+        }
+        
+        logger.info(f"Forecast generated successfully: {len(forecast_response.forecast_data)} data points, cache_hit={forecast_response.metadata.cache_hit}")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except InsufficientDataError as e:
+        logger.warning(f"Insufficient data for forecast: {str(e)}")
+        return create_error_response(
+            400,
+            'INSUFFICIENT_DATA',
+            str(e)
+        )
+    
+    except BedrockRateLimitError as e:
+        logger.warning(f"Bedrock rate limit exceeded: {str(e)}")
+        return create_error_response(
+            429,
+            'RATE_LIMIT_EXCEEDED',
+            'Bedrock API rate limit exceeded. Please try again later.',
+            {'retry_after': '60'}
+        )
+    
+    except BedrockAPIError as e:
+        logger.error(f"Bedrock API error: {str(e)}")
+        return create_error_response(
+            503,
+            'SERVICE_UNAVAILABLE',
+            'Bedrock API is currently unavailable. Please try again later.',
+            {'retry_after': '30'}
+        )
+    
+    except Exception as e:
+        logger.error(f"Error in handle_forecast_request: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/cost-forecast/service/{service} request for service-specific forecast.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse service name from path
+        path = event.get('path', '')
+        # Extract service from path like /api/cost-forecast/service/lambda
+        path_parts = path.split('/')
+        service = None
+        for i, part in enumerate(path_parts):
+            if part == 'service' and i + 1 < len(path_parts):
+                service = path_parts[i + 1]
+                break
+        
+        if not service:
+            return create_error_response(
+                400,
+                'INVALID_REQUEST',
+                'Service name not found in path'
+            )
+        
+        # Validate service name
+        if not validate_service_name(service):
+            return create_error_response(
+                400,
+                'INVALID_SERVICE',
+                f'Invalid service name: {service}. Must be one of: ec2, lambda, dynamodb, s3, rds'
+            )
+        
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        days = query_params.get('days', '30')
+        granularity = query_params.get('granularity', 'daily')
+        
+        # Convert days to int
+        try:
+            days = int(days)
+        except ValueError:
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid days parameter: {days}. Must be an integer (7, 14, or 30)'
+            )
+        
+        # Validate parameters
+        if not validate_forecast_days(days):
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid days value: {days}. Must be 7, 14, or 30'
+            )
+        
+        if not validate_forecast_granularity(granularity):
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid granularity: {granularity}. Must be "daily" or "weekly"'
+            )
+        
+        logger.info(f"Generating forecast for service {service}: days={days}, granularity={granularity}")
+        
+        # Initialize Phase 2 services
+        dynamodb_client = get_dynamodb_client()
+        bedrock_client = BedrockClient()
+        historical_data_retriever = HistoricalDataRetriever(dynamodb_client)
+        cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+        forecast_engine = ForecastEngine(
+            bedrock_client=bedrock_client,
+            historical_data_retriever=historical_data_retriever,
+            cache_manager=cache_manager
+        )
+        
+        # Generate forecast for specific service
+        forecast_response = forecast_engine.generate_forecast(
+            service=service,
+            days=days,
+            granularity=granularity
+        )
+        
+        # Format response
+        response_data = {
+            'success': forecast_response.success,
+            'forecast_data': [
+                {
+                    'date': point.date,
+                    'predicted_cost': float(point.predicted_cost),
+                    'confidence_lower': float(point.confidence_lower),
+                    'confidence_upper': float(point.confidence_upper),
+                    'currency': point.currency
+                }
+                for point in forecast_response.forecast_data
+            ],
+            'metadata': {
+                'timestamp': forecast_response.metadata.timestamp,
+                'forecast_horizon': forecast_response.metadata.forecast_horizon,
+                'granularity': forecast_response.metadata.granularity,
+                'model_used': forecast_response.metadata.model_used,
+                'service': forecast_response.metadata.service,
+                'services_included': forecast_response.metadata.services_included,
+                'cache_hit': forecast_response.metadata.cache_hit,
+                'historical_data_days': forecast_response.metadata.historical_data_days
+            }
+        }
+        
+        logger.info(f"Forecast generated successfully for {service}: {len(forecast_response.forecast_data)} data points, cache_hit={forecast_response.metadata.cache_hit}")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except InsufficientDataError as e:
+        logger.warning(f"Insufficient data for forecast: {str(e)}")
+        return create_error_response(
+            400,
+            'INSUFFICIENT_DATA',
+            str(e)
+        )
+    
+    except BedrockRateLimitError as e:
+        logger.warning(f"Bedrock rate limit exceeded: {str(e)}")
+        return create_error_response(
+            429,
+            'RATE_LIMIT_EXCEEDED',
+            'Bedrock API rate limit exceeded. Please try again later.',
+            {'retry_after': '60'}
+        )
+    
+    except BedrockAPIError as e:
+        logger.error(f"Bedrock API error: {str(e)}")
+        return create_error_response(
+            503,
+            'SERVICE_UNAVAILABLE',
+            'Bedrock API is currently unavailable. Please try again later.',
+            {'retry_after': '30'}
+        )
+    
+    except Exception as e:
+        logger.error(f"Error in handle_forecast_service_request: {str(e)}", exc_info=True)
         error_response = format_error(e)
         return create_error_response(
             500,

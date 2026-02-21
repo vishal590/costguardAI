@@ -34,9 +34,10 @@
 
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly)
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
+- **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
 - **RESTful API:** Simple HTTP API with API key authentication
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
-- **Serverless Architecture:** Built on AWS Lambda, API Gateway, and DynamoDB for automatic scaling
+- **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, and Amazon Bedrock for automatic scaling
 
 ### Architecture
 
@@ -46,6 +47,8 @@
 │  Phase 1: /api/cost-data/fetch, /api/cost-data             │
 │  Phase 1.5: /api/cost-estimation/current                    │
 │             /api/cost-estimation/service/{service}          │
+│  Phase 2: /api/cost-forecast                                │
+│           /api/cost-forecast/service/{service}              │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -55,19 +58,22 @@
 │  - CloudWatch metrics collection (real-time)                │
 │  - Cost estimation algorithms                               │
 │  - Pricing data management                                  │
+│  - AI forecasting with Amazon Bedrock (NEW)                 │
+│  - Forecast caching with DynamoDB (NEW)                     │
 └────┬────────────────────┬────────────────────┬─────────────┘
      │                    │                    │
      ▼                    ▼                    ▼
 ┌──────────┐      ┌──────────────┐    ┌─────────────────┐
-│   Cost   │      │   DynamoDB   │    │  CloudWatch &   │
-│ Explorer │      │              │    │  Pricing APIs   │
+│   Cost   │      │   DynamoDB   │    │  CloudWatch,    │
+│ Explorer │      │  - Cost Data │    │  Pricing API &  │
+│          │      │  - Forecasts │    │  Bedrock Nova   │
 └──────────┘      └──────────────┘    └─────────────────┘
 ```
 
 ## 🛠️ Tech Stack
 
-- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, CloudWatch, Pricing API
-- **Language:** Python 3.12
+- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, CloudWatch, Pricing API, Amazon Bedrock (Nova Lite)
+- **Language:** Python 3.11
 - **Testing:** pytest, Hypothesis (property-based testing), moto (AWS mocking)
 - **Infrastructure:** AWS CDK (Python)
 - **Authentication:** API Gateway API Keys
@@ -81,15 +87,20 @@ aws-ideas/
 │   ├── submission/                # Submission requirements
 │   ├── technical/                 # Technical documentation
 │   │   ├── phase1-cost-pipeline/  # Phase 1 docs
-│   │   └── phase1.5-near-realtime/ # Phase 1.5 docs (NEW)
+│   │   ├── phase1.5-near-realtime/ # Phase 1.5 docs
+│   │   └── phase2-ai-forecasting/ # Phase 2 docs (NEW)
 │   └── INDEX.md                   # Master documentation index
 ├── src/                           # Source code
 │   ├── lambda_handler.py          # Main Lambda handler
 │   ├── services/                  # Service modules
 │   │   ├── cost_explorer.py       # Cost Explorer integration
-│   │   ├── cloudwatch_collector.py # CloudWatch metrics (NEW)
-│   │   ├── cost_estimator.py      # Cost estimation (NEW)
-│   │   ├── pricing_manager.py     # Pricing data management (NEW)
+│   │   ├── cloudwatch_collector.py # CloudWatch metrics
+│   │   ├── cost_estimator.py      # Cost estimation
+│   │   ├── pricing_manager.py     # Pricing data management
+│   │   ├── forecast_engine.py     # Forecast orchestration (NEW)
+│   │   ├── bedrock_client.py      # Amazon Bedrock integration (NEW)
+│   │   ├── historical_data.py     # Historical data retrieval (NEW)
+│   │   ├── forecast_cache.py      # Forecast caching (NEW)
 │   │   └── dynamodb.py            # DynamoDB operations
 │   └── utils/                     # Utility modules
 ├── tests/                         # Test suite
@@ -182,6 +193,29 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Supported services:** `ec2`, `lambda`, `dynamodb`, `s3`, `rds`
 
+#### Phase 2: AI-Powered Cost Forecasting
+
+**Get 30-day cost forecast:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/cost-forecast?days=30&granularity=daily"
+```
+
+**Get weekly forecast for specific service:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/cost-forecast/service/ec2?days=30&granularity=weekly"
+```
+
+**Query Parameters:**
+- `days` - Forecast horizon: 7, 14, or 30 days (default: 30)
+- `granularity` - Time resolution: `daily` or `weekly` (default: daily)
+
+**Response includes:**
+- Predicted costs for each time period
+- 95% confidence intervals (upper/lower bounds)
+- Metadata (model used, cache status, historical data days)
+
 For more examples, see [docs/API_EXAMPLES.md](./docs/API_EXAMPLES.md)
 
 ### Running Tests
@@ -229,6 +263,7 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 - **[API Examples](./docs/API_EXAMPLES.md)** - Complete API usage examples with curl and Python
 - **[Phase 1 Technical Docs](./docs/technical/phase1-cost-pipeline/)** - Historical cost data pipeline
 - **[Phase 1.5 Technical Docs](./docs/technical/phase1.5-near-realtime/)** - Near-real-time cost estimation
+- **[Phase 2 Technical Docs](./docs/technical/phase2-ai-forecasting/)** - AI-powered cost forecasting
 - **[Architecture](./docs/technical/architecture.md)** - System architecture and design decisions
 - **[Submission Guide](./docs/submission/SUBMISSION-GUIDE.md)** - Competition submission information
 
@@ -248,8 +283,17 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 | GET | `/api/cost-estimation/current` | Get current cost estimates for all services |
 | GET | `/api/cost-estimation/service/{service}` | Get cost estimate for specific service |
 
+### Phase 2: AI-Powered Cost Forecasting
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/cost-forecast` | Get AI-powered cost forecast for all services |
+| GET | `/api/cost-forecast/service/{service}` | Get cost forecast for specific service |
+
 **Query Parameters:**
-- `hours` - Time range in hours (default: 1, max: 168)
+- `hours` - Time range in hours for estimation (default: 1, max: 168)
+- `days` - Forecast horizon for forecasting: 7, 14, or 30 (default: 30)
+- `granularity` - Time resolution: `daily` or `weekly` (default: daily)
 - `startDate` - Start date for historical queries (YYYY-MM-DD)
 - `endDate` - End date for historical queries (YYYY-MM-DD)
 - `service` - Filter by service name
@@ -263,15 +307,19 @@ The project uses a comprehensive testing strategy:
 - **Property-Based Tests:** Validate universal properties using Hypothesis (100+ iterations per property)
 - **Integration Tests:** Test end-to-end flows and service interactions
 
-**Test Coverage:** 80%+ code coverage maintained
+**Test Coverage:** 94%+ code coverage maintained (412 tests passing)
 
 **Key Properties Tested:**
-- Non-negative cost estimates
+- Non-negative cost estimates and forecasts
+- Forecast confidence interval validity
+- Historical data validation and interpolation
+- Cache key uniqueness and TTL enforcement
 - Pricing data freshness
 - API response structure validation
 - Authentication enforcement
-- Phase 1 backward compatibility
+- Phase 1 & 1.5 backward compatibility
 - Error isolation and retry logic
+- Bedrock prompt structure and retry logic
 
 ## 💰 Cost Optimization
 
@@ -279,12 +327,15 @@ CostGuard is designed to operate within AWS Free Tier:
 
 - **Lambda:** ~2,000 invocations/month (within 1M free tier)
 - **API Gateway:** ~2,000 requests/month (within 1M free tier)
-- **DynamoDB:** On-demand billing, ~50 MB storage (within 25 GB free tier)
+- **DynamoDB:** On-demand billing, ~100 MB storage (within 25 GB free tier)
+  - Cost data table: ~50 MB
+  - Forecast cache table: ~50 MB
 - **CloudWatch:** ~50,000 API requests/month (within 1M free tier)
 - **Cost Explorer:** ~100 API calls/month (~$1/month)
 - **Pricing API:** ~100 calls/month with caching (~$0.01/month)
+- **Amazon Bedrock (Nova Lite):** ~500 requests/month with 80%+ cache hit rate (~$0.50/month)
 
-**Estimated Monthly Cost:** ~$1.01 (mostly Cost Explorer API)
+**Estimated Monthly Cost:** ~$1.51 (mostly Cost Explorer API and Bedrock)
 
 ## 🔗 Resources
 

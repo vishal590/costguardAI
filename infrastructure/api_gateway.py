@@ -2,7 +2,7 @@
 API Gateway Definition for Cost Data Pipeline
 
 This module defines the API Gateway infrastructure using AWS CDK (Python).
-The API Gateway exposes REST endpoints for fetching and querying cost data.
+The API Gateway exposes REST endpoints for fetching, querying, estimating, and forecasting cost data.
 
 Phase 1 Requirements:
 - 6.1: POST /api/cost-data/fetch endpoint
@@ -13,6 +13,11 @@ Phase 1.5 Requirements:
 - 4.1: GET /api/cost-estimation/current endpoint
 - 4.3: GET /api/cost-estimation/service/{service} endpoint
 - 5.5: Reuse existing API key authentication
+
+Phase 2 Requirements:
+- 5.1: GET /api/cost-forecast endpoint
+- 5.2: GET /api/cost-forecast/service/{service} endpoint
+- 5.8: Reuse existing API key authentication
 """
 
 from aws_cdk import (
@@ -116,6 +121,25 @@ class CostDataAPI(Construct):
         service_resource = cost_estimation_resource.add_resource("service")
         service_name_resource = service_resource.add_resource("{service}")
         service_name_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Phase 2: Create /api/cost-forecast resource
+        cost_forecast_resource = api_resource.add_resource("cost-forecast")
+
+        # Add GET /api/cost-forecast endpoint (forecast total costs)
+        cost_forecast_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Add GET /api/cost-forecast/service/{service} endpoint (forecast costs for specific service)
+        forecast_service_resource = cost_forecast_resource.add_resource("service")
+        forecast_service_name_resource = forecast_service_resource.add_resource("{service}")
+        forecast_service_name_resource.add_method(
             "GET",
             lambda_integration,
             api_key_required=True,

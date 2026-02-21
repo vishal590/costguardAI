@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\forecast_cache.py
+# hypothesis_version: 6.151.9
+
+[0.0, ':', 'Item', 'Items', 'LastEvaluatedKey', 'N', 'S', 'cache_key', 'created_at', 'days', 'forecast_data', 'granularity', 'service', 'total', 'ttl']

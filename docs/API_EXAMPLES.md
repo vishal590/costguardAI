@@ -1,6 +1,6 @@
 # API Examples
 
-This document provides comprehensive examples of API requests and responses for the Cost Data Pipeline (Phase 1) and Near-Real-Time Cost Estimation (Phase 1.5).
+This document provides comprehensive examples of API requests and responses for the Cost Data Pipeline (Phase 1), Near-Real-Time Cost Estimation (Phase 1.5), and AI-Powered Cost Forecasting (Phase 2).
 
 ## Table of Contents
 
@@ -11,6 +11,9 @@ This document provides comprehensive examples of API requests and responses for 
 - [Phase 1.5: Near-Real-Time Cost Estimation](#phase-15-near-real-time-cost-estimation)
   - [GET /api/cost-estimation/current Examples](#get-apicost-estimationcurrent-examples)
   - [GET /api/cost-estimation/service/{service} Examples](#get-apicost-estimationserviceservice-examples)
+- [Phase 2: AI-Powered Cost Forecasting](#phase-2-ai-powered-cost-forecasting)
+  - [GET /api/cost-forecast Examples](#get-apicost-forecast-examples)
+  - [GET /api/cost-forecast/service/{service} Examples](#get-apicost-forecastserviceservice-examples)
 - [Error Examples](#error-examples)
 
 ## Setup
@@ -874,6 +877,484 @@ curl -H "x-api-key: $API_KEY" \
 
 ---
 
+## Phase 2: AI-Powered Cost Forecasting
+
+## GET /api/cost-forecast Examples
+
+### Example 1: Get 30-Day Forecast (Default)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 15.50,
+      "confidence_lower": 12.00,
+      "confidence_upper": 19.00,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 16.20,
+      "confidence_lower": 12.50,
+      "confidence_upper": 19.90,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 30,
+    "granularity": "daily",
+    "service": "total",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+**Note:** Default parameters are days=30 and granularity=daily.
+
+### Example 2: Get 7-Day Forecast
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=7"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 15.50,
+      "confidence_lower": 12.00,
+      "confidence_upper": 19.00,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 16.20,
+      "confidence_lower": 12.50,
+      "confidence_upper": 19.90,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-24",
+      "predicted_cost": 15.80,
+      "confidence_lower": 12.20,
+      "confidence_upper": 19.40,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-25",
+      "predicted_cost": 14.90,
+      "confidence_lower": 11.50,
+      "confidence_upper": 18.30,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-26",
+      "predicted_cost": 15.30,
+      "confidence_lower": 11.80,
+      "confidence_upper": 18.80,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-27",
+      "predicted_cost": 16.50,
+      "confidence_lower": 12.70,
+      "confidence_upper": 20.30,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-28",
+      "predicted_cost": 17.20,
+      "confidence_lower": 13.30,
+      "confidence_upper": 21.10,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 7,
+    "granularity": "daily",
+    "service": "total",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+### Example 3: Get 14-Day Weekly Forecast
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=14&granularity=weekly"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22 to 2026-01-28",
+      "predicted_cost": 112.40,
+      "confidence_lower": 86.70,
+      "confidence_upper": 138.10,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-29 to 2026-02-04",
+      "predicted_cost": 115.80,
+      "confidence_lower": 89.30,
+      "confidence_upper": 142.30,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 14,
+    "granularity": "weekly",
+    "service": "total",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+**Note:** Weekly granularity aggregates daily predictions into weekly totals.
+
+### Example 4: Cached Forecast (Fast Response)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=30"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 15.50,
+      "confidence_lower": 12.00,
+      "confidence_upper": 19.00,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 30,
+    "granularity": "daily",
+    "service": "total",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": true,
+    "historical_data_days": 90
+  }
+}
+```
+
+**Note:** `cache_hit: true` indicates forecast was served from cache (< 500ms response time).
+
+---
+
+## GET /api/cost-forecast/service/{service} Examples
+
+### Example 1: Get EC2 Cost Forecast
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast/service/ec2?days=7"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 5.60,
+      "confidence_lower": 4.30,
+      "confidence_upper": 6.90,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 5.80,
+      "confidence_lower": 4.50,
+      "confidence_upper": 7.10,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-24",
+      "predicted_cost": 5.70,
+      "confidence_lower": 4.40,
+      "confidence_upper": 7.00,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-25",
+      "predicted_cost": 5.40,
+      "confidence_lower": 4.20,
+      "confidence_upper": 6.60,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-26",
+      "predicted_cost": 5.50,
+      "confidence_lower": 4.30,
+      "confidence_upper": 6.70,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-27",
+      "predicted_cost": 5.90,
+      "confidence_lower": 4.60,
+      "confidence_upper": 7.20,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-28",
+      "predicted_cost": 6.10,
+      "confidence_lower": 4.70,
+      "confidence_upper": 7.50,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 7,
+    "granularity": "daily",
+    "service": "ec2",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+### Example 2: Get Lambda Cost Forecast (30 Days)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast/service/lambda?days=30"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 0.85,
+      "confidence_lower": 0.65,
+      "confidence_upper": 1.05,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 0.90,
+      "confidence_lower": 0.70,
+      "confidence_upper": 1.10,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 30,
+    "granularity": "daily",
+    "service": "lambda",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+**Note:** Response truncated for brevity (30 data points total).
+
+### Example 3: Get DynamoDB Cost Forecast (Weekly)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast/service/dynamodb?days=14&granularity=weekly"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22 to 2026-01-28",
+      "predicted_cost": 4.20,
+      "confidence_lower": 3.20,
+      "confidence_upper": 5.20,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-29 to 2026-02-04",
+      "predicted_cost": 4.50,
+      "confidence_lower": 3.50,
+      "confidence_upper": 5.50,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 14,
+    "granularity": "weekly",
+    "service": "dynamodb",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+### Example 4: Get S3 Cost Forecast
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast/service/s3?days=7"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 2.30,
+      "confidence_lower": 1.80,
+      "confidence_upper": 2.80,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 2.40,
+      "confidence_lower": 1.90,
+      "confidence_upper": 2.90,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-24",
+      "predicted_cost": 2.35,
+      "confidence_lower": 1.85,
+      "confidence_upper": 2.85,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-25",
+      "predicted_cost": 2.20,
+      "confidence_lower": 1.70,
+      "confidence_upper": 2.70,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-26",
+      "predicted_cost": 2.25,
+      "confidence_lower": 1.75,
+      "confidence_upper": 2.75,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-27",
+      "predicted_cost": 2.45,
+      "confidence_lower": 1.95,
+      "confidence_upper": 2.95,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-28",
+      "predicted_cost": 2.55,
+      "confidence_lower": 2.05,
+      "confidence_upper": 3.05,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 7,
+    "granularity": "daily",
+    "service": "s3",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+### Example 5: Get RDS Cost Forecast
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast/service/rds?days=14"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "2026-01-22",
+      "predicted_cost": 6.75,
+      "confidence_lower": 5.20,
+      "confidence_upper": 8.30,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-01-23",
+      "predicted_cost": 7.10,
+      "confidence_lower": 5.50,
+      "confidence_upper": 8.70,
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "days": 14,
+    "granularity": "daily",
+    "service": "rds",
+    "generated_at": "2026-01-21T10:30:00Z",
+    "model_used": "amazon.nova-lite-v1:0",
+    "cache_hit": false,
+    "historical_data_days": 90
+  }
+}
+```
+
+**Note:** Response truncated for brevity (14 data points total).
+
+---
+
 ## Error Examples
 
 ### Error 1: Invalid Date Format
@@ -1193,6 +1674,110 @@ curl -H "x-api-key: $API_KEY" \
 
 **Note:** This is not an error. It indicates no resources were running during the time period.
 
+### Error 14: Insufficient Historical Data (Phase 2)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=30"
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INSUFFICIENT_DATA",
+    "message": "Insufficient historical data. Need at least 30 days, found 15 days."
+  }
+}
+```
+
+**Solution:** Wait for more historical data to accumulate (Phase 1 fetches).
+
+### Error 15: Invalid Forecast Days (Phase 2)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=45"
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid days parameter. Must be 7, 14, or 30."
+  }
+}
+```
+
+### Error 16: Invalid Granularity (Phase 2)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=30&granularity=monthly"
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid granularity parameter. Must be 'daily' or 'weekly'."
+  }
+}
+```
+
+### Error 17: Bedrock API Error (Phase 2)
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/cost-forecast?days=30"
+```
+
+**Response (503 Service Unavailable):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "BEDROCK_API_ERROR",
+    "message": "Bedrock API error: Service temporarily unavailable"
+  }
+}
+```
+
+**Solution:** Retry after a few seconds. Bedrock service may be experiencing issues.
+
+### Error 18: Bedrock Rate Limit (Phase 2)
+
+**Request:**
+```bash
+# Multiple rapid forecast requests
+for i in {1..10}; do
+  curl -H "x-api-key: $API_KEY" \
+    "$API_ENDPOINT/api/cost-forecast?days=30"
+done
+```
+
+**Response (429 Too Many Requests):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Bedrock API rate limit exceeded. Please try again later."
+  }
+}
+```
+
+**Note:** The system automatically retries with exponential backoff. This error only occurs if all retries fail.
+
 ---
 
 ## Testing Tips
@@ -1391,6 +1976,140 @@ for service in services:
         print(f"{service}: ${estimate['estimated_cost']:.4f}")
 ```
 
+### Get Cost Forecast (Phase 2)
+
+```python
+import requests
+import json
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+# Get 30-day forecast (default)
+response = requests.get(
+    f"{API_ENDPOINT}/api/cost-forecast",
+    headers=headers
+)
+
+print(json.dumps(response.json(), indent=2))
+
+# Get 7-day forecast
+params = {"days": 7}
+response = requests.get(
+    f"{API_ENDPOINT}/api/cost-forecast",
+    headers=headers,
+    params=params
+)
+
+print(json.dumps(response.json(), indent=2))
+
+# Get 14-day weekly forecast
+params = {"days": 14, "granularity": "weekly"}
+response = requests.get(
+    f"{API_ENDPOINT}/api/cost-forecast",
+    headers=headers,
+    params=params
+)
+
+print(json.dumps(response.json(), indent=2))
+```
+
+### Get Service-Specific Forecast (Phase 2)
+
+```python
+import requests
+import json
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+# Get EC2 cost forecast
+service = "ec2"
+params = {"days": 7}
+
+response = requests.get(
+    f"{API_ENDPOINT}/api/cost-forecast/service/{service}",
+    headers=headers,
+    params=params
+)
+
+print(json.dumps(response.json(), indent=2))
+
+# Get forecasts for all supported services
+services = ["ec2", "lambda", "dynamodb", "s3", "rds"]
+for service in services:
+    response = requests.get(
+        f"{API_ENDPOINT}/api/cost-forecast/service/{service}",
+        headers=headers,
+        params={"days": 30}
+    )
+    data = response.json()
+    if data["success"] and data["forecast"]:
+        # Calculate total predicted cost
+        total_cost = sum(point["predicted_cost"] for point in data["forecast"])
+        print(f"{service}: ${total_cost:.2f} (30-day forecast)")
+```
+
+### Compare Forecast with Actual Costs (Phase 2)
+
+```python
+import requests
+import json
+from datetime import datetime, timedelta
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+# Get 7-day forecast
+forecast_response = requests.get(
+    f"{API_ENDPOINT}/api/cost-forecast",
+    headers=headers,
+    params={"days": 7}
+)
+
+forecast_data = forecast_response.json()
+
+# Get actual costs for the same period (from Phase 1)
+start_date = datetime.now().strftime("%Y-%m-%d")
+end_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+actual_response = requests.get(
+    f"{API_ENDPOINT}/api/cost-data",
+    headers=headers,
+    params={"startDate": start_date, "endDate": end_date}
+)
+
+actual_data = actual_response.json()
+
+# Compare forecast vs actual
+print("Date | Forecast | Actual | Difference")
+print("-" * 50)
+for forecast_point in forecast_data["forecast"]:
+    date = forecast_point["date"]
+    predicted = forecast_point["predicted_cost"]
+    
+    # Find actual cost for this date
+    actual_point = next((p for p in actual_data["data"] if p["date"] == date), None)
+    if actual_point:
+        actual = actual_point["blendedCost"]
+        diff = ((predicted - actual) / actual) * 100
+        print(f"{date} | ${predicted:.2f} | ${actual:.2f} | {diff:+.1f}%")
+    else:
+        print(f"{date} | ${predicted:.2f} | N/A | N/A")
+```
+
 ---
 
 ## Query Parameters Reference
@@ -1415,6 +2134,17 @@ for service in services:
 | `hours` | GET /api/cost-estimation/service/{service} | integer | Time range in hours | 1 | 1-168 | `6` |
 
 **Supported Services:** `ec2`, `lambda`, `dynamodb`, `s3`, `rds`
+
+### Phase 2: AI-Powered Cost Forecasting
+
+| Parameter | Endpoint | Type | Description | Default | Range | Example |
+|-----------|----------|------|-------------|---------|-------|---------|
+| `days` | GET /api/cost-forecast | integer | Forecast horizon in days | 30 | 7, 14, 30 | `30` |
+| `granularity` | GET /api/cost-forecast | string | Time resolution | daily | daily, weekly | `daily` |
+| `days` | GET /api/cost-forecast/service/{service} | integer | Forecast horizon in days | 30 | 7, 14, 30 | `7` |
+| `granularity` | GET /api/cost-forecast/service/{service} | string | Time resolution | daily | daily, weekly | `weekly` |
+
+**Supported Services:** Same as Phase 1 (EC2, Lambda, DynamoDB, S3, RDS, etc.)
 
 ---
 
@@ -1470,6 +2200,44 @@ for service in services:
 - `metrics_count`: Number of metric data points used for estimation
 - `period`: Human-readable time period (e.g., "1 hour", "24 hours")
 
+### Phase 2: Cost Forecast Response
+
+```json
+{
+  "success": true,
+  "forecast": [
+    {
+      "date": "string (YYYY-MM-DD)",
+      "predicted_cost": "number",
+      "confidence_lower": "number",
+      "confidence_upper": "number",
+      "currency": "string (USD)"
+    }
+  ],
+  "metadata": {
+    "days": "integer (7, 14, or 30)",
+    "granularity": "string (daily or weekly)",
+    "service": "string or null (service name or 'total')",
+    "generated_at": "string (ISO 8601)",
+    "model_used": "string (amazon.nova-lite-v1:0)",
+    "cache_hit": "boolean",
+    "historical_data_days": "integer"
+  }
+}
+```
+
+**Field Descriptions:**
+- `predicted_cost`: AI-predicted cost for the date
+- `confidence_lower`: Lower bound of 95% confidence interval
+- `confidence_upper`: Upper bound of 95% confidence interval
+- `days`: Forecast horizon (7, 14, or 30 days)
+- `granularity`: Time resolution (daily or weekly)
+- `service`: Service name or "total" for all services
+- `generated_at`: Timestamp when forecast was generated
+- `model_used`: Bedrock model identifier
+- `cache_hit`: True if forecast was served from cache
+- `historical_data_days`: Number of days of historical data used
+
 ---
 
 ## Rate Limiting
@@ -1484,9 +2252,11 @@ for service in services:
 - **Cost Explorer:** 100 requests per second (with retry logic)
 - **CloudWatch:** 1,000,000 requests per month (Free Tier)
 - **Pricing API:** No documented limit (low usage expected)
+- **Bedrock Nova Lite:** Rate limits vary by region (with exponential backoff retry logic)
 
 **Best Practices:**
 - Cache estimation results for 5-10 minutes
+- Cache forecast results for 24 hours (automatic)
 - Use appropriate time ranges (avoid very short periods with high frequency)
 - Implement exponential backoff for retries
 
@@ -1502,6 +2272,9 @@ aws logs tail /aws/lambda/costguard-cost-data-handler --follow --filter-pattern 
 
 # Phase 1.5 operations
 aws logs tail /aws/lambda/costguard-cost-data-handler --follow --filter-pattern "estimation"
+
+# Phase 2 operations
+aws logs tail /aws/lambda/costguard-cost-data-handler --follow --filter-pattern "forecast"
 ```
 
 ### Check API Gateway Metrics
@@ -1555,6 +2328,42 @@ aws cloudwatch get-metric-statistics \
 - Use smaller time ranges (1-6 hours)
 - Implement result caching
 - Pre-warm Lambda with scheduled invocations
+
+### Issue: Forecast returns error "Insufficient historical data"
+
+**Possible Causes:**
+1. Less than 30 days of historical data available
+2. Historical data not fetched yet (Phase 1)
+3. Data gaps in historical records
+
+**Solutions:**
+- Run Phase 1 fetch to populate historical data
+- Wait for at least 30 days of data to accumulate
+- Check CloudWatch Logs for data retrieval errors
+
+### Issue: Forecast accuracy is poor
+
+**Possible Causes:**
+1. Insufficient historical data (< 90 days)
+2. Unusual cost patterns (spikes, anomalies)
+3. Recent infrastructure changes
+
+**Solutions:**
+- Wait for more historical data to accumulate (90 days recommended)
+- Review historical costs for anomalies
+- Consider using shorter forecast horizons (7 days vs 30 days)
+
+### Issue: Bedrock API errors
+
+**Possible Causes:**
+1. Bedrock service unavailable
+2. Rate limit exceeded
+3. Invalid model ID
+
+**Solutions:**
+- Check AWS Service Health Dashboard
+- Wait and retry (automatic exponential backoff)
+- Verify BEDROCK_MODEL_ID environment variable
 
 ### Issue: Authentication errors
 

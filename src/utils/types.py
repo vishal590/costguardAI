@@ -220,3 +220,96 @@ class EstimationResponse:
     currency: str
     timestamp: datetime
     period: str
+
+
+# ============================================================================
+# Phase 2: AI Cost Forecasting Data Models
+# ============================================================================
+
+@dataclass
+class ForecastDataPoint:
+    """Single forecast data point with confidence interval."""
+    date: str  # ISO 8601 format (YYYY-MM-DD)
+    predicted_cost: float  # Predicted cost in USD
+    confidence_lower: float  # Lower bound of 95% confidence interval
+    confidence_upper: float  # Upper bound of 95% confidence interval
+    currency: str = "USD"
+
+
+@dataclass
+class ForecastMetadata:
+    """Metadata for forecast response."""
+    timestamp: str  # ISO 8601 timestamp
+    forecast_horizon: int  # Days forecasted
+    granularity: str  # "daily" or "weekly"
+    model_used: str  # "amazon.nova-lite-v1:0"
+    service: Optional[str]  # Service name or None for total
+    services_included: Optional[List[str]]  # For total forecasts
+    cache_hit: bool  # True if returned from cache
+    historical_data_days: int  # Days of historical data used
+
+
+@dataclass
+class ForecastResponse:
+    """Complete forecast response."""
+    success: bool
+    forecast_data: List[ForecastDataPoint]
+    metadata: ForecastMetadata
+
+
+@dataclass
+class CachedForecast:
+    """Cached forecast with TTL."""
+    cache_key: str
+    forecast_response: ForecastResponse
+    created_at: datetime
+    ttl: int  # Unix timestamp for expiration
+
+
+@dataclass
+class ProcessedData:
+    """Preprocessed historical data for Bedrock."""
+    timestamps: List[str]  # ISO 8601 dates
+    costs: List[float]  # Corresponding costs
+    service: Optional[str]  # Service name
+    total_days: int  # Number of data points
+
+
+@dataclass
+class BedrockRequest:
+    """Request format for Bedrock API."""
+    historical_data: ProcessedData
+    forecast_horizon: int
+    confidence_level: float = 0.95
+
+
+@dataclass
+class BedrockResponse:
+    """Response from Bedrock API."""
+    predictions: List[float]  # Predicted costs
+    confidence_lower: List[float]  # Lower bounds
+    confidence_upper: List[float]  # Upper bounds
+    dates: List[str]  # Forecast dates
+    model_id: str
+    latency_ms: int
+
+
+# Custom exceptions for Phase 2
+class InsufficientDataError(Exception):
+    """Raised when historical data is insufficient for forecasting."""
+    pass
+
+
+class BedrockAPIError(Exception):
+    """Raised when Bedrock API call fails."""
+    pass
+
+
+class BedrockRateLimitError(Exception):
+    """Raised when Bedrock rate limit is exceeded."""
+    pass
+
+
+class BedrockInvalidResponseError(Exception):
+    """Raised when Bedrock returns invalid JSON."""
+    pass
