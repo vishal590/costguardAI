@@ -10,7 +10,7 @@
 
 **CostGuard AI** is an AI-powered AWS cost prevention and forecasting platform. It estimates costs in near-real-time using CloudWatch metrics (providing visibility within minutes, not 24 hours), automatically prevents overspending across 20+ AWS services (vs. AWS Budget Actions' 5), and provides a conversational AI advisor that explains costs in plain language. All built affordably for SMBs and startups who can't afford $500+/month enterprise tools.
 
-**Current Status:** ✅ Phase 1 and Phase 1.5 complete and deployed - near-real-time cost estimation operational for EC2, Lambda, DynamoDB, S3, and RDS with 261 tests and 91% code coverage.
+**Current Status:** ✅ Phase 1 and Phase 1.5 complete and deployed - near-real-time cost estimation operational for EC2, Lambda, DynamoDB, S3, and RDS with 293 tests and 95.84% code coverage.
 
 **Who it's for:** Small to medium businesses, startups, and development teams spending $100-$10,000/month on AWS who struggle with unexpected bills and need affordable, proactive cost management with automated prevention.
 
@@ -67,7 +67,7 @@ You don't need a detailed project plan, just show you've thought about the steps
 ### Phase 1.5: Near-Real-Time Cost Estimation ✅ COMPLETE
 **What I built:** Lambda function that collects CloudWatch metrics, estimates costs using usage × pricing models, and provides near-real-time cost visibility. Supports EC2, Lambda, DynamoDB, S3, and RDS with confidence intervals for accuracy.
 
-**How I used Kiro:** Used Kiro to generate CloudWatch metrics collection for 5 services, pricing data management with 24-hour caching, cost estimation algorithms with confidence intervals, and comprehensive property-based testing. Kiro generated 102 additional tests (261 total, 91% coverage).
+**How I used Kiro:** Used Kiro to generate CloudWatch metrics collection for 5 services, pricing data management with 24-hour caching, cost estimation algorithms with confidence intervals, and comprehensive property-based testing. Kiro generated 134 additional tests (293 total, 95.84% coverage).
 
 **Status:** ✅ Deployed and tested. Near-real-time estimation operational with <2 second response times.
 
@@ -76,7 +76,7 @@ You don't need a detailed project plan, just show you've thought about the steps
 - Cost estimation with 95% confidence intervals
 - Pricing data caching (24-hour TTL) to minimize API costs
 - Two new API endpoints: `/api/cost-estimation/current` and `/api/cost-estimation/service/{service}`
-- Comprehensive test suite: 261 tests, 91% coverage, 15 property-based tests
+- Comprehensive test suite: 293 tests, 95.84% coverage, 15 property-based tests
 
 **Tools:** CloudWatch Metrics API, AWS Pricing API, Lambda, DynamoDB, Python 3.12, Hypothesis (property-based testing)
 
@@ -113,12 +113,12 @@ You don't need a detailed project plan, just show you've thought about the steps
 **Overall:** Kiro has been used for approximately **70% of Phase 1 and Phase 1.5 development** (completed), focusing on:
 - Lambda function scaffolding and AWS SDK integration (75% Kiro usage)
 - CloudWatch and Pricing API integration (80% Kiro usage)
-- Automated testing and property-based testing (95% Kiro usage - Kiro generated 261 tests)
+- Automated testing and property-based testing (95% Kiro usage - Kiro generated 293 tests)
 - Error handling and retry logic (85% Kiro usage)
 
 **Completed with Kiro:**
 - ✅ Phase 1: Cost Data Pipeline (134 tests, 94% coverage)
-- ✅ Phase 1.5: Near-Real-Time Cost Estimation (261 total tests, 91% coverage)
+- ✅ Phase 1.5: Near-Real-Time Cost Estimation (293 total tests, 95.84% coverage)
 
 **Remaining phases will use Kiro for:**
 - Bedrock integration for AI features (estimated 80% Kiro usage)
@@ -180,7 +180,7 @@ CostGuard AI solves a real problem: SMBs and startups can't effectively prevent 
 **Current Progress (Phases 1 & 1.5 Complete):**
 - ✅ Near-real-time cost estimation operational (EC2, Lambda, DynamoDB, S3, RDS)
 - ✅ Historical cost data pipeline with flexible querying
-- ✅ 261 tests, 91% code coverage, comprehensive property-based testing
+- ✅ 293 tests, 95.84% code coverage, comprehensive property-based testing
 - ✅ <2 second response times for cost estimates
 - ✅ Pricing data caching to minimize API costs
 - ✅ Deployed and tested infrastructure
@@ -202,7 +202,7 @@ Built entirely within AWS Free Tier using Kiro for 70% of development (Phases 1 
 **Track:** Commercial Potential  
 **Problem:** SMBs/startups can't prevent AWS cost surprises—existing solutions are too expensive ($500+/month), too slow (24hr delay), or too limited (5 services)  
 **Solution:** Near-real-time prevention (estimation ✅ + automation planned + AI advisor planned)  
-**Current Status:** Phases 1 & 1.5 complete and deployed (261 tests, 91% coverage)  
+**Current Status:** Phases 1 & 1.5 complete and deployed (293 tests, 95.84% coverage)  
 **Target Users:** SMBs, startups, and development teams spending $100-$10K/month on AWS  
 **Feasibility:** All within AWS Free Tier, ~70% development with Kiro  
 **Market Impact:** Millions of underserved AWS users, proven B2B SaaS model  

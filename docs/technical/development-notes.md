@@ -54,7 +54,7 @@
 ### February 2026 - Phase 1.5: Near-Real-Time Cost Estimation
 **Status:** ✅ Completed  
 **Description:** Extended the Cost Data Pipeline with near-real-time cost estimation capabilities. Lambda function collects CloudWatch metrics, estimates costs using usage × pricing models, and provides cost visibility within minutes instead of waiting for Cost Explorer's 24-hour delay. Supports EC2, Lambda, DynamoDB, S3, and RDS with confidence intervals for accuracy.  
-**Kiro Usage:** Used Kiro to generate CloudWatch metrics collection for 5 services, pricing data management with 24-hour caching, cost estimation algorithms with confidence intervals, and comprehensive property-based testing. Kiro generated 102 additional tests (261 total, 91% coverage). Approximately 70% of Phase 1.5 development used Kiro.  
+**Kiro Usage:** Used Kiro to generate CloudWatch metrics collection for 5 services, pricing data management with 24-hour caching, cost estimation algorithms with confidence intervals, and comprehensive property-based testing. Kiro generated 134 additional tests (293 total, 95.84% coverage). Approximately 70% of Phase 1.5 development used Kiro.  
 **AWS Services:** AWS Lambda, CloudWatch Metrics API, AWS Pricing API, Amazon DynamoDB, Amazon API Gateway, AWS IAM, AWS CloudWatch Logs  
 **Free Tier Impact:** All services configured within Free Tier limits. CloudWatch API ~50,000 requests/month (within 1M free tier), Pricing API ~100 requests/month (~$0.01), DynamoDB +10 MB storage (within 25 GB free tier), Lambda +1,000 invocations/month (within 1M free tier).  
 **Notes:** 
@@ -62,7 +62,7 @@
 - Cost estimation with 95% confidence intervals (±6% accuracy)
 - Pricing data caching with 24-hour TTL reduces API calls by 95%
 - Two new API endpoints: `/api/cost-estimation/current` and `/api/cost-estimation/service/{service}`
-- Achieved 89% test coverage (236 tests: 134 unit, 15 property-based, 87 integration)
+- Achieved 95.84% test coverage (293 tests: 166 unit, 15 property-based, 112 integration)
 - All tests passing
 - Response times <2 seconds for single service, <5 seconds for all services
 - Infrastructure deployed via AWS CDK
@@ -131,7 +131,7 @@
 
 ### Kiro Usage Log
 - **February 2026 - Phase 1:** Used Kiro for Lambda handler code generation, AWS SDK integration (Cost Explorer and DynamoDB clients), error handling utilities, input validation functions, and test scaffolding. Kiro generated approximately 70% of Phase 1 code following the specification in `phase1-kiro-spec.md`.
-- **February 2026 - Phase 1.5:** Used Kiro for CloudWatch metrics collection code generation, AWS Pricing API integration, cost estimation algorithm implementation, pricing cache management, property-based test generation with Hypothesis, and comprehensive test scaffolding. Kiro generated 102 additional tests (261 total, 91% coverage). Approximately 70% of Phase 1.5 development used Kiro.
+- **February 2026 - Phase 1.5:** Used Kiro for CloudWatch metrics collection code generation, AWS Pricing API integration, cost estimation algorithm implementation, pricing cache management, property-based test generation with Hypothesis, and comprehensive test scaffolding. Kiro generated 134 additional tests (293 total, 95.84% coverage). Approximately 70% of Phase 1.5 development used Kiro.
 
 ### Kiro Portion
 - **Phase 1 Development:** ~70% (as planned)
@@ -154,7 +154,7 @@
   - Accelerated development significantly
   - Ensured AWS best practices were followed
   - Generated boilerplate code quickly
-  - Created comprehensive test structure (261 tests, 91% coverage)
+  - Created comprehensive test structure (293 tests, 95.84% coverage)
   - Maintained code consistency
   - Generated complex algorithms (cost estimation, pricing calculations)
 
@@ -199,7 +199,7 @@
 - Unit Tests: 134 tests
 - Property-Based Tests: 15 properties (100+ iterations each)
 - Integration Tests: 87 tests
-- Total: 236 tests (combined with Phase 1: 261 tests total)
+- Total: 268 tests (combined with Phase 1: 293 tests total)
 **Notes:** 
 - Comprehensive property-based testing using Hypothesis
 - All AWS services mocked using moto
