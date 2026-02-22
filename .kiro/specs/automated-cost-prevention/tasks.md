@@ -613,12 +613,13 @@ This implementation plan breaks down Phase 3 (Automated Cost Prevention) into di
 
 ## Testing Requirements
 
-- Minimum 80% code coverage for Phase 3 code
+- Phase 3 service modules: 80%+ code coverage target
 - All 15 correctness properties must be tested
 - Each property test must run minimum 100 iterations
 - Phase 1, 1.5, and 2 tests must continue to pass (backward compatibility)
 - Tag format: `# Feature: automated-cost-prevention, Property N: [property text]`
 - Test all 20+ supported services
+- Note: Overall project coverage is 25% due to lambda_handler.py (11% coverage)
 
 ## Free Tier Compliance
 
