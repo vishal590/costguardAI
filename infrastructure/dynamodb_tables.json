@@ -1,0 +1,224 @@
+{
+  "tables": [
+    {
+      "name": "costguard-prevention-config",
+      "description": "Stores prevention system configuration including enabled state, dry run mode, approval requirements, and safety settings",
+      "attributes": [
+        {
+          "name": "config_key",
+          "type": "S"
+        }
+      ],
+      "keySchema": [
+        {
+          "attributeName": "config_key",
+          "keyType": "HASH"
+        }
+      ],
+      "billingMode": "PAY_PER_REQUEST",
+      "tags": [
+        {
+          "key": "Project",
+          "value": "CostGuard"
+        },
+        {
+          "key": "Phase",
+          "value": "3-AutomatedPrevention"
+        }
+      ],
+      "requirements": ["11.1", "11.2", "11.3", "11.4", "11.5", "11.6", "11.7"]
+    },
+    {
+      "name": "costguard-resource-inventory",
+      "description": "Stores discovered AWS resources with metadata, tags, state, and idle status. Updated every 15 minutes",
+      "attributes": [
+        {
+          "name": "resource_id",
+          "type": "S"
+        },
+        {
+          "name": "service",
+          "type": "S"
+        },
+        {
+          "name": "last_updated",
+          "type": "N"
+        }
+      ],
+      "keySchema": [
+        {
+          "attributeName": "resource_id",
+          "keyType": "HASH"
+        }
+      ],
+      "globalSecondaryIndexes": [
+        {
+          "indexName": "service-index",
+          "keySchema": [
+            {
+              "attributeName": "service",
+              "keyType": "HASH"
+            },
+            {
+              "attributeName": "last_updated",
+              "keyType": "RANGE"
+            }
+          ],
+          "projection": {
+            "projectionType": "ALL"
+          }
+        }
+      ],
+      "billingMode": "PAY_PER_REQUEST",
+      "timeToLiveSpecification": {
+        "enabled": true,
+        "attributeName": "ttl"
+      },
+      "tags": [
+        {
+          "key": "Project",
+          "value": "CostGuard"
+        },
+        {
+          "key": "Phase",
+          "value": "3-AutomatedPrevention"
+        }
+      ],
+      "requirements": ["2.4", "2.5"]
+    },
+    {
+      "name": "costguard-prevention-audit",
+      "description": "Audit log of all prevention actions including resource details, action type, before/after state, and results",
+      "attributes": [
+        {
+          "name": "action_id",
+          "type": "S"
+        },
+        {
+          "name": "timestamp",
+          "type": "N"
+        },
+        {
+          "name": "resource_id",
+          "type": "S"
+        }
+      ],
+      "keySchema": [
+        {
+          "attributeName": "action_id",
+          "keyType": "HASH"
+        }
+      ],
+      "globalSecondaryIndexes": [
+        {
+          "indexName": "timestamp-index",
+          "keySchema": [
+            {
+              "attributeName": "timestamp",
+              "keyType": "HASH"
+            }
+          ],
+          "projection": {
+            "projectionType": "ALL"
+          }
+        },
+        {
+          "indexName": "resource-index",
+          "keySchema": [
+            {
+              "attributeName": "resource_id",
+              "keyType": "HASH"
+            },
+            {
+              "attributeName": "timestamp",
+              "keyType": "RANGE"
+            }
+          ],
+          "projection": {
+            "projectionType": "ALL"
+          }
+        }
+      ],
+      "billingMode": "PAY_PER_REQUEST",
+      "timeToLiveSpecification": {
+        "enabled": true,
+        "attributeName": "ttl"
+      },
+      "tags": [
+        {
+          "key": "Project",
+          "value": "CostGuard"
+        },
+        {
+          "key": "Phase",
+          "value": "3-AutomatedPrevention"
+        }
+      ],
+      "requirements": ["5.9", "12.1", "12.2", "12.3", "12.4", "12.5", "12.6", "12.7", "12.8"]
+    },
+    {
+      "name": "costguard-approval-requests",
+      "description": "Stores approval requests for prevention actions with status, timeout, and response tracking",
+      "attributes": [
+        {
+          "name": "request_id",
+          "type": "S"
+        },
+        {
+          "name": "created_at",
+          "type": "N"
+        },
+        {
+          "name": "status",
+          "type": "S"
+        }
+      ],
+      "keySchema": [
+        {
+          "attributeName": "request_id",
+          "keyType": "HASH"
+        }
+      ],
+      "globalSecondaryIndexes": [
+        {
+          "indexName": "status-index",
+          "keySchema": [
+            {
+              "attributeName": "status",
+              "keyType": "HASH"
+            },
+            {
+              "attributeName": "created_at",
+              "keyType": "RANGE"
+            }
+          ],
+          "projection": {
+            "projectionType": "ALL"
+          }
+        }
+      ],
+      "billingMode": "PAY_PER_REQUEST",
+      "timeToLiveSpecification": {
+        "enabled": true,
+        "attributeName": "ttl"
+      },
+      "tags": [
+        {
+          "key": "Project",
+          "value": "CostGuard"
+        },
+        {
+          "key": "Phase",
+          "value": "3-AutomatedPrevention"
+        }
+      ],
+      "requirements": ["7.1", "7.2", "7.3", "7.4", "7.5", "7.6"]
+    }
+  ],
+  "notes": [
+    "All tables use PAY_PER_REQUEST billing mode to stay within AWS Free Tier",
+    "TTL is enabled on inventory, audit, and approval tables to automatically clean up old data",
+    "GSIs are used for efficient querying by service, timestamp, resource, and status",
+    "Total storage should remain well within 25 GB Free Tier limit"
+  ]
+}

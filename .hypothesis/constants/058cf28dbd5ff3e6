@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\eventbridge_scheduler.py
+# hypothesis_version: 6.151.9
+
+['Arn', 'Description', 'ENABLED', 'Input', 'Invalid event format', 'Name', 'RoleArn', 'ScheduleExpression', 'Scheduled Event', 'State', 'Target', 'account', 'aws.events', 'budget-monitoring', 'detail-type', 'dry_run', 'error', 'event_time', 'event_type', 'monitoring_result', 'rate(5 minutes)', 'region', 'resources', 'scheduled', 'source', 'success', 'time', 'type']

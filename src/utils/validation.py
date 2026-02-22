@@ -151,3 +151,172 @@ def validate_forecast_data_point(data_point: dict) -> bool:
     """
     required_fields = {'date', 'predicted_cost', 'confidence_lower', 'confidence_upper', 'currency'}
     return all(field in data_point for field in required_fields)
+
+
+# ============================================================================
+# Phase 3: Automated Cost Prevention Validation Functions
+# ============================================================================
+
+# Valid AWS services for Phase 3
+VALID_PREVENTION_SERVICES: Set[str] = {
+    'ec2', 'rds', 'lambda', 's3', 'dynamodb', 'ebs',
+    'elasticache', 'redshift', 'ecs', 'eks',
+    'nat_gateway', 'elastic_ip', 'elb',
+    'sns', 'sqs', 'apigateway', 'stepfunctions',
+    'glue', 'sagemaker', 'cloudfront'
+}
+
+# Valid threshold types
+VALID_THRESHOLD_TYPES: Set[str] = {'warning', 'action'}
+
+# Valid action types
+VALID_ACTION_TYPES: Set[str] = {'stop', 'terminate', 'limit_concurrency', 'snapshot_delete', 'switch_billing', 'delete'}
+
+
+def validate_prevention_service(service: str) -> bool:
+    """
+    Validate service is supported for prevention.
+    
+    Args:
+        service: Service name to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return service.lower() in VALID_PREVENTION_SERVICES
+
+
+def validate_threshold_type(threshold_type: str) -> bool:
+    """
+    Validate threshold type is 'warning' or 'action'.
+    
+    Args:
+        threshold_type: Threshold type to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return threshold_type.lower() in VALID_THRESHOLD_TYPES
+
+
+def validate_action_type(action: str) -> bool:
+    """
+    Validate action type is supported.
+    
+    Args:
+        action: Action type to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return action.lower() in VALID_ACTION_TYPES
+
+
+def validate_budget_utilization(utilization: float) -> bool:
+    """
+    Validate budget utilization is non-negative.
+    
+    Args:
+        utilization: Utilization percentage (0-100+)
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return utilization >= 0.0
+
+
+def validate_idle_duration(duration_minutes: int) -> bool:
+    """
+    Validate idle duration is positive.
+    
+    Args:
+        duration_minutes: Duration in minutes
+        
+    Returns:
+        True if valid (positive), False otherwise
+    """
+    return duration_minutes > 0
+
+
+def validate_confidence_score(confidence: float) -> bool:
+    """
+    Validate confidence score is between 0.0 and 1.0.
+    
+    Args:
+        confidence: Confidence score
+        
+    Returns:
+        True if valid (0.0 to 1.0), False otherwise
+    """
+    return 0.0 <= confidence <= 1.0
+
+
+def validate_resource_tags(tags: dict) -> bool:
+    """
+    Validate resource tags dictionary.
+    
+    Args:
+        tags: Dictionary of tags
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    if not isinstance(tags, dict):
+        return False
+    
+    # All keys and values should be strings
+    return all(isinstance(k, str) and isinstance(v, str) for k, v in tags.items())
+
+
+def validate_safety_config(config: dict) -> bool:
+    """
+    Validate safety configuration.
+    
+    Args:
+        config: Safety configuration dictionary
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    required_fields = {'protected_tags', 'whitelist_ids', 'minimum_idle_minutes', 'dry_run_mode'}
+    
+    if not all(field in config for field in required_fields):
+        return False
+    
+    # Validate types
+    if not isinstance(config['protected_tags'], list):
+        return False
+    if not isinstance(config['whitelist_ids'], list):
+        return False
+    if not isinstance(config['minimum_idle_minutes'], dict):
+        return False
+    if not isinstance(config['dry_run_mode'], bool):
+        return False
+    
+    return True
+
+
+def validate_approval_timeout(timeout_minutes: int) -> bool:
+    """
+    Validate approval timeout is reasonable (1-60 minutes).
+    
+    Args:
+        timeout_minutes: Timeout in minutes
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 1 <= timeout_minutes <= 60
+
+
+def validate_rollback_window(hours: int) -> bool:
+    """
+    Validate rollback window is reasonable (1-72 hours).
+    
+    Args:
+        hours: Rollback window in hours
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 1 <= hours <= 72

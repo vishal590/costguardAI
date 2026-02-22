@@ -17,6 +17,16 @@ from .services.forecast_engine import ForecastEngine
 from .services.bedrock_client import BedrockClient
 from .services.historical_data import HistoricalDataRetriever
 from .services.forecast_cache import ForecastCacheManager
+from .services.prevention_engine import PreventionEngine
+from .services.budget_monitor import BudgetMonitor
+from .services.resource_manager import ResourceManager
+from .services.idle_detector import IdleDetector
+from .services.safety_guard import SafetyGuard
+from .services.action_executor import ActionExecutor
+from .services.approval_manager import ApprovalManager
+from .services.rollback_manager import RollbackManager
+from .services.notification_service import NotificationService
+from .services.eventbridge_scheduler import EventBridgeScheduler
 from .utils.types import QueryParams, ErrorResponse, EstimationResponse, InsufficientDataError, BedrockAPIError, BedrockRateLimitError
 from .utils.error_handler import format_error
 from .utils.validation import (
@@ -59,6 +69,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Log incoming event
         logger.info(f"Received event: {json.dumps(event)}")
         
+        # Check if this is an EventBridge scheduled event
+        if event.get('source') == 'aws.events' or event.get('type') == 'budget-monitoring':
+            return handle_eventbridge_event(event)
+        
         # Extract HTTP method and path
         http_method = event.get('httpMethod', 'GET')
         path = event.get('path', '')
@@ -79,6 +93,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_forecast_request(event)
         elif http_method == 'GET' and '/cost-forecast/service/' in path:
             return handle_forecast_service_request(event)
+        # Phase 3 endpoints
+        elif http_method == 'GET' and path.endswith('/prevention/status'):
+            return handle_prevention_status(event)
+        elif http_method == 'POST' and path.endswith('/prevention/enable'):
+            return handle_prevention_enable(event)
+        elif http_method == 'POST' and path.endswith('/prevention/disable'):
+            return handle_prevention_disable(event)
+        elif http_method == 'GET' and path.endswith('/prevention/resources'):
+            return handle_prevention_resources(event)
+        elif http_method == 'POST' and path.endswith('/prevention/rollback'):
+            return handle_prevention_rollback(event)
+        elif http_method == 'GET' and path.endswith('/prevention/history'):
+            return handle_prevention_history(event)
         else:
             return create_error_response(
                 400,
@@ -900,3 +927,459 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
             error_response.message,
             error_response.details
         )
+
+
+# ============================================================================
+# Phase 3: Automated Cost Prevention Handlers
+# ============================================================================
+
+def handle_prevention_status(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/prevention/status request to get prevention system status.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        logger.info("Getting prevention system status")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Get status
+        status = prevention_engine.get_status()
+        
+        logger.info(f"Prevention status retrieved: enabled={status.get('enabled')}")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'status': status
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_status: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_prevention_enable(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle POST /api/prevention/enable request to enable prevention system.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        logger.info("Enabling prevention system")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Enable prevention
+        prevention_engine.enable()
+        
+        logger.info("Prevention system enabled successfully")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'message': 'Prevention system enabled',
+                'status': prevention_engine.get_status()
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_enable: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_prevention_disable(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle POST /api/prevention/disable request to disable prevention system.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        logger.info("Disabling prevention system")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Disable prevention
+        prevention_engine.disable()
+        
+        logger.info("Prevention system disabled successfully")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'message': 'Prevention system disabled',
+                'status': prevention_engine.get_status()
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_disable: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/prevention/resources request to list managed resources.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        service = query_params.get('service')
+        state = query_params.get('state')
+        
+        logger.info(f"Getting prevention resources: service={service}, state={state}")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Build filters
+        filters = {}
+        if service:
+            filters['service'] = service
+        if state:
+            filters['state'] = state
+        
+        # Get resources
+        resources = prevention_engine.get_resources(filters=filters if filters else None)
+        
+        # Format response
+        resources_data = [
+            {
+                'resource_id': r.resource_id,
+                'resource_type': r.resource_type,
+                'service': r.service,
+                'region': r.region,
+                'tags': r.tags,
+                'state': r.state,
+                'creation_date': r.creation_date
+            }
+            for r in resources
+        ]
+        
+        logger.info(f"Retrieved {len(resources)} resources")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'resources': resources_data,
+                'count': len(resources_data)
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_resources: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_prevention_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle POST /api/prevention/rollback request to rollback an action.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            params = json.loads(body) if body else {}
+        else:
+            params = body
+        
+        action_id = params.get('action_id')
+        
+        if not action_id:
+            return create_error_response(
+                400,
+                'MISSING_PARAMETER',
+                'action_id is required'
+            )
+        
+        logger.info(f"Rolling back action: {action_id}")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Execute rollback
+        result = prevention_engine.execute_rollback(action_id)
+        
+        if result['success']:
+            logger.info(f"Rollback successful for action {action_id}")
+        else:
+            logger.warning(f"Rollback failed for action {action_id}: {result.get('error')}")
+        
+        return {
+            'statusCode': 200 if result['success'] else 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': result['success'],
+                'action_id': result.get('action_id'),
+                'resource_id': result.get('resource_id'),
+                'message': result.get('message'),
+                'error': result.get('error')
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_rollback: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_prevention_history(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/prevention/history request to get action history.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+        limit_str = query_params.get('limit', '100')
+        
+        try:
+            limit = int(limit_str)
+        except ValueError:
+            return create_error_response(
+                400,
+                'INVALID_PARAMETER',
+                f'Invalid limit: {limit_str}. Must be an integer'
+            )
+        
+        logger.info(f"Getting prevention history: start={start_date}, end={end_date}, limit={limit}")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Get history (this would query the audit table)
+        # For now, return a placeholder response
+        history = []
+        
+        logger.info(f"Retrieved {len(history)} history records")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'history': history,
+                'count': len(history)
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_prevention_history: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_eventbridge_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle EventBridge scheduled event for budget monitoring.
+    
+    Args:
+        event: EventBridge event
+        
+    Returns:
+        Response dict with status code and body
+        
+    Requirements:
+    - 1.1: Trigger budget monitoring every 5 minutes
+    """
+    try:
+        logger.info("Processing EventBridge scheduled event")
+        
+        # Initialize prevention engine
+        prevention_engine = _get_prevention_engine()
+        
+        # Initialize EventBridge scheduler
+        scheduler = EventBridgeScheduler(prevention_engine)
+        
+        # Handle the scheduled event
+        result = scheduler.handle_scheduled_event(event)
+        
+        if result['success']:
+            logger.info(f"EventBridge event processed successfully: {result}")
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'success': True,
+                    'message': 'Budget monitoring completed',
+                    'result': result
+                })
+            }
+        else:
+            logger.error(f"EventBridge event processing failed: {result}")
+            return {
+                'statusCode': 500,
+                'body': json.dumps({
+                    'success': False,
+                    'error': result.get('error', 'Unknown error')
+                })
+            }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_eventbridge_event: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def _get_prevention_engine() -> PreventionEngine:
+    """
+    Initialize and return a PreventionEngine instance.
+    
+    Returns:
+        Configured PreventionEngine instance
+    """
+    # Initialize all required components
+    # Note: In production, these would use actual AWS clients
+    # For now, we'll use None and let the engine handle initialization
+    
+    budget_monitor = BudgetMonitor(
+        budgets_client=None,
+        cost_estimator=None
+    )
+    
+    resource_manager = ResourceManager(
+        aws_clients={},
+        dynamodb_client=None
+    )
+    
+    idle_detector = IdleDetector(
+        cloudwatch_client=None
+    )
+    
+    safety_guard = SafetyGuard(
+        config=None
+    )
+    
+    action_executor = ActionExecutor(
+        aws_clients={},
+        audit_logger=None
+    )
+    
+    approval_manager = ApprovalManager(
+        sns_client=None,
+        dynamodb_client=None
+    )
+    
+    rollback_manager = RollbackManager(
+        aws_clients={},
+        dynamodb_client=None
+    )
+    
+    notification_service = NotificationService(
+        sns_client=None,
+        config=None
+    )
+    
+    # Create prevention engine
+    prevention_engine = PreventionEngine(
+        budget_monitor=budget_monitor,
+        resource_manager=resource_manager,
+        idle_detector=idle_detector,
+        safety_guard=safety_guard,
+        action_executor=action_executor,
+        approval_manager=approval_manager,
+        rollback_manager=rollback_manager,
+        notification_service=notification_service
+    )
+    
+    return prevention_engine

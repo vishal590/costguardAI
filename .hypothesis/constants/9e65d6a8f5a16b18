@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\approval_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, '#status', ':approved_by', ':status', ':timestamp', 'Item', 'N', 'S', 'action', 'action_count', 'approval-requests', 'approved', 'approved_by', 'created_at', 'denied', 'estimated_savings', 'expires_at', 'pending', 'request_id', 'resource', 'response_timestamp', 'status', 'unknown']

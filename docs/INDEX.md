@@ -71,7 +71,12 @@
   - **[specification.md](./technical/phase2-ai-forecasting/specification.md)** - Complete Phase 2 specification
   - **[implementation-summary.md](./technical/phase2-ai-forecasting/implementation-summary.md)** - Test results (412/412 passing, 94.16% coverage)
   - **[infrastructure-updates.md](./technical/phase2-ai-forecasting/infrastructure-updates.md)** - CDK infrastructure changes for Bedrock
-- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, and 2**
+- **[technical/phase3-automated-prevention/](./technical/phase3-automated-prevention/)** - ✅ **Phase 3: Automated Cost Prevention (COMPLETE)**
+  - **[README.md](./technical/phase3-automated-prevention/README.md)** - Overview, features, architecture, and getting started
+  - **[specification.md](./technical/phase3-automated-prevention/specification.md)** - Complete Phase 3 specification
+  - **[implementation-summary.md](./technical/phase3-automated-prevention/implementation-summary.md)** - Test results (724/724 passing, 87%+ coverage)
+  - **[infrastructure-updates.md](./technical/phase3-automated-prevention/infrastructure-updates.md)** - CDK infrastructure changes for prevention system
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, 2, and 3**
 - **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1, 1.5 & 2 Complete**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)

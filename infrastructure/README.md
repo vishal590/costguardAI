@@ -1,122 +1,163 @@
-# Cost Data Pipeline Infrastructure
+# CostGuard Infrastructure
 
-This directory contains AWS CDK (Cloud Development Kit) infrastructure definitions for the Cost Data Pipeline.
+This directory contains all infrastructure-as-code configurations for the CostGuard system (Phases 1, 1.5, 2, and 3).
 
-## Components
+## Files
 
-- **dynamodb_table.py**: DynamoDB table definition with partition key (pk) and sort key (sk)
-- **lambda_function.py**: Lambda function configuration (Python 3.11, 256 MB, 30s timeout)
-- **iam_roles.py**: IAM roles and policies for Cost Explorer, DynamoDB, CloudWatch, and Pricing API access
-- **api_gateway.py**: REST API with Phase 1 and Phase 1.5 endpoints
-- **app.py**: Main CDK application that ties all components together
+### Configuration Files (JSON)
+- `dynamodb_tables.json` - DynamoDB table definitions (4 tables)
+- `iam_permissions.json` - IAM role and policy definitions
+- `lambda_environment.json` - Lambda environment variables and configuration
+- `sns_topics.json` - SNS topic definitions and message formats
+- `api_gateway.json` - API Gateway route definitions
+- `eventbridge_schedule.json` - EventBridge schedule configuration
 
-## Prerequisites
-
-1. AWS CLI configured with credentials
-2. AWS CDK CLI installed: `npm install -g aws-cdk`
-3. Python 3.11 or later
-4. Virtual environment with dependencies installed
-
-## Setup
-
-1. Create and activate virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Bootstrap CDK (first time only):
-```bash
-cdk bootstrap
-```
+### CDK Infrastructure (Python)
+- `cdk_stack.py` - Main CDK stack defining all infrastructure
+- `app.py` - CDK app entry point
+- `requirements.txt` - Python dependencies for CDK
 
 ## Deployment
 
-1. Synthesize CloudFormation template:
+### Prerequisites
+1. AWS CLI configured with appropriate credentials
+2. AWS CDK CLI installed: `npm install -g aws-cdk`
+3. Python 3.11+ installed
+
+### CDK Deployment Steps
+
+1. Install CDK dependencies:
+```bash
+cd infrastructure
+pip install -r requirements.txt
+```
+
+2. Bootstrap CDK (first time only):
+```bash
+cdk bootstrap aws://ACCOUNT-ID/REGION
+```
+
+3. Synthesize CloudFormation template:
 ```bash
 cdk synth
 ```
 
-2. Deploy infrastructure:
+4. Deploy the stack:
 ```bash
 cdk deploy
 ```
 
-3. Note the outputs:
-   - API Gateway endpoint URL
-   - API Key ID (use AWS CLI to retrieve the actual key value)
-
-## Retrieve API Key
-
-After deployment, retrieve the API key value:
+5. After deployment, subscribe to SNS topics:
 ```bash
-aws apigateway get-api-key --api-key <API_KEY_ID> --include-value --query 'value' --output text
+aws sns subscribe --topic-arn <WARNINGS_TOPIC_ARN> --protocol email --notification-endpoint your-email@example.com
+aws sns subscribe --topic-arn <ACTIONS_TOPIC_ARN> --protocol email --notification-endpoint your-email@example.com
+aws sns subscribe --topic-arn <ERRORS_TOPIC_ARN> --protocol email --notification-endpoint your-email@example.com
 ```
 
-## Infrastructure Details
+### Manual Deployment (Alternative)
 
-### DynamoDB Table
-- **Name**: costguard-cost-data
-- **Partition Key**: pk (String) - Format: COST#YYYY-MM
-- **Sort Key**: sk (String) - Format: SERVICE#service-name
-- **Billing Mode**: On-demand (Pay per request)
-- **TTL**: Enabled on ttl attribute
+If not using CDK, you can deploy resources manually using the JSON configuration files:
+
+1. **DynamoDB Tables**: Use `dynamodb_tables.json` with AWS CLI or Console
+2. **IAM Roles**: Use `iam_permissions.json` to create roles and policies
+3. **Lambda Function**: Deploy with environment variables from `lambda_environment.json`
+4. **SNS Topics**: Create topics using `sns_topics.json`
+5. **API Gateway**: Configure routes using `api_gateway.json`
+6. **EventBridge**: Create schedule using `eventbridge_schedule.json`
+
+## Infrastructure Components
+
+### DynamoDB Tables (6 total)
+1. `costguard-cost-data` - Historical cost data (Phase 1)
+2. `costguard-forecast-cache` - AI forecast cache (Phase 2)
+3. `costguard-prevention-config` - Prevention configuration (Phase 3)
+4. `costguard-resource-inventory` - Resource inventory (Phase 3)
+5. `costguard-prevention-audit` - Action audit log (Phase 3)
+6. `costguard-approval-requests` - Approval tracking (Phase 3)
 
 ### Lambda Function
-- **Name**: costguard-cost-data-handler
+- **Name**: CostGuardLambda
 - **Runtime**: Python 3.11
-- **Memory**: 256 MB
-- **Timeout**: 30 seconds
-- **Handler**: lambda_handler.handler
-- **Environment Variables**:
-  - DYNAMODB_TABLE_NAME: costguard-cost-data
-  - AWS_REGION: us-east-1 (or configured region)
-  - PRICING_CACHE_TTL_HOURS: 24 (Phase 1.5)
-  - METRICS_COLLECTION_PERIOD: 300 (Phase 1.5 - 5 minutes in seconds)
-  - ESTIMATION_CONFIDENCE_LEVEL: 0.95 (Phase 1.5 - 95% confidence interval)
+- **Timeout**: 15 minutes
+- **Memory**: 512 MB
+- **Handler**: src.lambda_handler.handler
 
-### API Gateway
-- **Name**: costguard-cost-data-api
-- **Stage**: prod
-- **Endpoints**:
-  - Phase 1:
-    - POST /api/cost-data/fetch - Fetch and store cost data
-    - GET /api/cost-data - Query stored cost data
-  - Phase 1.5:
-    - GET /api/cost-estimation/current - Estimate current costs for all services
-    - GET /api/cost-estimation/service/{service} - Estimate costs for specific service
-- **Authentication**: API Key required
-- **Throttling**: 10 requests/second, 20 burst
+### API Gateway Endpoints
+- **Phase 1**: `/api/fetch`, `/api/cost-data`
+- **Phase 1.5**: `/api/cost-estimation/current`, `/api/cost-estimation/service/{service}`
+- **Phase 2**: `/api/cost-forecast`, `/api/cost-forecast/service/{service}`
+- **Phase 3**: `/api/prevention/*` (6 endpoints)
 
-### IAM Permissions
-- Cost Explorer: ce:GetCostAndUsage, ce:GetDimensionValues
-- CloudWatch Metrics: cloudwatch:GetMetricStatistics, cloudwatch:ListMetrics (Phase 1.5)
-- Pricing API: pricing:GetProducts (Phase 1.5)
-- DynamoDB: PutItem, GetItem, Query, BatchWriteItem
-- CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
+### SNS Topics (3)
+1. `costguard-prevention-warnings` - Budget threshold warnings
+2. `costguard-prevention-actions` - Prevention action notifications
+3. `costguard-prevention-errors` - Error notifications
+
+### EventBridge Schedule
+- **Rule**: costguard-budget-monitor
+- **Schedule**: Every 5 minutes
+- **Target**: CostGuardLambda
+
+## Safety Configuration
+
+The infrastructure is deployed with safety-first defaults:
+
+- `PREVENTION_ENABLED=false` - Prevention system disabled by default
+- `DRY_RUN_MODE=true` - Actions are logged but not executed
+- `APPROVAL_REQUIRED=true` - All actions require approval
+
+### Enabling Prevention System
+
+1. Monitor dry run reports for 24-48 hours
+2. Validate safety mechanisms are working
+3. Update Lambda environment variables:
+```bash
+aws lambda update-function-configuration \
+  --function-name CostGuardLambda \
+  --environment Variables={PREVENTION_ENABLED=true,DRY_RUN_MODE=false}
+```
+
+## Free Tier Compliance
+
+All infrastructure stays within AWS Free Tier limits:
+
+- **DynamoDB**: 6 tables with PAY_PER_REQUEST billing (within 25 GB free tier)
+- **Lambda**: ~8,640 invocations/month (within 1M free tier)
+- **API Gateway**: Estimated usage within 1M requests/month
+- **SNS**: ~348 messages/month (within 1M publishes/month)
+- **EventBridge**: Rules are free, invocations count toward Lambda free tier
+- **CloudWatch**: Logs within free tier limits
+
+## Monitoring
+
+After deployment, monitor:
+
+1. **CloudWatch Logs**: `/aws/lambda/CostGuardLambda`
+2. **DynamoDB Metrics**: Table read/write capacity
+3. **Lambda Metrics**: Invocations, errors, duration
+4. **API Gateway Metrics**: Request count, latency, errors
+5. **SNS Metrics**: Messages published, delivery success
 
 ## Cleanup
 
-To delete all infrastructure:
+To remove all infrastructure:
+
 ```bash
 cdk destroy
 ```
 
-Note: The DynamoDB table has a RETAIN removal policy, so it will not be deleted automatically. Delete it manually if needed.
+Or manually delete resources in reverse order:
+1. EventBridge rule
+2. API Gateway
+3. Lambda function
+4. SNS topics
+5. DynamoDB tables
+6. IAM roles
 
-## Cost Considerations
+## Notes
 
-This infrastructure is designed to stay within AWS Free Tier limits:
-- DynamoDB: On-demand billing (25 GB storage, 25 WCU, 25 RCU free)
-- Lambda: 1M requests and 400,000 GB-seconds free per month
-- API Gateway: 1M API calls free for 12 months
-- CloudWatch Logs: 5 GB ingestion, 5 GB storage free
-- CloudWatch Metrics: 1M API requests free per month (Phase 1.5)
-- Pricing API: ~$0.01/month with caching (Phase 1.5)
-
-Monitor your usage to avoid unexpected charges.
+- All resources are tagged with `Project: CostGuard` and `Phase: X`
+- DynamoDB tables use `RETAIN` removal policy to prevent accidental data loss
+- Lambda has CloudWatch Logs retention set to 1 week
+- API Gateway has CORS enabled for all origins (restrict in production)
+- Resource management actions include conditions to protect production resources

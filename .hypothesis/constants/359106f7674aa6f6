@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\prevention_engine.py
+# hypothesis_version: 6.151.9
+
+[100, '.', 'BOOL', 'Item', 'L', 'M', 'N', 'NULL', 'Rollback failed', 'S', 'action', 'action_id', 'actions_taken', 'alb', 'api_gateway', 'approval_required', 'budget_events', 'budget_thresholds', 'cloudfront', 'config', 'config_key', 'config_value', 'cycle_start', 'delete', 'disabled', 'dry_run_mode', 'dynamodb', 'ebs', 'ec2', 'ecs', 'eks', 'elastic_ip', 'elasticache', 'elb', 'enabled', 'enabled_services', 'error', 'glue', 'lambda', 'last_run', 'limit_concurrency', 'main', 'nat_gateway', 'nlb', 'prevention-config', 'rds', 'reason', 'redshift', 'resource_id', 'resource_type', 'restored_state', 'running', 's3', 'sagemaker', 'service', 'skipped', 'snapshot_and_delete', 'sns', 'sqs', 'state', 'step_functions', 'stop', 'success', 'switch_to_ondemand', 'threshold_event', 'timestamp', 'updated_at', 'us-east-1', 'warning', 'workflow_start']

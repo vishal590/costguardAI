@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\rollback_manager.py
+# hypothesis_version: 6.151.9
+
+['BOOL', 'Item', 'N', 'S', 'action', 'action_id', 'details', 'ec2', 'event_type', 'lambda', 'limit_concurrency', 'pre_action_state', 'prevention-audit', 'rds', 'region', 'resource_id', 'resource_type', 'rollback', 'service', 'state', 'stop', 'success', 'tags', 'timestamp', 'ttl', 'unknown']

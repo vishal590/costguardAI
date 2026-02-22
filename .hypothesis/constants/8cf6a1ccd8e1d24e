@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\resource_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, 'Active', 'DBInstanceIdentifier', 'DBInstanceStatus', 'DBInstances', 'FunctionArn', 'Functions', 'InstanceCreateTime', 'InstanceId', 'Instances', 'Key', 'LastModified', 'LaunchTime', 'M', 'Name', 'Reservations', 'S', 'State', 'TagList', 'Tags', 'Value', 'apigateway', 'cloudfront', 'creation_date', 'db_instance', 'dynamodb', 'ebs', 'ec2', 'ecs', 'eks', 'elastic_ip', 'elasticache', 'elb', 'function', 'glue', 'instance', 'lambda', 'nat_gateway', 'rds', 'redshift', 'region', 'resource-inventory', 'resource_id', 'resource_type', 's3', 'sagemaker', 'service', 'sns', 'sqs', 'state', 'stepfunctions', 'tags', 'timestamp']

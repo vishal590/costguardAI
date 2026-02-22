@@ -2385,3 +2385,590 @@ aws cloudwatch get-metric-statistics \
 - [AWS Cost Explorer API Documentation](https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_GetCostAndUsage.html)
 - [DynamoDB Query Documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html)
 - [API Gateway Authentication](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-key-source.html)
+
+
+---
+
+## Phase 3: Automated Cost Prevention
+
+Phase 3 adds automated cost prevention capabilities with budget monitoring, idle resource detection, and automated actions with safety guards.
+
+### GET /api/prevention/status Examples
+
+#### Example 1: Get Prevention System Status
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/status"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "status": {
+    "enabled": false,
+    "dry_run_mode": true,
+    "approval_required": true,
+    "last_budget_check": "2025-01-15T10:00:00Z",
+    "budgets_monitored": 2,
+    "resources_discovered": 45,
+    "actions_executed_today": 0,
+    "actions_pending_approval": 0
+  }
+}
+```
+
+### POST /api/prevention/enable Examples
+
+#### Example 1: Enable Prevention System
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/enable"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Prevention system enabled",
+  "status": {
+    "enabled": true,
+    "dry_run_mode": true,
+    "approval_required": true
+  }
+}
+```
+
+### POST /api/prevention/disable Examples
+
+#### Example 1: Disable Prevention System
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/disable"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Prevention system disabled",
+  "status": {
+    "enabled": false,
+    "dry_run_mode": true,
+    "approval_required": true
+  }
+}
+```
+
+### GET /api/prevention/resources Examples
+
+#### Example 1: Get All Resources
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/resources"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "resources": [
+    {
+      "resource_id": "i-1234567890abcdef0",
+      "resource_type": "instance",
+      "service": "ec2",
+      "region": "us-east-1",
+      "state": "running",
+      "tags": {
+        "Name": "dev-server",
+        "Environment": "development"
+      },
+      "creation_date": "2025-01-01T00:00:00Z",
+      "idle_status": {
+        "is_idle": true,
+        "idle_duration_hours": 48,
+        "reason": "CPU utilization < 5% for 2 hours"
+      },
+      "estimated_monthly_cost": 73.00
+    },
+    {
+      "resource_id": "vol-0123456789abcdef0",
+      "resource_type": "volume",
+      "service": "ebs",
+      "region": "us-east-1",
+      "state": "available",
+      "tags": {},
+      "creation_date": "2024-12-15T00:00:00Z",
+      "idle_status": {
+        "is_idle": true,
+        "idle_duration_hours": 168,
+        "reason": "Unattached for 7 days"
+      },
+      "estimated_monthly_cost": 8.00
+    }
+  ],
+  "count": 2
+}
+```
+
+#### Example 2: Filter Resources by Service
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/resources?service=ec2&limit=10"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "resources": [
+    {
+      "resource_id": "i-1234567890abcdef0",
+      "resource_type": "instance",
+      "service": "ec2",
+      "region": "us-east-1",
+      "state": "running",
+      "tags": {
+        "Name": "dev-server"
+      },
+      "creation_date": "2025-01-01T00:00:00Z",
+      "idle_status": {
+        "is_idle": true,
+        "idle_duration_hours": 48
+      },
+      "estimated_monthly_cost": 73.00
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Example 3: Filter Resources by State
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/resources?state=stopped"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "resources": [
+    {
+      "resource_id": "i-0987654321fedcba0",
+      "resource_type": "instance",
+      "service": "ec2",
+      "region": "us-east-1",
+      "state": "stopped",
+      "tags": {
+        "Name": "test-server"
+      },
+      "creation_date": "2024-11-01T00:00:00Z",
+      "idle_status": {
+        "is_idle": true,
+        "idle_duration_hours": 720
+      },
+      "estimated_monthly_cost": 0.00
+    }
+  ],
+  "count": 1
+}
+```
+
+### POST /api/prevention/rollback Examples
+
+#### Example 1: Rollback a Prevention Action
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action_id": "action-20250115-123456-abc123"
+  }' \
+  "$API_ENDPOINT/api/prevention/rollback"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "action_id": "action-20250115-123456-abc123",
+  "resource_id": "i-1234567890abcdef0",
+  "service": "ec2",
+  "action_type": "stop_instance",
+  "rollback_action": "start_instance",
+  "message": "Rollback successful - instance restarted",
+  "timestamp": "2025-01-15T14:30:00Z"
+}
+```
+
+#### Example 2: Rollback Failed - Action Not Found
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action_id": "action-invalid"
+  }' \
+  "$API_ENDPOINT/api/prevention/rollback"
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ACTION_NOT_FOUND",
+    "message": "Action not found or rollback window expired (24 hours)"
+  }
+}
+```
+
+#### Example 3: Rollback Failed - Missing Action ID
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}' \
+  "$API_ENDPOINT/api/prevention/rollback"
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "MISSING_PARAMETER",
+    "message": "Missing required parameter: action_id"
+  }
+}
+```
+
+### GET /api/prevention/history Examples
+
+#### Example 1: Get Recent Action History
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/history?limit=5"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "history": [
+    {
+      "action_id": "action-20250115-123456-abc123",
+      "timestamp": "2025-01-15T12:00:00Z",
+      "resource_id": "i-1234567890abcdef0",
+      "service": "ec2",
+      "action_type": "stop_instance",
+      "reason": "Idle for 48 hours (CPU < 5%)",
+      "status": "completed",
+      "estimated_savings": 73.00,
+      "dry_run": false,
+      "approval_required": true,
+      "approved_by": "admin@example.com",
+      "approved_at": "2025-01-15T11:55:00Z"
+    },
+    {
+      "action_id": "action-20250115-100000-def456",
+      "timestamp": "2025-01-15T10:00:00Z",
+      "resource_id": "vol-0123456789abcdef0",
+      "service": "ebs",
+      "action_type": "snapshot_and_delete",
+      "reason": "Unattached for 7 days",
+      "status": "completed",
+      "estimated_savings": 8.00,
+      "dry_run": false,
+      "approval_required": true,
+      "approved_by": "admin@example.com",
+      "approved_at": "2025-01-15T09:58:00Z",
+      "snapshot_id": "snap-0123456789abcdef0"
+    }
+  ],
+  "count": 2
+}
+```
+
+#### Example 2: Get History with Date Range
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/prevention/history?start_date=2025-01-01&end_date=2025-01-31&limit=100"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "history": [
+    {
+      "action_id": "action-20250115-123456-abc123",
+      "timestamp": "2025-01-15T12:00:00Z",
+      "resource_id": "i-1234567890abcdef0",
+      "service": "ec2",
+      "action_type": "stop_instance",
+      "reason": "Idle for 48 hours",
+      "status": "completed",
+      "estimated_savings": 73.00
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+## Phase 3 Python Examples
+
+### Example 1: Check Prevention Status
+
+```python
+import requests
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key-here"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+response = requests.get(f"{API_ENDPOINT}/api/prevention/status", headers=headers)
+data = response.json()
+
+if data["success"]:
+    status = data["status"]
+    print(f"Prevention Enabled: {status['enabled']}")
+    print(f"Dry Run Mode: {status['dry_run_mode']}")
+    print(f"Resources Discovered: {status['resources_discovered']}")
+    print(f"Actions Today: {status['actions_executed_today']}")
+else:
+    print(f"Error: {data['error']['message']}")
+```
+
+### Example 2: Get Idle Resources
+
+```python
+import requests
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key-here"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+# Get all EC2 instances
+response = requests.get(
+    f"{API_ENDPOINT}/api/prevention/resources",
+    headers=headers,
+    params={"service": "ec2", "limit": 50}
+)
+
+data = response.json()
+
+if data["success"]:
+    idle_resources = [r for r in data["resources"] if r["idle_status"]["is_idle"]]
+    
+    print(f"Found {len(idle_resources)} idle EC2 instances:")
+    for resource in idle_resources:
+        print(f"  - {resource['resource_id']}: {resource['idle_status']['reason']}")
+        print(f"    Estimated savings: ${resource['estimated_monthly_cost']:.2f}/month")
+else:
+    print(f"Error: {data['error']['message']}")
+```
+
+### Example 3: Rollback an Action
+
+```python
+import requests
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key-here"
+
+headers = {
+    "x-api-key": API_KEY,
+    "Content-Type": "application/json"
+}
+
+action_id = "action-20250115-123456-abc123"
+
+response = requests.post(
+    f"{API_ENDPOINT}/api/prevention/rollback",
+    headers=headers,
+    json={"action_id": action_id}
+)
+
+data = response.json()
+
+if data["success"]:
+    print(f"Rollback successful!")
+    print(f"Resource: {data['resource_id']}")
+    print(f"Action: {data['rollback_action']}")
+    print(f"Message: {data['message']}")
+else:
+    print(f"Rollback failed: {data['error']['message']}")
+```
+
+### Example 4: Monitor Prevention History
+
+```python
+import requests
+from datetime import datetime, timedelta
+
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key-here"
+
+headers = {
+    "x-api-key": API_KEY
+}
+
+# Get last 7 days of history
+end_date = datetime.now().strftime("%Y-%m-%d")
+start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+
+response = requests.get(
+    f"{API_ENDPOINT}/api/prevention/history",
+    headers=headers,
+    params={
+        "start_date": start_date,
+        "end_date": end_date,
+        "limit": 100
+    }
+)
+
+data = response.json()
+
+if data["success"]:
+    history = data["history"]
+    total_savings = sum(action["estimated_savings"] for action in history)
+    
+    print(f"Prevention actions in last 7 days: {len(history)}")
+    print(f"Total estimated savings: ${total_savings:.2f}/month")
+    
+    # Group by service
+    by_service = {}
+    for action in history:
+        service = action["service"]
+        by_service[service] = by_service.get(service, 0) + 1
+    
+    print("\nActions by service:")
+    for service, count in by_service.items():
+        print(f"  {service}: {count} actions")
+else:
+    print(f"Error: {data['error']['message']}")
+```
+
+---
+
+## Phase 3 Configuration Examples
+
+### Safety Configuration
+
+The prevention system includes multiple safety mechanisms:
+
+1. **Dry Run Mode** (default: enabled)
+   - Actions are logged but not executed
+   - Monitor dry run reports for 24-48 hours before disabling
+
+2. **Approval Required** (default: enabled)
+   - All actions require approval via SNS notification
+   - 30-minute timeout for approval
+   - Gradually disable after confidence is built
+
+3. **Tag-Based Protection**
+   - Resources with `Environment=production` are protected
+   - Resources with `CostGuard=protected` are protected
+   - Resources with `CostGuard=exclude` are excluded
+
+4. **Whitelist**
+   - Specific resource IDs can be whitelisted
+   - Whitelisted resources are never modified
+
+5. **Active Usage Checks**
+   - Resources with active connections are protected
+   - Resources with recent traffic are protected
+
+6. **Minimum Idle Duration**
+   - Resources must be idle for minimum duration before action
+   - EC2: 2 hours, RDS: 1 hour, Lambda: 24 hours, EBS: 7 days
+
+### Supported Services
+
+Phase 3 supports idle detection and automated actions for 20+ AWS services:
+
+- **Compute:** EC2, Lambda, ECS, EKS
+- **Database:** RDS, DynamoDB, ElastiCache, Redshift
+- **Storage:** EBS, S3
+- **Networking:** NAT Gateway, Load Balancers
+- **Messaging:** SNS, SQS
+- **Analytics:** Kinesis, Elasticsearch
+- **CDN:** CloudFront
+- **API:** API Gateway
+
+### Automated Actions
+
+- **EC2:** Stop idle instances
+- **RDS:** Stop idle databases
+- **Lambda:** Limit concurrency to 0
+- **EBS:** Snapshot and delete unattached volumes
+- **DynamoDB:** Switch to on-demand billing
+- **NAT Gateway:** Delete unused gateways
+
+All actions are reversible within 24 hours via the rollback endpoint.
+
+---
+
+## Error Handling
+
+Phase 3 includes comprehensive error handling:
+
+### Common Error Codes
+
+- `INVALID_REQUEST` - Invalid request format or parameters
+- `MISSING_PARAMETER` - Required parameter missing
+- `ACTION_NOT_FOUND` - Action ID not found or expired
+- `PREVENTION_DISABLED` - Prevention system is disabled
+- `INSUFFICIENT_PERMISSIONS` - IAM permissions insufficient
+- `RESOURCE_PROTECTED` - Resource is protected by safety guards
+- `APPROVAL_TIMEOUT` - Approval request timed out
+- `ROLLBACK_EXPIRED` - Rollback window (24 hours) expired
+
+### Error Response Format
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": {
+      "additional": "context"
+    }
+  }
+}
+```

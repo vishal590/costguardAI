@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\action_executor.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 'NatGateways', 'PAY_PER_REQUEST', 'dynamodb', 'ebs', 'ec2', 'lambda', 'nat_gateway', 'rds', 'resource_id', 'service', 'state', 'timestamp']

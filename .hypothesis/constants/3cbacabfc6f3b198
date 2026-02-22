@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\budget_monitor.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.8, 0.9, 100.0, 1000.0, 100, 'Account', 'ActualSpend', 'Amount', 'BudgetLimit', 'BudgetName', 'Budgets', 'CalculatedSpend', 'ForecastedSpend', 'Polling AWS Budgets', 'TimePeriod', 'USD', 'Unit', 'action', 'current', 'fallback-budget', 'sts', 'warning']

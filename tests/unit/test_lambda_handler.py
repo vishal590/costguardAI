@@ -1,63 +1,597 @@
 """
 Unit tests for Lambda handler.
 
-Tests specific examples and edge cases for Lambda handler integration.
+Tests routing to Phase 3 endpoints, backward compatibility with Phase 1/1.5/2,
+and error handling.
 """
+
 import pytest
-import json
-from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
+import json
 
 from src.lambda_handler import (
     handler,
-    handle_fetch,
-    handle_query,
-    handle_estimation_current,
-    handle_estimation_service,
-    create_error_response
+    handle_prevention_status,
+    handle_prevention_enable,
+    handle_prevention_disable,
+    handle_prevention_resources,
+    handle_prevention_rollback,
+    handle_prevention_history,
+    _get_prevention_engine
 )
 
 
-class TestHandlerRouting:
-    """Test main handler routing logic."""
+class TestPhase3Routing:
+    """Test routing to Phase 3 endpoints."""
     
-    def test_handler_routes_to_fetch(self):
-        """Test handler routes POST /fetch to handle_fetch."""
-        with patch('src.lambda_handler.handle_fetch') as mock_fetch:
-            mock_fetch.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'POST',
-                'path': '/api/cost-data/fetch',
-                'body': '{}'
-            }
+    def test_route_to_prevention_status(self):
+        """Test routing to prevention status endpoint."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/status'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_status.return_value = {'enabled': False}
+            mock_engine.return_value = mock_engine_instance
             
             response = handler(event, None)
             
-            assert mock_fetch.called
             assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'status' in body
     
-    def test_handler_routes_to_query(self):
-        """Test handler routes GET /cost-data to handle_query."""
-        with patch('src.lambda_handler.handle_query') as mock_query:
-            mock_query.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-data',
-                'queryStringParameters': {}
-            }
+    def test_route_to_prevention_enable(self):
+        """Test routing to prevention enable endpoint."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/enable'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.enable.return_value = None
+            mock_engine_instance.get_status.return_value = {'enabled': True}
+            mock_engine.return_value = mock_engine_instance
             
             response = handler(event, None)
             
-            assert mock_query.called
             assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['message'] == 'Prevention system enabled'
     
-    def test_handler_returns_400_for_unsupported_method(self):
-        """Test handler returns 400 for unsupported HTTP method."""
+    def test_route_to_prevention_disable(self):
+        """Test routing to prevention disable endpoint."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/disable'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.disable.return_value = None
+            mock_engine_instance.get_status.return_value = {'enabled': False}
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['message'] == 'Prevention system disabled'
+    
+    def test_route_to_prevention_resources(self):
+        """Test routing to prevention resources endpoint."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/resources',
+            'queryStringParameters': {'service': 'ec2'}
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_resources.return_value = []
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'resources' in body
+            assert 'count' in body
+    
+    def test_route_to_prevention_rollback(self):
+        """Test routing to prevention rollback endpoint."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/rollback',
+            'body': json.dumps({'action_id': 'action-123'})
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.execute_rollback.return_value = {
+                'success': True,
+                'action_id': 'action-123',
+                'resource_id': 'i-123'
+            }
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['action_id'] == 'action-123'
+    
+    def test_route_to_prevention_history(self):
+        """Test routing to prevention history endpoint."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/history',
+            'queryStringParameters': {'limit': '50'}
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'history' in body
+
+
+class TestPhase1Compatibility:
+    """Test Phase 1 endpoints still work."""
+    
+    def test_phase1_fetch_endpoint_works(self):
+        """Test Phase 1 /fetch endpoint still works."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/fetch',
+            'body': json.dumps({
+                'startDate': '2024-01-01',
+                'endDate': '2024-01-31',
+                'granularity': 'DAILY'
+            })
+        }
+        
+        with patch('src.lambda_handler.fetch_cost_data') as mock_fetch, \
+             patch('src.lambda_handler.store_cost_data') as mock_store:
+            
+            mock_fetch.return_value = []
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'data' in body
+    
+    def test_phase1_query_endpoint_works(self):
+        """Test Phase 1 /cost-data endpoint still works."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/cost-data',
+            'queryStringParameters': {'limit': '100'}
+        }
+        
+        with patch('src.lambda_handler.query_cost_data') as mock_query:
+            mock_query.return_value = []
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'data' in body
+            assert 'count' in body
+
+
+class TestPhase15Compatibility:
+    """Test Phase 1.5 endpoints still work."""
+    
+    def test_phase15_estimation_current_works(self):
+        """Test Phase 1.5 /cost-estimation/current endpoint still works."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/cost-estimation/current',
+            'queryStringParameters': {'hours': '1'}
+        }
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector, \
+             patch('src.lambda_handler.PricingManager') as mock_pricing, \
+             patch('src.lambda_handler.CostEstimator') as mock_estimator:
+            
+            mock_collector_instance = Mock()
+            mock_collector_instance.collect_metrics.return_value = {}
+            mock_collector.return_value = mock_collector_instance
+            
+            mock_pricing.return_value = Mock()
+            mock_estimator.return_value = Mock()
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'estimates' in body
+    
+    def test_phase15_estimation_service_works(self):
+        """Test Phase 1.5 /cost-estimation/service/{service} endpoint still works."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/cost-estimation/service/ec2',
+            'queryStringParameters': {'hours': '1'}
+        }
+        
+        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector, \
+             patch('src.lambda_handler.PricingManager') as mock_pricing, \
+             patch('src.lambda_handler.CostEstimator') as mock_estimator:
+            
+            mock_collector_instance = Mock()
+            mock_collector_instance.collect_metrics.return_value = {'ec2': []}
+            mock_collector.return_value = mock_collector_instance
+            
+            mock_pricing.return_value = Mock()
+            mock_estimator.return_value = Mock()
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+
+
+class TestPhase2Compatibility:
+    """Test Phase 2 endpoints still work."""
+    
+    def test_phase2_forecast_endpoint_works(self):
+        """Test Phase 2 /cost-forecast endpoint still works."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/cost-forecast',
+            'queryStringParameters': {'days': '7', 'granularity': 'daily'}
+        }
+        
+        with patch('src.lambda_handler.get_dynamodb_client'), \
+             patch('src.lambda_handler.BedrockClient'), \
+             patch('src.lambda_handler.HistoricalDataRetriever'), \
+             patch('src.lambda_handler.ForecastCacheManager'), \
+             patch('src.lambda_handler.ForecastEngine') as mock_engine:
+            
+            mock_engine_instance = Mock()
+            mock_forecast_response = Mock()
+            mock_forecast_response.success = True
+            mock_forecast_response.forecast_data = []
+            mock_forecast_response.metadata = Mock(
+                timestamp='2024-01-01T00:00:00Z',
+                forecast_horizon=7,
+                granularity='daily',
+                model_used='test',
+                service=None,
+                services_included=[],
+                cache_hit=False,
+                historical_data_days=90
+            )
+            mock_engine_instance.generate_forecast.return_value = mock_forecast_response
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'forecast_data' in body
+    
+    def test_phase2_forecast_service_endpoint_works(self):
+        """Test Phase 2 /cost-forecast/service/{service} endpoint still works."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/cost-forecast/service/lambda',
+            'queryStringParameters': {'days': '7', 'granularity': 'daily'}
+        }
+        
+        with patch('src.lambda_handler.get_dynamodb_client'), \
+             patch('src.lambda_handler.BedrockClient'), \
+             patch('src.lambda_handler.HistoricalDataRetriever'), \
+             patch('src.lambda_handler.ForecastCacheManager'), \
+             patch('src.lambda_handler.ForecastEngine') as mock_engine:
+            
+            mock_engine_instance = Mock()
+            mock_forecast_response = Mock()
+            mock_forecast_response.success = True
+            mock_forecast_response.forecast_data = []
+            mock_forecast_response.metadata = Mock(
+                timestamp='2024-01-01T00:00:00Z',
+                forecast_horizon=7,
+                granularity='daily',
+                model_used='test',
+                service='lambda',
+                services_included=['lambda'],
+                cache_hit=False,
+                historical_data_days=90
+            )
+            mock_engine_instance.generate_forecast.return_value = mock_forecast_response
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['metadata']['service'] == 'lambda'
+
+
+class TestPreventionStatusEndpoint:
+    """Test prevention status endpoint."""
+    
+    def test_get_status_success(self):
+        """Test getting prevention status successfully."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/status'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_status.return_value = {
+                'enabled': True,
+                'dry_run_mode': False,
+                'approval_required': False
+            }
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_status(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['status']['enabled'] is True
+    
+    def test_get_status_error_handling(self):
+        """Test error handling in status endpoint."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/status'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine.side_effect = Exception("Test error")
+            
+            response = handle_prevention_status(event)
+            
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert body['success'] is False
+
+
+class TestPreventionEnableDisable:
+    """Test prevention enable/disable endpoints."""
+    
+    def test_enable_prevention(self):
+        """Test enabling prevention system."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/enable'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_status.return_value = {'enabled': True}
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_enable(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'enabled' in body['message'].lower()
+            mock_engine_instance.enable.assert_called_once()
+    
+    def test_disable_prevention(self):
+        """Test disabling prevention system."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/disable'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_status.return_value = {'enabled': False}
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_disable(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'disabled' in body['message'].lower()
+            mock_engine_instance.disable.assert_called_once()
+
+
+class TestPreventionResourcesEndpoint:
+    """Test prevention resources endpoint."""
+    
+    def test_get_resources_without_filters(self):
+        """Test getting all resources without filters."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/resources',
+            'queryStringParameters': None
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            from src.utils.types import Resource
+            
+            mock_resource = Resource(
+                resource_id='i-123',
+                resource_type='ec2',
+                service='ec2',
+                region='us-east-1',
+                tags={},
+                state='running',
+                creation_date='2024-01-01T00:00:00Z'
+            )
+            
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_resources.return_value = [mock_resource]
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_resources(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['count'] == 1
+            assert body['resources'][0]['resource_id'] == 'i-123'
+    
+    def test_get_resources_with_service_filter(self):
+        """Test getting resources filtered by service."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/resources',
+            'queryStringParameters': {'service': 'ec2'}
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.get_resources.return_value = []
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_resources(event)
+            
+            assert response['statusCode'] == 200
+            mock_engine_instance.get_resources.assert_called_once()
+            call_args = mock_engine_instance.get_resources.call_args
+            assert call_args[1]['filters']['service'] == 'ec2'
+
+
+class TestPreventionRollbackEndpoint:
+    """Test prevention rollback endpoint."""
+    
+    def test_rollback_success(self):
+        """Test successful rollback."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/rollback',
+            'body': json.dumps({'action_id': 'action-123'})
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.execute_rollback.return_value = {
+                'success': True,
+                'action_id': 'action-123',
+                'resource_id': 'i-123',
+                'message': 'Rollback successful'
+            }
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_rollback(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert body['action_id'] == 'action-123'
+    
+    def test_rollback_missing_action_id(self):
+        """Test rollback with missing action_id."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/rollback',
+            'body': json.dumps({})
+        }
+        
+        response = handle_prevention_rollback(event)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert 'action_id' in body['error']['message'].lower()
+    
+    def test_rollback_failure(self):
+        """Test failed rollback."""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/prevention/rollback',
+            'body': json.dumps({'action_id': 'action-123'})
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine_instance = Mock()
+            mock_engine_instance.execute_rollback.return_value = {
+                'success': False,
+                'action_id': 'action-123',
+                'error': 'Action not found'
+            }
+            mock_engine.return_value = mock_engine_instance
+            
+            response = handle_prevention_rollback(event)
+            
+            assert response['statusCode'] == 400
+            body = json.loads(response['body'])
+            assert body['success'] is False
+
+
+class TestPreventionHistoryEndpoint:
+    """Test prevention history endpoint."""
+    
+    def test_get_history_with_defaults(self):
+        """Test getting history with default parameters."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/history',
+            'queryStringParameters': None
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine.return_value = Mock()
+            
+            response = handle_prevention_history(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+            assert 'history' in body
+    
+    def test_get_history_with_filters(self):
+        """Test getting history with date filters."""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/prevention/history',
+            'queryStringParameters': {
+                'start_date': '2024-01-01',
+                'end_date': '2024-01-31',
+                'limit': '50'
+            }
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine.return_value = Mock()
+            
+            response = handle_prevention_history(event)
+            
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['success'] is True
+
+
+class TestErrorHandling:
+    """Test error handling across all endpoints."""
+    
+    def test_unsupported_method_and_path(self):
+        """Test handling of unsupported method/path combinations."""
         event = {
             'httpMethod': 'DELETE',
-            'path': '/api/cost-data'
+            'path': '/api/unknown'
         }
         
         response = handler(event, None)
@@ -65,695 +599,120 @@ class TestHandlerRouting:
         assert response['statusCode'] == 400
         body = json.loads(response['body'])
         assert body['success'] is False
-
-
-class TestHandleFetch:
-    """Test handle_fetch function."""
+        assert 'INVALID_REQUEST' in body['error']['code']
     
-    def test_fetch_with_valid_parameters(self):
-        """Test POST /fetch with valid parameters."""
-        mock_records = [
-            Mock(
-                date='2025-01-01',
-                service='Amazon EC2',
-                blended_cost=100.0,
-                unblended_cost=100.0,
-                currency='USD',
-                unit='USD'
-            )
-        ]
-        
-        with patch('src.lambda_handler.fetch_cost_data', return_value=mock_records):
-            with patch('src.lambda_handler.store_cost_data'):
-                event = {
-                    'httpMethod': 'POST',
-                    'path': '/api/cost-data/fetch',
-                    'body': json.dumps({
-                        'startDate': '2025-01-01',
-                        'endDate': '2025-01-31',
-                        'granularity': 'MONTHLY'
-                    })
-                }
-                
-                response = handle_fetch(event)
-                
-                assert response['statusCode'] == 200
-                body = json.loads(response['body'])
-                assert body['success'] is True
-                assert body['data']['recordsProcessed'] == 1
-                assert body['data']['totalCost'] == 100.0
-    
-    def test_fetch_with_no_parameters_uses_defaults(self):
-        """Test POST /fetch with no parameters uses defaults."""
-        with patch('src.lambda_handler.fetch_cost_data', return_value=[]):
-            with patch('src.lambda_handler.store_cost_data'):
-                with patch('src.lambda_handler.calculate_default_date_range', return_value=('2024-01-01', '2024-12-31')):
-                    event = {
-                        'httpMethod': 'POST',
-                        'path': '/api/cost-data/fetch',
-                        'body': '{}'
-                    }
-                    
-                    response = handle_fetch(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    assert body['data']['dateRange']['start'] == '2024-01-01'
-                    assert body['data']['dateRange']['end'] == '2024-12-31'
-    
-    def test_fetch_with_invalid_date_format(self):
-        """Test POST /fetch with invalid date format returns 400."""
+    def test_exception_handling(self):
+        """Test handling of unexpected exceptions."""
         event = {
-            'httpMethod': 'POST',
-            'path': '/api/cost-data/fetch',
-            'body': json.dumps({
-                'startDate': '01-01-2025',  # Invalid format
-                'endDate': '2025-01-31'
-            })
+            'httpMethod': 'GET',
+            'path': '/api/prevention/status'
         }
         
-        response = handle_fetch(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_DATE_FORMAT' in body['error']['code']
-    
-    def test_fetch_with_invalid_date_range(self):
-        """Test POST /fetch with invalid date range returns 400."""
-        event = {
-            'httpMethod': 'POST',
-            'path': '/api/cost-data/fetch',
-            'body': json.dumps({
-                'startDate': '2025-12-31',
-                'endDate': '2025-01-01'  # End before start
-            })
-        }
-        
-        response = handle_fetch(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_DATE_RANGE' in body['error']['code']
-    
-    def test_fetch_with_invalid_granularity(self):
-        """Test POST /fetch with invalid granularity returns 400."""
-        event = {
-            'httpMethod': 'POST',
-            'path': '/api/cost-data/fetch',
-            'body': json.dumps({
-                'startDate': '2025-01-01',
-                'endDate': '2025-01-31',
-                'granularity': 'WEEKLY'  # Invalid
-            })
-        }
-        
-        response = handle_fetch(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_GRANULARITY' in body['error']['code']
-    
-    def test_fetch_response_format_for_success(self):
-        """Test response format for successful fetch."""
-        mock_records = [
-            Mock(date='2025-01-01', service='EC2', blended_cost=50.0, unblended_cost=50.0, currency='USD', unit='USD'),
-            Mock(date='2025-01-01', service='S3', blended_cost=25.0, unblended_cost=25.0, currency='USD', unit='USD')
-        ]
-        
-        with patch('src.lambda_handler.fetch_cost_data', return_value=mock_records):
-            with patch('src.lambda_handler.store_cost_data'):
-                event = {
-                    'body': json.dumps({
-                        'startDate': '2025-01-01',
-                        'endDate': '2025-01-31'
-                    })
-                }
-                
-                response = handle_fetch(event)
-                
-                assert response['statusCode'] == 200
-                assert 'Content-Type' in response['headers']
-                body = json.loads(response['body'])
-                assert 'success' in body
-                assert 'message' in body
-                assert 'data' in body
-
-
-class TestHandleQuery:
-    """Test handle_query function."""
-    
-    def test_query_with_filters(self):
-        """Test GET /query with filters."""
-        mock_records = [
-            Mock(
-                date='2025-01-01',
-                service='Amazon EC2',
-                blended_cost=100.0,
-                unblended_cost=100.0,
-                currency='USD'
-            )
-        ]
-        
-        with patch('src.lambda_handler.query_cost_data', return_value=mock_records):
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-data',
-                'queryStringParameters': {
-                    'startDate': '2025-01-01',
-                    'endDate': '2025-01-31',
-                    'service': 'Amazon EC2',
-                    'limit': '10'
-                }
-            }
+        with patch('src.lambda_handler._get_prevention_engine') as mock_engine:
+            mock_engine.side_effect = Exception("Unexpected error")
             
-            response = handle_query(event)
+            response = handler(event, None)
+            
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert body['success'] is False
+
+
+class TestGetPreventionEngine:
+    """Test _get_prevention_engine helper function."""
+    
+    def test_creates_prevention_engine(self):
+        """Test that _get_prevention_engine creates a PreventionEngine instance."""
+        with patch('src.lambda_handler.BudgetMonitor'), \
+             patch('src.lambda_handler.ResourceManager'), \
+             patch('src.lambda_handler.IdleDetector'), \
+             patch('src.lambda_handler.SafetyGuard'), \
+             patch('src.lambda_handler.ActionExecutor'), \
+             patch('src.lambda_handler.ApprovalManager'), \
+             patch('src.lambda_handler.RollbackManager'), \
+             patch('src.lambda_handler.NotificationService'), \
+             patch('src.lambda_handler.PreventionEngine') as mock_engine:
+            
+            engine = _get_prevention_engine()
+            
+            # Verify PreventionEngine was instantiated
+            mock_engine.assert_called_once()
+            
+            # Verify all required components were passed
+            call_kwargs = mock_engine.call_args[1]
+            assert 'budget_monitor' in call_kwargs
+            assert 'resource_manager' in call_kwargs
+            assert 'idle_detector' in call_kwargs
+            assert 'safety_guard' in call_kwargs
+            assert 'action_executor' in call_kwargs
+            assert 'approval_manager' in call_kwargs
+            assert 'rollback_manager' in call_kwargs
+            assert 'notification_service' in call_kwargs
+
+
+class TestEventBridgeIntegration:
+    """Test EventBridge scheduled event handling."""
+    
+    def test_eventbridge_scheduled_event(self):
+        """Test handling EventBridge scheduled event"""
+        event = {
+            'source': 'aws.events',
+            'detail-type': 'Scheduled Event',
+            'time': '2024-01-15T10:00:00Z',
+            'resources': ['arn:aws:events:us-east-1:123456789012:rule/cost-prevention']
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_get_engine:
+            mock_engine = Mock()
+            mock_engine.monitor_budgets.return_value = {
+                'status': 'success',
+                'budgets_checked': 2
+            }
+            mock_get_engine.return_value = mock_engine
+            
+            response = handler(event, None)
             
             assert response['statusCode'] == 200
             body = json.loads(response['body'])
             assert body['success'] is True
-            assert body['count'] == 1
-            assert len(body['data']) == 1
+            assert 'result' in body
+            mock_engine.monitor_budgets.assert_called_once()
     
-    def test_query_with_no_filters_uses_defaults(self):
-        """Test GET /query with no filters uses defaults."""
-        with patch('src.lambda_handler.query_cost_data', return_value=[]):
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-data',
-                'queryStringParameters': None
+    def test_eventbridge_custom_event(self):
+        """Test handling custom budget monitoring event"""
+        event = {
+            'type': 'budget-monitoring',
+            'time': '2024-01-15T10:00:00Z'
+        }
+        
+        with patch('src.lambda_handler._get_prevention_engine') as mock_get_engine:
+            mock_engine = Mock()
+            mock_engine.monitor_budgets.return_value = {
+                'status': 'success'
             }
+            mock_get_engine.return_value = mock_engine
             
-            response = handle_query(event)
+            response = handler(event, None)
             
             assert response['statusCode'] == 200
             body = json.loads(response['body'])
             assert body['success'] is True
-            assert body['count'] == 0
     
-    def test_query_with_invalid_date_format(self):
-        """Test GET /query with invalid date format returns 400."""
+    def test_eventbridge_event_with_error(self):
+        """Test handling EventBridge event when engine raises error"""
         event = {
-            'queryStringParameters': {
-                'startDate': 'invalid-date'
-            }
+            'type': 'budget-monitoring',
+            'time': '2024-01-15T10:00:00Z'
         }
         
-        response = handle_query(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-    
-    def test_query_with_invalid_date_range(self):
-        """Test GET /query with invalid date range returns 400."""
-        event = {
-            'queryStringParameters': {
-                'startDate': '2025-12-31',
-                'endDate': '2025-01-01'
-            }
-        }
-        
-        response = handle_query(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-    
-    def test_query_response_format_for_success(self):
-        """Test response format for successful query."""
-        mock_records = [
-            Mock(date='2025-01-01', service='EC2', blended_cost=100.0, unblended_cost=100.0, currency='USD')
-        ]
-        
-        with patch('src.lambda_handler.query_cost_data', return_value=mock_records):
-            event = {
-                'queryStringParameters': {'startDate': '2025-01-01'}
-            }
+        with patch('src.lambda_handler._get_prevention_engine') as mock_get_engine:
+            mock_engine = Mock()
+            mock_engine.monitor_budgets.side_effect = Exception("Engine error")
+            mock_get_engine.return_value = mock_engine
             
-            response = handle_query(event)
+            response = handler(event, None)
             
-            assert response['statusCode'] == 200
+            assert response['statusCode'] == 500
             body = json.loads(response['body'])
-            assert 'success' in body
-            assert 'data' in body
-            assert 'count' in body
-            
-            # Verify record format
-            record = body['data'][0]
-            assert 'date' in record
-            assert 'service' in record
-            assert 'blendedCost' in record
-            assert 'unblendedCost' in record
-            assert 'currency' in record
-    
-    def test_query_response_format_for_error(self):
-        """Test response format for errors."""
-        event = {
-            'queryStringParameters': {
-                'limit': 'invalid'  # Should be integer
-            }
-        }
-        
-        response = handle_query(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'error' in body
-        assert 'code' in body['error']
-        assert 'message' in body['error']
+            assert body['success'] is False
 
-
-class TestCreateErrorResponse:
-    """Test create_error_response function."""
-    
-    def test_create_error_response_basic(self):
-        """Test creating basic error response."""
-        response = create_error_response(400, 'TEST_ERROR', 'Test message')
-        
-        assert response['statusCode'] == 400
-        assert 'Content-Type' in response['headers']
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert body['error']['code'] == 'TEST_ERROR'
-        assert body['error']['message'] == 'Test message'
-    
-    def test_create_error_response_with_details(self):
-        """Test creating error response with details."""
-        details = {'field': 'value', 'count': 123}
-        response = create_error_response(500, 'INTERNAL_ERROR', 'Error occurred', details)
-        
-        assert response['statusCode'] == 500
-        body = json.loads(response['body'])
-        assert body['error']['details'] == details
-    
-    def test_create_error_response_without_details(self):
-        """Test creating error response without details."""
-        response = create_error_response(404, 'NOT_FOUND', 'Resource not found')
-        
-        body = json.loads(response['body'])
-        assert 'details' not in body['error']
-
-
-
-class TestHandleEstimationCurrent:
-    """Test handle_estimation_current function."""
-    
-    def test_estimation_current_with_default_time_range(self):
-        """Test GET /cost-estimation/current with default time range (1 hour)."""
-        mock_metrics = {
-            'ec2': [Mock()],
-            'lambda': [Mock()]
-        }
-        mock_estimate = Mock(
-            service='ec2',
-            estimated_cost=50.0,
-            currency='USD',
-            confidence_lower=45.0,
-            confidence_upper=55.0,
-            timestamp=datetime(2025, 1, 1),
-            period_start=datetime(2025, 1, 1, 0, 0),
-            period_end=datetime(2025, 1, 1, 1, 0),
-            metrics_count=10
-        )
-        
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = mock_metrics
-                    
-                    mock_pricing = mock_pricing_class.return_value
-                    mock_pricing.get_pricing_data.return_value = Mock()
-                    
-                    mock_estimator = mock_estimator_class.return_value
-                    mock_estimator.estimate_cost.return_value = mock_estimate
-                    
-                    event = {
-                        'httpMethod': 'GET',
-                        'path': '/api/cost-estimation/current',
-                        'queryStringParameters': {}
-                    }
-                    
-                    response = handle_estimation_current(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    assert body['success'] is True
-                    assert 'estimates' in body
-                    assert 'totalCost' in body
-                    assert body['period'] == '1 hours'
-    
-    def test_estimation_current_with_custom_time_range(self):
-        """Test GET /cost-estimation/current with custom time range."""
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = {}
-                    
-                    event = {
-                        'queryStringParameters': {
-                            'hours': '24'
-                        }
-                    }
-                    
-                    response = handle_estimation_current(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    assert body['period'] == '24 hours'
-    
-    def test_estimation_current_with_invalid_hours(self):
-        """Test GET /cost-estimation/current with invalid hours parameter."""
-        event = {
-            'queryStringParameters': {
-                'hours': 'invalid'
-            }
-        }
-        
-        response = handle_estimation_current(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_PARAMETER' in body['error']['code']
-    
-    def test_estimation_current_with_out_of_range_hours(self):
-        """Test GET /cost-estimation/current with out of range hours."""
-        event = {
-            'queryStringParameters': {
-                'hours': '200'  # More than 168 (7 days)
-            }
-        }
-        
-        response = handle_estimation_current(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_TIME_RANGE' in body['error']['code']
-    
-    def test_estimation_current_response_format(self):
-        """Test response format for successful estimation."""
-        mock_estimate = Mock(
-            service='ec2',
-            estimated_cost=100.0,
-            currency='USD',
-            confidence_lower=90.0,
-            confidence_upper=110.0,
-            timestamp=datetime(2025, 1, 1, 12, 0),
-            period_start=datetime(2025, 1, 1, 11, 0),
-            period_end=datetime(2025, 1, 1, 12, 0),
-            metrics_count=20
-        )
-        
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = {'ec2': [Mock()]}
-                    
-                    mock_pricing = mock_pricing_class.return_value
-                    mock_pricing.get_pricing_data.return_value = Mock()
-                    
-                    mock_estimator = mock_estimator_class.return_value
-                    mock_estimator.estimate_cost.return_value = mock_estimate
-                    
-                    event = {
-                        'queryStringParameters': {}
-                    }
-                    
-                    response = handle_estimation_current(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    
-                    # Verify response structure
-                    assert 'success' in body
-                    assert 'estimates' in body
-                    assert 'totalCost' in body
-                    assert 'currency' in body
-                    assert 'timestamp' in body
-                    assert 'period' in body
-                    
-                    # Verify estimate structure
-                    estimate = body['estimates'][0]
-                    assert 'service' in estimate
-                    assert 'estimatedCost' in estimate
-                    assert 'currency' in estimate
-                    assert 'confidenceLower' in estimate
-                    assert 'confidenceUpper' in estimate
-                    assert 'timestamp' in estimate
-                    assert 'periodStart' in estimate
-                    assert 'periodEnd' in estimate
-                    assert 'metricsCount' in estimate
-
-
-class TestHandleEstimationService:
-    """Test handle_estimation_service function."""
-    
-    def test_estimation_service_with_valid_service(self):
-        """Test GET /cost-estimation/service/{service} with valid service."""
-        mock_estimate = Mock(
-            service='ec2',
-            estimated_cost=75.0,
-            currency='USD',
-            confidence_lower=70.0,
-            confidence_upper=80.0,
-            timestamp=datetime(2025, 1, 1),
-            period_start=datetime(2025, 1, 1, 0, 0),
-            period_end=datetime(2025, 1, 1, 1, 0),
-            metrics_count=15
-        )
-        
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = {'ec2': [Mock()]}
-                    
-                    mock_pricing = mock_pricing_class.return_value
-                    mock_pricing.get_pricing_data.return_value = Mock()
-                    
-                    mock_estimator = mock_estimator_class.return_value
-                    mock_estimator.estimate_cost.return_value = mock_estimate
-                    
-                    event = {
-                        'httpMethod': 'GET',
-                        'path': '/api/cost-estimation/service/ec2',
-                        'queryStringParameters': {}
-                    }
-                    
-                    response = handle_estimation_service(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    assert body['success'] is True
-                    assert body['service'] == 'ec2'
-                    assert body['estimatedCost'] == 75.0
-    
-    def test_estimation_service_with_no_metrics(self):
-        """Test GET /cost-estimation/service/{service} when no metrics found."""
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            mock_collector = mock_collector_class.return_value
-            mock_collector.collect_metrics.return_value = {'lambda': []}
-            
-            event = {
-                'path': '/api/cost-estimation/service/lambda',
-                'queryStringParameters': {}
-            }
-            
-            response = handle_estimation_service(event)
-            
-            assert response['statusCode'] == 200
-            body = json.loads(response['body'])
-            assert body['success'] is True
-            assert body['estimatedCost'] == 0.0
-            assert 'No metrics found' in body['message']
-    
-    def test_estimation_service_with_invalid_service(self):
-        """Test GET /cost-estimation/service/{service} with invalid service."""
-        event = {
-            'path': '/api/cost-estimation/service/invalid-service',
-            'queryStringParameters': {}
-        }
-        
-        response = handle_estimation_service(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'INVALID_SERVICE' in body['error']['code']
-    
-    def test_estimation_service_with_missing_service(self):
-        """Test GET /cost-estimation/service/ with missing service name."""
-        event = {
-            'path': '/api/cost-estimation/service/',
-            'queryStringParameters': {}
-        }
-        
-        response = handle_estimation_service(event)
-        
-        assert response['statusCode'] == 400
-        body = json.loads(response['body'])
-        assert body['success'] is False
-        assert 'MISSING_SERVICE' in body['error']['code']
-    
-    def test_estimation_service_with_custom_time_range(self):
-        """Test GET /cost-estimation/service/{service} with custom time range."""
-        mock_estimate = Mock(
-            service='s3',
-            estimated_cost=25.0,
-            currency='USD',
-            confidence_lower=22.0,
-            confidence_upper=28.0,
-            timestamp=datetime(2025, 1, 1),
-            period_start=datetime(2025, 1, 1, 0, 0),
-            period_end=datetime(2025, 1, 2, 0, 0),
-            metrics_count=50
-        )
-        
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = {'s3': [Mock()]}
-                    
-                    mock_pricing = mock_pricing_class.return_value
-                    mock_pricing.get_pricing_data.return_value = Mock()
-                    
-                    mock_estimator = mock_estimator_class.return_value
-                    mock_estimator.estimate_cost.return_value = mock_estimate
-                    
-                    event = {
-                        'path': '/api/cost-estimation/service/s3',
-                        'queryStringParameters': {
-                            'hours': '24'
-                        }
-                    }
-                    
-                    response = handle_estimation_service(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    assert body['success'] is True
-    
-    def test_estimation_service_response_format(self):
-        """Test response format for successful service estimation."""
-        mock_estimate = Mock(
-            service='dynamodb',
-            estimated_cost=30.0,
-            currency='USD',
-            confidence_lower=27.0,
-            confidence_upper=33.0,
-            timestamp=datetime(2025, 1, 1, 12, 0),
-            period_start=datetime(2025, 1, 1, 11, 0),
-            period_end=datetime(2025, 1, 1, 12, 0),
-            metrics_count=25
-        )
-        
-        with patch('src.lambda_handler.CloudWatchMetricsCollector') as mock_collector_class:
-            with patch('src.lambda_handler.PricingManager') as mock_pricing_class:
-                with patch('src.lambda_handler.CostEstimator') as mock_estimator_class:
-                    mock_collector = mock_collector_class.return_value
-                    mock_collector.collect_metrics.return_value = {'dynamodb': [Mock()]}
-                    
-                    mock_pricing = mock_pricing_class.return_value
-                    mock_pricing.get_pricing_data.return_value = Mock()
-                    
-                    mock_estimator = mock_estimator_class.return_value
-                    mock_estimator.estimate_cost.return_value = mock_estimate
-                    
-                    event = {
-                        'path': '/api/cost-estimation/service/dynamodb',
-                        'queryStringParameters': {}
-                    }
-                    
-                    response = handle_estimation_service(event)
-                    
-                    assert response['statusCode'] == 200
-                    body = json.loads(response['body'])
-                    
-                    # Verify response structure
-                    assert 'success' in body
-                    assert 'service' in body
-                    assert 'estimatedCost' in body
-                    assert 'currency' in body
-                    assert 'confidenceLower' in body
-                    assert 'confidenceUpper' in body
-                    assert 'timestamp' in body
-                    assert 'periodStart' in body
-                    assert 'periodEnd' in body
-                    assert 'metricsCount' in body
-
-
-class TestPhase1Compatibility:
-    """Test Phase 1 endpoints still work with Phase 1.5 changes."""
-    
-    def test_handler_still_routes_to_fetch(self):
-        """Test handler still routes POST /fetch correctly."""
-        with patch('src.lambda_handler.handle_fetch') as mock_fetch:
-            mock_fetch.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'POST',
-                'path': '/api/cost-data/fetch',
-                'body': '{}'
-            }
-            
-            response = handler(event, None)
-            
-            assert mock_fetch.called
-            assert response['statusCode'] == 200
-    
-    def test_handler_still_routes_to_query(self):
-        """Test handler still routes GET /cost-data correctly."""
-        with patch('src.lambda_handler.handle_query') as mock_query:
-            mock_query.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-data',
-                'queryStringParameters': {}
-            }
-            
-            response = handler(event, None)
-            
-            assert mock_query.called
-            assert response['statusCode'] == 200
-    
-    def test_handler_routes_to_estimation_current(self):
-        """Test handler routes GET /cost-estimation/current correctly."""
-        with patch('src.lambda_handler.handle_estimation_current') as mock_estimation:
-            mock_estimation.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-estimation/current',
-                'queryStringParameters': {}
-            }
-            
-            response = handler(event, None)
-            
-            assert mock_estimation.called
-            assert response['statusCode'] == 200
-    
-    def test_handler_routes_to_estimation_service(self):
-        """Test handler routes GET /cost-estimation/service/{service} correctly."""
-        with patch('src.lambda_handler.handle_estimation_service') as mock_estimation:
-            mock_estimation.return_value = {'statusCode': 200, 'body': '{}'}
-            
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/cost-estimation/service/ec2',
-                'queryStringParameters': {}
-            }
-            
-            response = handler(event, None)
-            
-            assert mock_estimation.called
-            assert response['statusCode'] == 200

@@ -1,80 +1,26 @@
 #!/usr/bin/env python3
 """
-AWS CDK App for Cost Data Pipeline
+CDK App for CostGuard Infrastructure
 
-This is the main entry point for the CDK application.
-It creates all infrastructure components: DynamoDB table, Lambda function, IAM roles, and API Gateway.
-
-Usage:
-    cdk deploy
+This app creates the complete CostGuard infrastructure stack including:
+- DynamoDB tables
+- Lambda function
+- API Gateway
+- SNS topics
+- EventBridge schedule
+- IAM roles and permissions
 """
 
-from aws_cdk import App, Environment
-from dynamodb_table import CostDataStack
-from lambda_function import CostDataLambda
-from iam_roles import CostDataIAMRole
-from api_gateway import CostDataAPI
+import aws_cdk as cdk
+from cdk_stack import CostGuardStack
 
 
-class CostDataPipelineStack(CostDataStack):
-    """Complete infrastructure stack for Cost Data Pipeline"""
+app = cdk.App()
 
-    def __init__(self, scope: App, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
-
-        # DynamoDB tables (created by parent CostDataStack)
-        cost_data_table = self.cost_data_table.table
-        forecast_cache_table = self.forecast_cache_table.table
-
-        # Lambda function
-        lambda_construct = CostDataLambda(
-            self,
-            "CostDataLambdaConstruct",
-            table=cost_data_table,
-            forecast_cache_table=forecast_cache_table,
-        )
-        lambda_function = lambda_construct.function
-
-        # IAM roles and policies
-        CostDataIAMRole(
-            self,
-            "CostDataIAMRoleConstruct",
-            lambda_function=lambda_function,
-            table=cost_data_table,
-            forecast_cache_table=forecast_cache_table,
-        )
-
-        # API Gateway
-        api_construct = CostDataAPI(
-            self, "CostDataAPIConstruct", lambda_function=lambda_function
-        )
-
-        # Output API endpoint and API key ID
-        from aws_cdk import CfnOutput
-
-        CfnOutput(
-            self,
-            "APIEndpoint",
-            value=api_construct.api.url,
-            description="API Gateway endpoint URL",
-        )
-
-        CfnOutput(
-            self,
-            "APIKeyID",
-            value=api_construct.api_key.key_id,
-            description="API Key ID (use AWS CLI to retrieve key value)",
-        )
-
-
-# Create CDK app
-app = App()
-
-# Create stack
-CostDataPipelineStack(
-    app,
-    "CostDataPipelineStack",
-    env=Environment(
+CostGuardStack(
+    app, "CostGuardStack",
+    description="CostGuard - AWS Cost Management and Automated Prevention System",
+    env=cdk.Environment(
         account=app.node.try_get_context("account"),
         region=app.node.try_get_context("region") or "us-east-1",
     ),

@@ -35,20 +35,27 @@
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly)
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
 - **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
+- **Automated Cost Prevention (Phase 3 - NEW):** Automatically detect and prevent cost overruns with:
+  - Budget threshold monitoring (80% warning, 90% action)
+  - Idle resource detection across 20+ AWS services
+  - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
+  - Safety guards (tag-based protection, whitelists, active usage checks)
+  - Approval workflows with 30-minute timeout
+  - 24-hour rollback capability
+  - Comprehensive audit logging
 - **RESTful API:** Simple HTTP API with API key authentication
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
-- **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, and Amazon Bedrock for automatic scaling
+- **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, Amazon Bedrock, and EventBridge for automatic scaling
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     API Gateway                              │
-│  Phase 1: /api/cost-data/fetch, /api/cost-data             │
-│  Phase 1.5: /api/cost-estimation/current                    │
-│             /api/cost-estimation/service/{service}          │
-│  Phase 2: /api/cost-forecast                                │
-│           /api/cost-forecast/service/{service}              │
+│  Phase 1: /api/fetch, /api/cost-data                       │
+│  Phase 1.5: /api/cost-estimation/*                          │
+│  Phase 2: /api/cost-forecast/*                              │
+│  Phase 3: /api/prevention/* (NEW)                           │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -58,21 +65,33 @@
 │  - CloudWatch metrics collection (real-time)                │
 │  - Cost estimation algorithms                               │
 │  - Pricing data management                                  │
-│  - AI forecasting with Amazon Bedrock (NEW)                 │
-│  - Forecast caching with DynamoDB (NEW)                     │
+│  - AI forecasting with Amazon Bedrock                       │
+│  - Forecast caching with DynamoDB                           │
+│  - Budget monitoring & prevention engine (NEW)              │
+│  - Resource discovery & idle detection (NEW)                │
+│  - Safety guards & action execution (NEW)                   │
 └────┬────────────────────┬────────────────────┬─────────────┘
      │                    │                    │
      ▼                    ▼                    ▼
 ┌──────────┐      ┌──────────────┐    ┌─────────────────┐
 │   Cost   │      │   DynamoDB   │    │  CloudWatch,    │
-│ Explorer │      │  - Cost Data │    │  Pricing API &  │
-│          │      │  - Forecasts │    │  Bedrock Nova   │
+│ Explorer │      │  - Cost Data │    │  Pricing API,   │
+│  Budgets │      │  - Forecasts │    │  Bedrock Nova,  │
+│          │      │  - Config    │    │  & SNS Topics   │
+│          │      │  - Inventory │    │                 │
+│          │      │  - Audit Log │    │                 │
 └──────────┘      └──────────────┘    └─────────────────┘
+                           ▲
+                           │
+                  ┌────────┴────────┐
+                  │   EventBridge   │
+                  │  (5-min schedule)│
+                  └─────────────────┘
 ```
 
 ## 🛠️ Tech Stack
 
-- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, CloudWatch, Pricing API, Amazon Bedrock (Nova Lite)
+- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, AWS Budgets, CloudWatch, Pricing API, Amazon Bedrock (Nova Lite), SNS, EventBridge
 - **Language:** Python 3.11
 - **Testing:** pytest, Hypothesis (property-based testing), moto (AWS mocking)
 - **Infrastructure:** AWS CDK (Python)
@@ -88,7 +107,8 @@ aws-ideas/
 │   ├── technical/                 # Technical documentation
 │   │   ├── phase1-cost-pipeline/  # Phase 1 docs
 │   │   ├── phase1.5-near-realtime/ # Phase 1.5 docs
-│   │   └── phase2-ai-forecasting/ # Phase 2 docs (NEW)
+│   │   ├── phase2-ai-forecasting/ # Phase 2 docs
+│   │   └── phase3-automated-prevention/ # Phase 3 docs (NEW)
 │   └── INDEX.md                   # Master documentation index
 ├── src/                           # Source code
 │   ├── lambda_handler.py          # Main Lambda handler
@@ -97,16 +117,34 @@ aws-ideas/
 │   │   ├── cloudwatch_collector.py # CloudWatch metrics
 │   │   ├── cost_estimator.py      # Cost estimation
 │   │   ├── pricing_manager.py     # Pricing data management
-│   │   ├── forecast_engine.py     # Forecast orchestration (NEW)
-│   │   ├── bedrock_client.py      # Amazon Bedrock integration (NEW)
-│   │   ├── historical_data.py     # Historical data retrieval (NEW)
-│   │   ├── forecast_cache.py      # Forecast caching (NEW)
+│   │   ├── forecast_engine.py     # Forecast orchestration
+│   │   ├── bedrock_client.py      # Amazon Bedrock integration
+│   │   ├── historical_data.py     # Historical data retrieval
+│   │   ├── forecast_cache.py      # Forecast caching
+│   │   ├── prevention_engine.py   # Prevention orchestration (NEW)
+│   │   ├── budget_monitor.py      # Budget monitoring (NEW)
+│   │   ├── resource_manager.py    # Resource discovery (NEW)
+│   │   ├── idle_detector.py       # Idle detection (NEW)
+│   │   ├── safety_guard.py        # Safety checks (NEW)
+│   │   ├── action_executor.py     # Action execution (NEW)
+│   │   ├── approval_manager.py    # Approval workflows (NEW)
+│   │   ├── rollback_manager.py    # Rollback management (NEW)
+│   │   ├── notification_service.py # SNS notifications (NEW)
+│   │   ├── eventbridge_scheduler.py # EventBridge integration (NEW)
 │   │   └── dynamodb.py            # DynamoDB operations
 │   └── utils/                     # Utility modules
 ├── tests/                         # Test suite
-│   ├── unit/                      # Unit tests
+│   ├── unit/                      # Unit tests (579 tests)
+│   ├── property/                  # Property-based tests (75 tests)
 │   └── integration/               # Integration tests
 ├── infrastructure/                # AWS CDK infrastructure code
+│   ├── cdk_stack.py               # Complete CDK stack
+│   ├── dynamodb_tables.json       # DynamoDB table configs
+│   ├── iam_permissions.json       # IAM role configs
+│   ├── lambda_environment.json    # Lambda env vars
+│   ├── sns_topics.json            # SNS topic configs
+│   ├── api_gateway.json           # API Gateway configs
+│   └── eventbridge_schedule.json  # EventBridge schedule
 └── README.md                      # This file
 ```
 
@@ -216,6 +254,51 @@ curl -H "x-api-key: YOUR_API_KEY" \
 - 95% confidence intervals (upper/lower bounds)
 - Metadata (model used, cache status, historical data days)
 
+#### Phase 3: Automated Cost Prevention
+
+**Get prevention system status:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/prevention/status"
+```
+
+**Enable prevention system:**
+```bash
+curl -X POST \
+  -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/prevention/enable"
+```
+
+**Get discovered resources:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/prevention/resources?service=ec2&limit=50"
+```
+
+**Rollback a prevention action:**
+```bash
+curl -X POST \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"action_id": "action-123"}' \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/prevention/rollback"
+```
+
+**Get prevention action history:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/prevention/history?start_date=2025-01-01&limit=100"
+```
+
+**Features:**
+- Automatic budget monitoring every 5 minutes via EventBridge
+- Idle resource detection across 20+ AWS services (EC2, RDS, Lambda, EBS, S3, DynamoDB, etc.)
+- Safety guards: tag-based protection, whitelists, active usage checks
+- Dry run mode for testing (enabled by default)
+- Approval workflows with 30-minute timeout
+- 24-hour rollback capability
+- Comprehensive audit logging
+
 For more examples, see [docs/API_EXAMPLES.md](./docs/API_EXAMPLES.md)
 
 ### Running Tests
@@ -273,7 +356,7 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/cost-data/fetch` | Fetch cost data from AWS Cost Explorer |
+| POST | `/api/fetch` | Fetch cost data from AWS Cost Explorer |
 | GET | `/api/cost-data` | Query stored historical cost data |
 
 ### Phase 1.5: Near-Real-Time Cost Estimation
@@ -290,6 +373,17 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 | GET | `/api/cost-forecast` | Get AI-powered cost forecast for all services |
 | GET | `/api/cost-forecast/service/{service}` | Get cost forecast for specific service |
 
+### Phase 3: Automated Cost Prevention
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/prevention/status` | Get prevention system status |
+| POST | `/api/prevention/enable` | Enable prevention system |
+| POST | `/api/prevention/disable` | Disable prevention system |
+| GET | `/api/prevention/resources` | Get discovered resource inventory |
+| POST | `/api/prevention/rollback` | Rollback a prevention action |
+| GET | `/api/prevention/history` | Get prevention action history |
+
 **Query Parameters:**
 - `hours` - Time range in hours for estimation (default: 1, max: 168)
 - `days` - Forecast horizon for forecasting: 7, 14, or 30 (default: 30)
@@ -297,45 +391,50 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 - `startDate` - Start date for historical queries (YYYY-MM-DD)
 - `endDate` - End date for historical queries (YYYY-MM-DD)
 - `service` - Filter by service name
+- `state` - Filter resources by state (running, stopped, etc.)
 - `limit` - Maximum number of records to return
 
 ## 🧪 Testing
 
 The project uses a comprehensive testing strategy:
 
-- **Unit Tests:** Test individual components with mocked dependencies
-- **Property-Based Tests:** Validate universal properties using Hypothesis (100+ iterations per property)
+- **Unit Tests:** Test individual components with mocked dependencies (579 tests)
+- **Property-Based Tests:** Validate universal properties using Hypothesis (75 tests, 100+ iterations per property)
 - **Integration Tests:** Test end-to-end flows and service interactions
 
-**Test Coverage:** 94%+ code coverage maintained (412 tests passing)
+**Test Coverage:** 87%+ code coverage maintained (654 tests passing)
 
 **Key Properties Tested:**
-- Non-negative cost estimates and forecasts
-- Forecast confidence interval validity
-- Historical data validation and interpolation
-- Cache key uniqueness and TTL enforcement
-- Pricing data freshness
-- API response structure validation
-- Authentication enforcement
-- Phase 1 & 1.5 backward compatibility
-- Error isolation and retry logic
-- Bedrock prompt structure and retry logic
+- **Phase 1 & 1.5:** Non-negative cost estimates, pricing data freshness, API response validation
+- **Phase 2:** Forecast confidence intervals, cache key uniqueness, Bedrock prompt structure
+- **Phase 3 (NEW):** Budget threshold detection, protected resource safety, idle detection consistency, action reversibility, dry run safety, audit trail completeness, multi-service coverage, safety check ordering, notification delivery, configuration validation, approval timeout handling, resource inventory freshness, action prioritization, error isolation, backward compatibility
 
 ## 💰 Cost Optimization
 
 CostGuard is designed to operate within AWS Free Tier:
 
-- **Lambda:** ~2,000 invocations/month (within 1M free tier)
+- **Lambda:** ~10,640 invocations/month (within 1M free tier)
+  - API requests: ~2,000/month
+  - EventBridge scheduled: ~8,640/month (budget monitoring every 5 minutes)
 - **API Gateway:** ~2,000 requests/month (within 1M free tier)
-- **DynamoDB:** On-demand billing, ~100 MB storage (within 25 GB free tier)
+- **DynamoDB:** On-demand billing, ~200 MB storage (within 25 GB free tier)
   - Cost data table: ~50 MB
   - Forecast cache table: ~50 MB
+  - Prevention config table: ~10 MB
+  - Resource inventory table: ~40 MB
+  - Prevention audit table: ~30 MB
+  - Approval requests table: ~20 MB
 - **CloudWatch:** ~50,000 API requests/month (within 1M free tier)
 - **Cost Explorer:** ~100 API calls/month (~$1/month)
+- **AWS Budgets:** 2 budgets (free)
 - **Pricing API:** ~100 calls/month with caching (~$0.01/month)
 - **Amazon Bedrock (Nova Lite):** ~500 requests/month with 80%+ cache hit rate (~$0.50/month)
+- **SNS:** ~348 messages/month (within 1M publishes/month free tier)
+- **EventBridge:** Rules are free, invocations count toward Lambda free tier
 
 **Estimated Monthly Cost:** ~$1.51 (mostly Cost Explorer API and Bedrock)
+
+**Phase 3 adds minimal cost** while providing significant cost savings through automated prevention.
 
 ## 🔗 Resources
 

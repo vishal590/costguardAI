@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\safety_guard.py
+# hypothesis_version: 6.151.9
+
+[120, 1440, 10080, 43200, '=', 'CostGuard=exclude', 'CostGuard=protected', 'Dry run mode enabled', 'active_usage_check', 'available', 'deleted', 'deleting', 'dry_run_check', 'dynamodb', 'ebs', 'ec2', 'idle_duration_check', 'in-use', 'lambda', 'rds', 'running', 's3', 'tag_check', 'terminated', 'terminating', 'whitelist_check']

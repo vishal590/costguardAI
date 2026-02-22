@@ -313,3 +313,145 @@ class BedrockRateLimitError(Exception):
 class BedrockInvalidResponseError(Exception):
     """Raised when Bedrock returns invalid JSON."""
     pass
+
+
+# ============================================================================
+# Phase 3: Automated Cost Prevention Data Models
+# ============================================================================
+
+@dataclass
+class BudgetStatus:
+    """AWS Budget status information."""
+    budget_name: str
+    limit: float
+    actual_spend: float
+    forecasted_spend: float
+    utilization_percent: float
+    currency: str
+    time_period: str
+
+
+@dataclass
+class ThresholdEvent:
+    """Budget threshold breach event."""
+    budget_name: str
+    threshold_type: str  # "warning" or "action"
+    utilization_percent: float
+    timestamp: str
+    budget_status: BudgetStatus
+
+
+@dataclass
+class Resource:
+    """AWS resource information."""
+    resource_id: str
+    resource_type: str  # "instance", "db_instance", "function", etc.
+    service: str  # "ec2", "rds", "lambda", etc.
+    region: str
+    tags: Dict[str, str]
+    state: str
+    creation_date: str
+
+
+@dataclass
+class ResourceMetadata:
+    """Detailed resource metadata."""
+    resource: Resource
+    cost_per_hour: float
+    last_activity: str
+    metrics: Dict[str, float]
+
+
+@dataclass
+class IdleStatus:
+    """Resource idle status."""
+    resource_id: str
+    is_idle: bool
+    idle_duration: int  # minutes
+    metrics_used: Dict[str, float]
+    confidence: float  # 0.0 to 1.0
+
+
+@dataclass
+class IdleCriteria:
+    """Idle detection criteria for a service."""
+    service: str
+    metric_name: str
+    threshold: float
+    duration_minutes: int
+
+
+@dataclass
+class SafetyCheck:
+    """Safety check result."""
+    is_safe: bool
+    blocked_reason: Optional[str]
+    checks_performed: List[str]
+
+
+@dataclass
+class SafetyConfig:
+    """Safety guard configuration."""
+    protected_tags: List[str]
+    whitelist_ids: List[str]
+    minimum_idle_minutes: Dict[str, int]
+    dry_run_mode: bool
+
+
+@dataclass
+class ActionResult:
+    """Result of an automated action."""
+    resource_id: str
+    action: str
+    success: bool
+    error_message: Optional[str]
+    pre_action_state: Dict[str, Any]
+    post_action_state: Dict[str, Any]
+    estimated_savings: float
+    timestamp: str
+
+
+@dataclass
+class PlannedAction:
+    """Planned action for approval."""
+    resource_id: str
+    resource_type: str
+    action: str
+    reason: str
+    estimated_savings: float
+
+
+@dataclass
+class ApprovalRequest:
+    """Approval request for automated actions."""
+    request_id: str
+    actions: List[PlannedAction]
+    total_estimated_savings: float
+    expires_at: str
+
+
+@dataclass
+class ApprovalResponse:
+    """Response to approval request."""
+    request_id: str
+    approved: bool
+    approved_by: Optional[str]
+    timestamp: str
+
+
+@dataclass
+class RollbackResult:
+    """Result of a rollback operation."""
+    action_id: str
+    resource_id: str
+    success: bool
+    restored_state: Dict[str, Any]
+    timestamp: str
+
+
+@dataclass
+class NotificationConfig:
+    """Notification service configuration."""
+    warning_topic_arn: Optional[str]
+    action_topic_arn: Optional[str]
+    error_topic_arn: Optional[str]
