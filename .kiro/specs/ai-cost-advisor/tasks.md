@@ -13,14 +13,14 @@ This implementation plan breaks down Phase 4 (AI Cost Advisor) into discrete, in
   - _Requirements: All requirements (foundation)_
   - _Status: Complete - All 7 service modules created, types and validation extended_
 
-- [ ] 2. Implement data models and types
-  - [ ] 2.1 Create Phase 4 type definitions
+- [x] 2. Implement data models and types
+  - [x] 2.1 Create Phase 4 type definitions
     - Define dataclasses for QueryIntent, CostContext, ConversationTurn
     - Define dataclasses for AdvisorResponse, Recommendation, Insight
     - Add type aliases for advisor-related types
     - _Requirements: All data model requirements_
 
-  - [ ] 2.2 Write unit tests for data models
+  - [x] 2.2 Write unit tests for data models
     - Test dataclass creation and validation
     - Test type conversions
     - _Requirements: 16.1_
