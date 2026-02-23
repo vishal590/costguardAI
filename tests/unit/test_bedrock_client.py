@@ -1,374 +1,553 @@
 """
-Unit tests for Bedrock Client.
-
-Tests cover:
-- Client initialization
-- Prompt building
-- Response parsing
-- Retry logic with exponential backoff
-- Error handling
+Unit tests for BedrockAdvisorClient.
 """
-
 import pytest
 import json
-import time
+from datetime import datetime, UTC
 from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime, date, timedelta
-from src.services.bedrock_client import BedrockClient
-from src.utils.types import (
-    ProcessedData,
-    BedrockResponse,
-    BedrockAPIError,
-    BedrockRateLimitError,
-    BedrockInvalidResponseError
-)
+
+from src.services.bedrock_advisor_client import BedrockAdvisorClient
+from src.utils.types import CostContext, ConversationTurn, QueryIntent, BudgetStatus
 
 
-class TestBedrockClient:
-    """Test suite for BedrockClient."""
+class TestBedrockClientInitialization:
+    """Tests for BedrockAdvisorClient initialization."""
     
-    @pytest.fixture
-    def mock_boto_client(self):
-        """Create mock boto3 bedrock-runtime client."""
-        with patch('boto3.client') as mock_client:
-            yield mock_client
-    
-    @pytest.fixture
-    def bedrock_client(self, mock_boto_client):
-        """Create BedrockClient instance with mocked boto3."""
-        return BedrockClient()
-    
-    @pytest.fixture
-    def sample_historical_data(self):
-        """Create sample historical data."""
-        timestamps = [
-            (date(2024, 1, 1) + timedelta(days=i)).isoformat()
-            for i in range(30)
-        ]
-        costs = [10.0 + i * 0.5 for i in range(30)]
-        
-        return ProcessedData(
-            timestamps=timestamps,
-            costs=costs,
-            service='EC2',
-            total_days=30
-        )
-    
-    def test_initialization_default(self, mock_boto_client):
-        """Test client initialization with defaults."""
-        client = BedrockClient()
-        
+    def test_bedrock_client_initialization(self):
+        """Test BedrockAdvisorClient initializes correctly."""
+        client = BedrockAdvisorClient()
+        assert client is not None
         assert client.model_id == "amazon.nova-lite-v1:0"
-        mock_boto_client.assert_called_once_with('bedrock-runtime', region_name='us-east-1')
+        assert client.max_retries == 3
     
-    def test_initialization_custom_model(self, mock_boto_client):
-        """Test client initialization with custom model."""
-        client = BedrockClient(model_id="amazon.nova-micro-v1:0")
-        
-        assert client.model_id == "amazon.nova-micro-v1:0"
+    def test_bedrock_client_with_custom_model(self):
+        """Test BedrockAdvisorClient with custom model ID."""
+        client = BedrockAdvisorClient(model_id="custom-model-id")
+        assert client.model_id == "custom-model-id"
     
-    def test_initialization_custom_region(self, mock_boto_client):
-        """Test client initialization with custom region."""
-        client = BedrockClient(region="us-west-2")
-        
-        mock_boto_client.assert_called_once_with('bedrock-runtime', region_name='us-west-2')
+    def test_bedrock_client_with_custom_retries(self):
+        """Test BedrockAdvisorClient with custom max retries."""
+        client = BedrockAdvisorClient(max_retries=5)
+        assert client.max_retries == 5
+
+
+class TestPromptConstruction:
+    """Tests for prompt construction."""
     
-    def test_build_prompt_structure(self, bedrock_client, sample_historical_data):
-        """Test prompt building includes required elements."""
-        prompt = bedrock_client.build_prompt(sample_historical_data, 7)
+    def test_build_prompt_simple_query(self):
+        """Test building prompt with simple query."""
+        client = BedrockAdvisorClient()
         
-        # Check prompt contains key elements
-        assert "time series forecasting" in prompt.lower()
-        assert "7-day forecast" in prompt
-        assert "confidence intervals" in prompt.lower()
-        assert str(sample_historical_data.total_days) in prompt
-        assert "JSON" in prompt
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
         
-        # Check historical data is included
-        assert "2024-01-01" in prompt
-        assert "10.0" in prompt
+        prompt = client.build_prompt("What are my costs?", context, [])
+        
+        assert "What are my costs?" in prompt
+        assert "advisor" in prompt.lower()
     
-    def test_build_prompt_with_confidence_level(self, bedrock_client, sample_historical_data):
-        """Test prompt includes confidence level."""
-        prompt = bedrock_client.build_prompt(sample_historical_data, 14, confidence_level=0.90)
+    def test_build_prompt_with_historical_costs(self):
+        """Test building prompt with historical cost data."""
+        client = BedrockAdvisorClient()
         
-        assert "90%" in prompt
+        context = CostContext(
+            historical_costs={
+                'ec2': [
+                    {'date': '2026-02-20', 'blended_cost': 25.50, 'unblended_cost': 25.50, 'currency': 'USD'}
+                ],
+                's3': [
+                    {'date': '2026-02-20', 'blended_cost': 5.25, 'unblended_cost': 5.25, 'currency': 'USD'}
+                ]
+            },
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        prompt = client.build_prompt("Show me EC2 costs", context, [])
+        
+        assert "ec2" in prompt.lower()
+        assert "$" in prompt
+        assert "25.50" in prompt or "30.75" in prompt  # Total or individual
     
-    def test_parse_response_valid_json(self, bedrock_client, sample_historical_data):
-        """Test parsing valid Bedrock response."""
-        response = {
-            'content': [{
-                'text': json.dumps({
-                    'forecasts': [
-                        {
-                            'date': '2024-01-31',
-                            'predicted_cost': 25.0,
-                            'confidence_lower': 20.0,
-                            'confidence_upper': 30.0
-                        },
-                        {
-                            'date': '2024-02-01',
-                            'predicted_cost': 26.0,
-                            'confidence_lower': 21.0,
-                            'confidence_upper': 31.0
-                        }
-                    ]
-                })
-            }]
+    def test_build_prompt_with_forecast_data(self):
+        """Test building prompt with forecast data."""
+        client = BedrockAdvisorClient()
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data={
+                'ec2': [
+                    {'date': '2026-02-24', 'predicted_cost': 30.00, 'confidence_lower': 25.00, 'confidence_upper': 35.00}
+                ]
+            },
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        prompt = client.build_prompt("What will my costs be?", context, [])
+        
+        assert "forecast" in prompt.lower() or "predict" in prompt.lower()
+        assert "$" in prompt
+    
+    def test_build_prompt_with_prevention_actions(self):
+        """Test building prompt with prevention actions."""
+        client = BedrockAdvisorClient()
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[
+                {'resource_id': 'i-123', 'action': 'stop', 'estimated_savings': 15.50}
+            ],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        prompt = client.build_prompt("What actions were taken?", context, [])
+        
+        assert "prevention" in prompt.lower() or "action" in prompt.lower()
+        assert "$" in prompt or "15.50" in prompt
+    
+    def test_build_prompt_with_budget(self):
+        """Test building prompt with budget status."""
+        client = BedrockAdvisorClient()
+        
+        budget = BudgetStatus(
+            budget_name="Monthly Budget",
+            limit=100.00,
+            actual_spend=75.00,
+            forecasted_spend=90.00,
+            utilization_percent=75.0,
+            currency="USD",
+            time_period="2026-02"
+        )
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=budget,
+            anomalies=[]
+        )
+        
+        prompt = client.build_prompt("Am I over budget?", context, [])
+        
+        assert "budget" in prompt.lower()
+        assert "75.00" in prompt or "100.00" in prompt
+    
+    def test_build_prompt_with_conversation_history(self):
+        """Test building prompt with conversation history."""
+        client = BedrockAdvisorClient()
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        history = [
+            ConversationTurn(
+                query="What are my EC2 costs?",
+                response="Your EC2 costs are $25.50",
+                timestamp=datetime.now(UTC),
+                context_used=context
+            )
+        ]
+        
+        prompt = client.build_prompt("What about S3?", context, history)
+        
+        assert "previous" in prompt.lower() or "conversation" in prompt.lower()
+        assert "EC2" in prompt or "ec2" in prompt.lower()
+    
+    def test_build_prompt_truncates_long_content(self):
+        """Test that prompt is truncated if too long."""
+        client = BedrockAdvisorClient()
+        
+        # Create very long query
+        long_query = "What are my costs? " * 1000
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        prompt = client.build_prompt(long_query, context, [])
+        
+        # Prompt should be truncated
+        assert len(prompt) <= 4100
+        if len(long_query) > 4000:
+            assert "truncated" in prompt.lower()
+
+
+class TestBedrockAPIInvocation:
+    """Tests for Bedrock API invocation."""
+    
+    def test_invoke_bedrock_success(self):
+        """Test successful Bedrock API invocation."""
+        bedrock_mock = Mock()
+        
+        # Setup mock response
+        bedrock_mock.invoke_model.return_value = {
+            'body': Mock(read=lambda: json.dumps({'completion': 'Your costs are $25.50'}).encode())
         }
         
-        result = bedrock_client.parse_response(response, sample_historical_data, 2)
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock)
         
-        assert len(result['predictions']) == 2
-        assert result['predictions'][0] == 25.0
-        assert result['confidence_lower'][0] == 20.0
-        assert result['confidence_upper'][0] == 30.0
-        assert len(result['dates']) == 2
+        response = client._invoke_bedrock("What are my costs?")
+        
+        assert response == "Your costs are $25.50"
+        bedrock_mock.invoke_model.assert_called_once()
     
-    def test_parse_response_with_markdown_code_block(self, bedrock_client, sample_historical_data):
-        """Test parsing response wrapped in markdown code block."""
-        response = {
-            'content': [{
-                'text': '```json\n' + json.dumps({
-                    'forecasts': [
-                        {
-                            'date': '2024-01-31',
-                            'predicted_cost': 25.0,
-                            'confidence_lower': 20.0,
-                            'confidence_upper': 30.0
-                        }
-                    ]
-                }) + '\n```'
-            }]
+    def test_invoke_bedrock_with_output_format(self):
+        """Test Bedrock invocation with 'output' response format."""
+        bedrock_mock = Mock()
+        
+        # Setup mock response with 'output' key
+        bedrock_mock.invoke_model.return_value = {
+            'body': Mock(read=lambda: json.dumps({'output': 'Your costs are $30.00'}).encode())
         }
         
-        result = bedrock_client.parse_response(response, sample_historical_data, 1)
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock)
         
-        assert len(result['predictions']) == 1
-        assert result['predictions'][0] == 25.0
+        response = client._invoke_bedrock("What are my costs?")
+        
+        assert response == "Your costs are $30.00"
     
-    def test_parse_response_ensures_non_negative(self, bedrock_client, sample_historical_data):
-        """Test parsing ensures all values are non-negative."""
-        response = {
-            'content': [{
-                'text': json.dumps({
-                    'forecasts': [
-                        {
-                            'date': '2024-01-31',
-                            'predicted_cost': -5.0,  # Negative value
-                            'confidence_lower': -10.0,
-                            'confidence_upper': 10.0
-                        }
-                    ]
-                })
-            }]
+    def test_invoke_bedrock_no_client(self):
+        """Test Bedrock invocation without client."""
+        client = BedrockAdvisorClient()
+        
+        response = client._invoke_bedrock("What are my costs?")
+        
+        assert "unable to access" in response.lower()
+    
+    def test_invoke_bedrock_api_error(self):
+        """Test handling of Bedrock API errors."""
+        bedrock_mock = Mock()
+        bedrock_mock.invoke_model.side_effect = Exception("API Error")
+        
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock)
+        
+        with pytest.raises(Exception):
+            client._invoke_bedrock("What are my costs?")
+    
+    def test_invoke_bedrock_unexpected_format(self):
+        """Test handling of unexpected response format."""
+        bedrock_mock = Mock()
+        
+        # Setup mock response with unexpected format
+        bedrock_mock.invoke_model.return_value = {
+            'body': Mock(read=lambda: json.dumps({'unexpected_key': 'value'}).encode())
         }
         
-        result = bedrock_client.parse_response(response, sample_historical_data, 1)
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock)
         
-        # All values should be non-negative
-        assert result['predictions'][0] >= 0
-        assert result['confidence_lower'][0] >= 0
-        assert result['confidence_upper'][0] >= 0
+        response = client._invoke_bedrock("What are my costs?")
+        
+        assert "unexpected response format" in response.lower()
+
+
+class TestResponseParsing:
+    """Tests for response parsing."""
     
-    def test_parse_response_fixes_invalid_intervals(self, bedrock_client, sample_historical_data):
-        """Test parsing fixes invalid confidence intervals."""
-        response = {
-            'content': [{
-                'text': json.dumps({
-                    'forecasts': [
-                        {
-                            'date': '2024-01-31',
-                            'predicted_cost': 25.0,
-                            'confidence_lower': 30.0,  # Lower > predicted
-                            'confidence_upper': 20.0   # Upper < predicted
-                        }
-                    ]
-                })
-            }]
-        }
+    def test_parse_response_simple(self):
+        """Test parsing simple response."""
+        client = BedrockAdvisorClient()
         
-        result = bedrock_client.parse_response(response, sample_historical_data, 1)
+        response = client.parse_response("Your EC2 costs are $25.50")
         
-        # Intervals should be fixed
-        assert result['confidence_lower'][0] <= result['predictions'][0]
-        assert result['confidence_upper'][0] >= result['predictions'][0]
+        assert response.response_text == "Your EC2 costs are $25.50"
+        assert isinstance(response.recommendations, list)
+        assert isinstance(response.cost_data, dict)
+        assert response.cached is False
     
-    def test_parse_response_pads_short_forecast(self, bedrock_client, sample_historical_data):
-        """Test parsing pads forecast if fewer days returned."""
-        response = {
-            'content': [{
-                'text': json.dumps({
-                    'forecasts': [
-                        {
-                            'date': '2024-01-31',
-                            'predicted_cost': 25.0,
-                            'confidence_lower': 20.0,
-                            'confidence_upper': 30.0
-                        }
-                    ]
-                })
-            }]
-        }
+    def test_parse_response_with_recommendations(self):
+        """Test parsing response with recommendations."""
+        client = BedrockAdvisorClient()
         
-        # Request 3 days but only got 1
-        result = bedrock_client.parse_response(response, sample_historical_data, 3)
+        response_text = """
+        Your costs are high. I recommend:
+        - Stop idle EC2 instance i-123 to save $15.50/month
+        - Delete unused S3 buckets to save $5.00/month
+        """
         
-        assert len(result['predictions']) == 3
-        assert len(result['dates']) == 3
+        response = client.parse_response(response_text)
+        
+        # Should extract some recommendations
+        assert len(response.recommendations) > 0
+        # Recommendations should have actions
+        assert all(len(rec.action) > 0 for rec in response.recommendations)
     
-    def test_parse_response_invalid_json_raises_error(self, bedrock_client, sample_historical_data):
-        """Test parsing invalid JSON raises error."""
-        response = {
-            'content': [{
-                'text': 'This is not JSON'
-            }]
-        }
+    def test_parse_response_extracts_costs(self):
+        """Test that cost data is extracted from response."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockInvalidResponseError):
-            bedrock_client.parse_response(response, sample_historical_data, 1)
+        response_text = "Your EC2 costs are $25.50 and S3 costs are $10.25"
+        
+        response = client.parse_response(response_text)
+        
+        assert 'mentioned_costs' in response.cost_data
+        assert len(response.cost_data['mentioned_costs']) >= 2
     
-    def test_parse_response_missing_forecasts_key_raises_error(self, bedrock_client, sample_historical_data):
-        """Test parsing response without forecasts key raises error."""
-        response = {
-            'content': [{
-                'text': json.dumps({'predictions': []})  # Wrong key
-            }]
-        }
+    def test_parse_response_extracts_percentages(self):
+        """Test that percentages are extracted from response."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockInvalidResponseError):
-            bedrock_client.parse_response(response, sample_historical_data, 1)
+        response_text = "Your costs increased by 45% this month"
+        
+        response = client.parse_response(response_text)
+        
+        assert 'mentioned_percentages' in response.cost_data
+        assert 45.0 in response.cost_data['mentioned_percentages']
+
+
+class TestRetryLogic:
+    """Tests for retry logic."""
     
-    def test_parse_response_no_content_raises_error(self, bedrock_client, sample_historical_data):
-        """Test parsing response without content raises error."""
-        response = {'content': []}
+    @patch('time.sleep')  # Mock sleep to speed up test
+    def test_retry_with_backoff_success_first_try(self, mock_sleep):
+        """Test retry logic when function succeeds on first try."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockInvalidResponseError):
-            bedrock_client.parse_response(response, sample_historical_data, 1)
+        def successful_function():
+            return "Success!"
+        
+        result = client.retry_with_backoff(successful_function)
+        
+        assert result == "Success!"
+        mock_sleep.assert_not_called()
     
-    def test_retry_with_backoff_succeeds_first_try(self, bedrock_client):
-        """Test retry logic succeeds on first attempt."""
-        mock_func = Mock(return_value="success")
+    @patch('time.sleep')
+    def test_retry_with_backoff_success_after_retries(self, mock_sleep):
+        """Test retry logic when function succeeds after retries."""
+        client = BedrockAdvisorClient(max_retries=3)
         
-        result = bedrock_client.retry_with_backoff(mock_func, max_retries=3)
+        call_count = [0]
         
-        assert result == "success"
-        assert mock_func.call_count == 1
+        def eventually_successful():
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise Exception("Throttling error")
+            return "Success!"
+        
+        result = client.retry_with_backoff(eventually_successful)
+        
+        assert result == "Success!"
+        assert call_count[0] == 2
+        assert mock_sleep.call_count == 1  # Slept once before second attempt
     
-    def test_retry_with_backoff_succeeds_after_retries(self, bedrock_client):
-        """Test retry logic succeeds after rate limit errors."""
-        mock_func = Mock(side_effect=[
-            BedrockRateLimitError("Rate limit 1"),
-            BedrockRateLimitError("Rate limit 2"),
-            "success"
-        ])
+    @patch('time.sleep')
+    def test_retry_with_backoff_all_retries_fail(self, mock_sleep):
+        """Test retry logic when all retries fail."""
+        client = BedrockAdvisorClient(max_retries=3)
         
-        with patch('time.sleep'):  # Mock sleep to speed up test
-            result = bedrock_client.retry_with_backoff(mock_func, max_retries=3)
+        def always_failing():
+            raise Exception("Throttling error")
         
-        assert result == "success"
-        assert mock_func.call_count == 3
+        with pytest.raises(Exception):
+            client.retry_with_backoff(always_failing)
+        
+        assert mock_sleep.call_count == 2  # Slept before 2nd and 3rd attempts
     
-    def test_retry_with_backoff_exhausts_retries(self, bedrock_client):
-        """Test retry logic exhausts all retries."""
-        mock_func = Mock(side_effect=BedrockRateLimitError("Rate limit"))
+    @patch('time.sleep')
+    def test_retry_with_backoff_exponential_delay(self, mock_sleep):
+        """Test that retry uses exponential backoff."""
+        client = BedrockAdvisorClient(max_retries=4)
         
-        with patch('time.sleep'):
-            with pytest.raises(BedrockRateLimitError):
-                bedrock_client.retry_with_backoff(mock_func, max_retries=2)
+        def always_failing():
+            raise Exception("Throttling error")
         
-        assert mock_func.call_count == 3  # Initial + 2 retries
-    
-    def test_retry_with_backoff_exponential_delay(self, bedrock_client):
-        """Test retry logic uses exponential backoff."""
-        mock_func = Mock(side_effect=[
-            BedrockRateLimitError("Rate limit 1"),
-            BedrockRateLimitError("Rate limit 2"),
-            BedrockRateLimitError("Rate limit 3"),
-            "success"
-        ])
-        
-        with patch('time.sleep') as mock_sleep:
-            bedrock_client.retry_with_backoff(mock_func, max_retries=3)
+        with pytest.raises(Exception):
+            client.retry_with_backoff(always_failing)
         
         # Check exponential backoff: 1s, 2s, 4s
-        assert mock_sleep.call_count == 3
-        mock_sleep.assert_any_call(1)  # 2^0
-        mock_sleep.assert_any_call(2)  # 2^1
-        mock_sleep.assert_any_call(4)  # 2^2
+        calls = mock_sleep.call_args_list
+        assert calls[0][0][0] == 1  # First retry: 1 second
+        assert calls[1][0][0] == 2  # Second retry: 2 seconds
+        assert calls[2][0][0] == 4  # Third retry: 4 seconds
+
+
+class TestErrorHandling:
+    """Tests for error handling."""
     
-    def test_retry_with_backoff_does_not_retry_api_errors(self, bedrock_client):
-        """Test retry logic doesn't retry non-rate-limit errors."""
-        mock_func = Mock(side_effect=BedrockAPIError("API error"))
+    def test_is_retryable_error_throttling(self):
+        """Test that throttling errors are retryable."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockAPIError):
-            bedrock_client.retry_with_backoff(mock_func, max_retries=3)
-        
-        assert mock_func.call_count == 1  # No retries
+        error = Exception("Throttling exception occurred")
+        assert client._is_retryable_error(error) is True
     
-    def test_invoke_model_throttling_exception(self, bedrock_client):
-        """Test _invoke_model handles throttling exception."""
-        bedrock_client.client.exceptions.ThrottlingException = type('ThrottlingException', (Exception,), {})
-        bedrock_client.client.invoke_model = Mock(
-            side_effect=bedrock_client.client.exceptions.ThrottlingException("Throttled")
-        )
+    def test_is_retryable_error_rate_limit(self):
+        """Test that rate limit errors are retryable."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockRateLimitError):
-            bedrock_client._invoke_model({})
+        error = Exception("Rate limit exceeded")
+        assert client._is_retryable_error(error) is True
     
-    def test_invoke_model_timeout_exception(self, bedrock_client):
-        """Test _invoke_model handles timeout exception."""
-        bedrock_client.client.exceptions.ModelTimeoutException = type('ModelTimeoutException', (Exception,), {})
-        bedrock_client.client.invoke_model = Mock(
-            side_effect=bedrock_client.client.exceptions.ModelTimeoutException("Timeout")
-        )
+    def test_is_retryable_error_503(self):
+        """Test that 503 errors are retryable."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockAPIError):
-            bedrock_client._invoke_model({})
+        error = Exception("Service unavailable (503)")
+        assert client._is_retryable_error(error) is True
     
-    def test_invoke_model_service_unavailable(self, bedrock_client):
-        """Test _invoke_model handles service unavailable."""
-        bedrock_client.client.exceptions.ServiceUnavailableException = type('ServiceUnavailableException', (Exception,), {})
-        bedrock_client.client.invoke_model = Mock(
-            side_effect=bedrock_client.client.exceptions.ServiceUnavailableException("Unavailable")
-        )
+    def test_is_retryable_error_429(self):
+        """Test that 429 errors are retryable."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockAPIError):
-            bedrock_client._invoke_model({})
+        error = Exception("Too many requests (429)")
+        assert client._is_retryable_error(error) is True
     
-    def test_invoke_model_generic_exception(self, bedrock_client):
-        """Test _invoke_model handles generic exceptions."""
-        bedrock_client.client.invoke_model = Mock(side_effect=Exception("Unknown error"))
+    def test_is_not_retryable_error_invalid_request(self):
+        """Test that invalid request errors are not retryable."""
+        client = BedrockAdvisorClient()
         
-        with pytest.raises(BedrockAPIError):
-            bedrock_client._invoke_model({})
+        error = Exception("Invalid request")
+        assert client._is_retryable_error(error) is False
     
-    def test_invoke_forecast_end_to_end(self, bedrock_client, sample_historical_data):
-        """Test complete invoke_forecast flow."""
-        # Mock successful Bedrock response
-        mock_response = {
-            'body': Mock(read=Mock(return_value=json.dumps({
-                'content': [{
-                    'text': json.dumps({
-                        'forecasts': [
-                            {
-                                'date': '2024-01-31',
-                                'predicted_cost': 25.0,
-                                'confidence_lower': 20.0,
-                                'confidence_upper': 30.0
-                            }
-                        ]
-                    })
-                }]
-            }).encode()))
+    def test_is_not_retryable_error_auth(self):
+        """Test that authentication errors are not retryable."""
+        client = BedrockAdvisorClient()
+        
+        error = Exception("Authentication failed")
+        assert client._is_retryable_error(error) is False
+
+
+class TestInvokeAdvisor:
+    """Tests for invoke_advisor method."""
+    
+    @patch('time.sleep')
+    def test_invoke_advisor_success(self, mock_sleep):
+        """Test successful advisor invocation."""
+        bedrock_mock = Mock()
+        bedrock_mock.invoke_model.return_value = {
+            'body': Mock(read=lambda: json.dumps({'completion': 'Your costs are $25.50'}).encode())
         }
         
-        bedrock_client.client.invoke_model = Mock(return_value=mock_response)
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock)
         
-        result = bedrock_client.invoke_forecast(sample_historical_data, 1)
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
         
-        assert isinstance(result, BedrockResponse)
-        assert len(result.predictions) == 1
-        assert result.predictions[0] == 25.0
-        assert result.model_id == "amazon.nova-lite-v1:0"
-        assert result.latency_ms >= 0  # Mock is instant, so latency can be 0
+        response = client.invoke_advisor("What are my costs?", context, [])
+        
+        assert response == "Your costs are $25.50"
+        bedrock_mock.invoke_model.assert_called_once()
+    
+    @patch('time.sleep')
+    def test_invoke_advisor_with_retry(self, mock_sleep):
+        """Test advisor invocation with retry."""
+        bedrock_mock = Mock()
+        
+        # First call fails, second succeeds
+        bedrock_mock.invoke_model.side_effect = [
+            Exception("Throttling error"),
+            {'body': Mock(read=lambda: json.dumps({'completion': 'Success'}).encode())}
+        ]
+        
+        client = BedrockAdvisorClient(bedrock_client=bedrock_mock, max_retries=2)
+        
+        context = CostContext(
+            historical_costs={},
+            forecast_data=None,
+            prevention_actions=[],
+            current_budget=None,
+            anomalies=[]
+        )
+        
+        response = client.invoke_advisor("What are my costs?", context, [])
+        
+        assert response == "Success"
+        assert bedrock_mock.invoke_model.call_count == 2
+
+
+class TestRecommendationExtraction:
+    """Tests for recommendation extraction."""
+    
+    def test_extract_recommendations_with_savings(self):
+        """Test extracting recommendations with savings estimates."""
+        client = BedrockAdvisorClient()
+        
+        response_text = """
+        I recommend stopping idle instance i-123 to save $15.50 per month.
+        You should also consider deleting unused S3 buckets.
+        """
+        
+        recommendations = client._extract_recommendations(response_text)
+        
+        assert len(recommendations) > 0
+        # At least one recommendation should have savings
+        assert any(rec.estimated_savings > 0 for rec in recommendations)
+    
+    def test_extract_recommendations_limits_to_five(self):
+        """Test that recommendation extraction limits to 5 recommendations."""
+        client = BedrockAdvisorClient()
+        
+        response_text = """
+        I recommend:
+        - Action 1
+        - Action 2
+        - Action 3
+        - Action 4
+        - Action 5
+        - Action 6
+        - Action 7
+        """
+        
+        recommendations = client._extract_recommendations(response_text)
+        
+        assert len(recommendations) <= 5
+
+
+class TestCostDataExtraction:
+    """Tests for cost data extraction."""
+    
+    def test_extract_cost_data_with_amounts(self):
+        """Test extracting cost amounts from text."""
+        client = BedrockAdvisorClient()
+        
+        response_text = "Your EC2 costs are $25.50 and S3 costs are $10.25"
+        
+        cost_data = client._extract_cost_data(response_text)
+        
+        assert 'mentioned_costs' in cost_data
+        assert 25.50 in cost_data['mentioned_costs']
+        assert 10.25 in cost_data['mentioned_costs']
+    
+    def test_extract_cost_data_with_percentages(self):
+        """Test extracting percentages from text."""
+        client = BedrockAdvisorClient()
+        
+        response_text = "Costs increased by 45% and utilization is at 75%"
+        
+        cost_data = client._extract_cost_data(response_text)
+        
+        assert 'mentioned_percentages' in cost_data
+        assert 45.0 in cost_data['mentioned_percentages']
+        assert 75.0 in cost_data['mentioned_percentages']
+    
+    def test_extract_cost_data_empty_text(self):
+        """Test extracting cost data from empty text."""
+        client = BedrockAdvisorClient()
+        
+        cost_data = client._extract_cost_data("")
+        
+        assert isinstance(cost_data, dict)

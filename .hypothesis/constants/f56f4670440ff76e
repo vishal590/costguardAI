@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\insight_generator.py
+# hypothesis_version: 6.151.9
+
+[50.0, 100.0, 100, '%Y-%m-%d', ':svc', 'Amount', 'BlendedCost', 'DAILY', 'DIMENSION', 'Daily Cost Summary', 'End', 'Groups', 'Items', 'Key', 'Keys', 'Metrics', 'N', 'ResultsByTime', 'S', 'SERVICE', 'Start', 'Total', 'Type', 'anomaly', 'cost-forecasts', 'critical', 'ec2', 'forecast_alert', 'info', 'optimization', 'predicted_cost', 'service = :svc', 'summary', 'total', 'warning']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\advisor_cache_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.8, 100, 'Item', 'N', 'S', 'advisor-cache', 'cached_at', 'confidence', 'query_hash', 'response_text', 'ttl']

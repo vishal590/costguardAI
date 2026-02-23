@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\query_processor.py
+# hypothesis_version: 6.151.9
+
+[999999, '\\b\\d{12}\\b', 'bill', 'bucket', 'buckets', 'charge', 'cheaper', 'compute', 'cost', 'cost_analysis', 'database', 'decrease', 'dynamo', 'dynamodb', 'ec2', 'estimate', 'expense', 'forecast', 'function', 'function_names', 'functions', 'future', 'growth', 'i-[a-f0-9]{17}', 'idle', 'increase', 'instance', 'instance_ids', 'instances', 'lambda', 'last (\\d+) days?', 'last month', 'last week', 'lower', 'mysql', 'nosql', 'object storage', 'optimization', 'optimize', 'pattern', 'postgres', 'postgresql', 'predict', 'prevent', 'prevention', 'projection', 'rds', 'reduce', 'relational', 's3', 'save', 'savings', 'serverless', 'spend', 'spending', 'stop', 'storage', 'this month', 'this week', 'today', 'trend', 'trend_analysis', 'unused', 'virtual machine', 'vm', 'waste', 'yesterday']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\advisor_engine.py
+# hypothesis_version: 6.151.9
+
+[0.0, 86400, ',', ':sid', 'Items', 'N', 'S', 'query', 'response', 'session_id', 'session_id = :sid', 'timestamp', 'timestamp_iso', 'ttl', '|']

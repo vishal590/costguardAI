@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\context_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, '%Y-%m-%d', '123456789012', ':end', ':start', ':svc', 'ActualSpend', 'Amount', 'BOOL', 'BlendedCost', 'BudgetLimit', 'BudgetName', 'Budgets', 'CalculatedSpend', 'DAILY', 'DIMENSION', 'End', 'ForecastedSpend', 'Groups', 'Items', 'Key', 'Keys', 'Metrics', 'N', 'ResultsByTime', 'S', 'SERVICE', 'Start', 'TimePeriod', 'Type', 'UnblendedCost', 'Unit', 'action', 'blended_cost', 'confidence_lower', 'confidence_upper', 'cost-forecasts', 'currency', 'date', 'estimated_savings', 'forecast', 'optimization', 'predicted_cost', 'prevention', 'prevention-actions', 'resource_id', 'service = :svc', 'success', 'timestamp', 'trend_analysis', 'unblended_cost']

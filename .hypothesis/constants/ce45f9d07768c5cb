@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\response_formatter.py
+# hypothesis_version: 6.151.9
+
+[0.8, 100, 500, '## Cost Breakdown', '(\\d+(?:\\.\\d+)?)\\s*%', '**$\\1**', '**\\1%**', '.', 'Formatting response', 'blended_cost']

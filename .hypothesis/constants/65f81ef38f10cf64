@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\bedrock_advisor_client.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.7, 0.8, 0.9, 1000, 4000, '\n## Cost Data:', '\n### Forecast Data:', '$', '(\\d+(?:\\.\\d+)?)\\s*%', '- *#', '429', '503', '\\$(\\d+(?:\\.\\d+)?)', 'blended_cost', 'body', 'completion', 'consider', 'estimated_savings', 'max_tokens', 'mentioned_costs', 'output', 'predicted_cost', 'prompt', 'rate limit', 'recommend', 'service unavailable', 'should', 'suggest', 'temperature', 'throttling', 'timeout', 'top_p']

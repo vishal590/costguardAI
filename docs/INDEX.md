@@ -50,8 +50,17 @@
 - **[submission/article-requirements.md](./submission/article-requirements.md)** - Builder Center article requirements
 
 ### Project Planning
+- **[project/phase-timeline.md](./project/phase-timeline.md)** - 📅 **Complete Phase Timeline & Priorities - All 10 phases with hackathon priorities, effort estimates, and success criteria**
+- **[HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md)** - 🎯 **CRITICAL - What AWS Emphasizes Most - Analysis of hackathon priorities (Agent workflows, painkiller problems, ROI, execution over slides)**
+- **[project/phase6-activation-summary.md](./project/phase6-activation-summary.md)** - ✅ **Phase 6 Activation Summary - What changed and why (AI/ML replaces Unit Economics)**
+- **[project/phase5-6-update-summary.md](./project/phase5-6-update-summary.md)** - 📋 **Phase 5/6/7 Update Summary - What changed and why (February 2026)**
+- **[project/phase5-recommendation.md](./project/phase5-recommendation.md)** - 🔥 **Phase 5 Multi-Account Recommendation - Critical for commercial viability**
+- **[project/phase6-recommendation.md](./project/phase6-recommendation.md)** - 🚀 **Phase 6 AI/ML Workload Cost Management - ACTIVE RECOMMENDATION (Highest hackathon alignment, 93.33% score)**
+- **[project/phase7-recommendation.md](./project/phase7-recommendation.md)** - 💰 **Phase 7 Unit Economics + RI/SP Optimization - DEFERRED (Was Phase 6, moved to Phase 7)**
+- **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 🎯 **SMB/Startup Impact Analysis - What makes the biggest difference for startups (2026 Research)**
+- **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - 🔍 **Competitive Analysis - Market positioning**
 - **[project/ideas.md](./project/ideas.md)** - CostGuard AI project idea, brainstorming, and selected solution
-- **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition
+- **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition (Updated with Phases 5-10)
 
 ### Technical Documentation
 - **[technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/)** - ✅ **Phase 1: Cost Data Pipeline (COMPLETE)**
@@ -76,7 +85,15 @@
   - **[specification.md](./technical/phase3-automated-prevention/specification.md)** - Complete Phase 3 specification
   - **[implementation-summary.md](./technical/phase3-automated-prevention/implementation-summary.md)** - Test results (724/724 passing, 87%+ coverage)
   - **[infrastructure-updates.md](./technical/phase3-automated-prevention/infrastructure-updates.md)** - CDK infrastructure changes for prevention system
-- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, 2, and 3**
+- **[technical/phase4-ai-advisor/](./technical/phase4-ai-advisor/)** - ✅ **Phase 4: AI Cost Advisor (CODE COMPLETE - PENDING DEPLOYMENT)**
+  - **[README.md](./technical/phase4-ai-advisor/README.md)** - Overview, features, architecture, and getting started
+  - **[specification.md](./technical/phase4-ai-advisor/specification.md)** - Complete Phase 4 Kiro specification
+  - **[implementation-summary.md](./technical/phase4-ai-advisor/implementation-summary.md)** - Test results (971/971 passing, 88% coverage, 270 Phase 4 tests)
+  - **[infrastructure-updates.md](./technical/phase4-ai-advisor/infrastructure-updates.md)** - AWS infrastructure deployment guide (DynamoDB, IAM, API Gateway)
+- **[DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)** - 📋 **Phase 4 deployment checklist with step-by-step instructions, testing procedures, and monitoring guide**
+- **[PHASE4_STATUS.md](./PHASE4_STATUS.md)** - ⚡ **Phase 4 quick status reference**
+- **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - 📊 **Complete project status across all phases**
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, 2, 3, and 4**
 - **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1, 1.5 & 2 Complete**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
@@ -166,7 +183,17 @@
 - **...see Phase 2 completion** → [technical/phase2-ai-forecasting/](./technical/phase2-ai-forecasting/) ✅ **Phase 2 Complete**
 - **...see Phase 2 implementation** → [technical/phase2-ai-forecasting/implementation-summary.md](./technical/phase2-ai-forecasting/implementation-summary.md) ✅ **94.16% coverage**
 - **...see Phase 2 setup guide** → [technical/phase2-ai-forecasting/README.md](./technical/phase2-ai-forecasting/README.md)
-- **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1, 1.5 & 2 examples**
+- **...see Phase 3 completion** → [technical/phase3-automated-prevention/](./technical/phase3-automated-prevention/) ✅ **Phase 3 Complete**
+- **...see Phase 3 implementation** → [technical/phase3-automated-prevention/implementation-summary.md](./technical/phase3-automated-prevention/implementation-summary.md) ✅ **87%+ coverage**
+- **...see Phase 3 setup guide** → [technical/phase3-automated-prevention/README.md](./technical/phase3-automated-prevention/README.md)
+- **...see Phase 4 completion** → [technical/phase4-ai-advisor/](./technical/phase4-ai-advisor/) ✅ **Phase 4 Code Complete**
+- **...see Phase 4 implementation** → [technical/phase4-ai-advisor/implementation-summary.md](./technical/phase4-ai-advisor/implementation-summary.md) ✅ **88% coverage, 270 tests**
+- **...see Phase 4 setup guide** → [technical/phase4-ai-advisor/README.md](./technical/phase4-ai-advisor/README.md)
+- **...see Phase 4 deployment guide** → [technical/phase4-ai-advisor/infrastructure-updates.md](./technical/phase4-ai-advisor/infrastructure-updates.md)
+- **...see Phase 4 deployment checklist** → [DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md) 📋 **Step-by-step deployment**
+- **...see Phase 4 status** → [PHASE4_STATUS.md](./PHASE4_STATUS.md) ⚡ **Quick reference**
+- **...see complete project status** → [PROJECT_STATUS.md](./PROJECT_STATUS.md) 📊 **All phases**
+- **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1, 1.5, 2, 3 & 4 examples**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
@@ -209,6 +236,8 @@ Each documentation file includes keywords in its header. Search for:
 - **⚠️ Mandatory/Rules:** terms, conditions, mandatory, required, must, prohibited, excluded, compliance, rules, TOS, agreement, binding, disqualification, forfeiture
 - **Questions/FAQ:** FAQ, frequently asked questions, who can participate, timeline, prizes, tracks, technical requirements, AWS resources, documentation, help, answers
 - **Phase 2:** AI forecasting, cost prediction, Bedrock, Nova Lite, confidence intervals, forecast cache, historical data, time series
+- **Phase 3:** automated prevention, cost prevention, budget monitoring, idle detection, resource management, safety guards, action execution, approval workflows, rollback, audit logging, EventBridge, SNS notifications
+- **Phase 4:** AI advisor, conversational AI, natural language processing, NLP, query processing, intent classification, context management, response caching, proactive insights, anomaly detection, optimization suggestions, markdown formatting, conversation history, Bedrock Nova Lite
 
 ## 📝 File Structure
 

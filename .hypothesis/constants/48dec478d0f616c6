@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\utils\validation.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 128, 168, 500, '+00:00', 'DAILY', 'HOURLY', 'MONTHLY', 'Z', 'action', 'anomaly', 'apigateway', 'cloudfront', 'confidence_lower', 'confidence_upper', 'cost_analysis', 'critical', 'currency', 'daily', 'date', 'delete', 'dry_run_mode', 'dynamodb', 'ebs', 'ec2', 'ecs', 'eks', 'elastic_ip', 'elasticache', 'elb', 'forecast', 'forecast_alert', 'glue', 'info', 'lambda', 'limit_concurrency', 'minimum_idle_minutes', 'nat_gateway', 'optimization', 'predicted_cost', 'prevention', 'protected_tags', 'rds', 'redshift', 's3', 'sagemaker', 'snapshot_delete', 'sns', 'sqs', 'stepfunctions', 'stop', 'summary', 'switch_billing', 'terminate', 'trend_analysis', 'warning', 'weekly', 'whitelist_ids']

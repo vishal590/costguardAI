@@ -27,6 +27,13 @@ from .services.approval_manager import ApprovalManager
 from .services.rollback_manager import RollbackManager
 from .services.notification_service import NotificationService
 from .services.eventbridge_scheduler import EventBridgeScheduler
+from .services.advisor_engine import AdvisorEngine
+from .services.query_processor import QueryProcessor
+from .services.context_manager import ContextManager
+from .services.bedrock_advisor_client import BedrockAdvisorClient
+from .services.response_formatter import ResponseFormatter
+from .services.advisor_cache_manager import AdvisorCacheManager
+from .services.insight_generator import InsightGenerator
 from .utils.types import QueryParams, ErrorResponse, EstimationResponse, InsufficientDataError, BedrockAPIError, BedrockRateLimitError
 from .utils.error_handler import format_error
 from .utils.validation import (
@@ -106,6 +113,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_prevention_rollback(event)
         elif http_method == 'GET' and path.endswith('/prevention/history'):
             return handle_prevention_history(event)
+        # Phase 4 endpoints
+        elif http_method == 'POST' and path.endswith('/advisor/query'):
+            return handle_advisor_query(event)
+        elif http_method == 'GET' and path.endswith('/advisor/history'):
+            return handle_advisor_history(event)
+        elif http_method == 'DELETE' and path.endswith('/advisor/history'):
+            return handle_advisor_clear_history(event)
+        elif http_method == 'GET' and path.endswith('/advisor/suggestions'):
+            return handle_advisor_suggestions(event)
         else:
             return create_error_response(
                 400,
@@ -1319,6 +1335,310 @@ def handle_eventbridge_event(event: Dict[str, Any]) -> Dict[str, Any]:
             error_response.message,
             error_response.details
         )
+
+
+
+
+# ============================================================================
+# Phase 4: AI Cost Advisor Handlers
+# ============================================================================
+
+def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle POST /api/advisor/query request to process natural language queries.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            params = json.loads(body) if body else {}
+        else:
+            params = body
+        
+        query = params.get('query')
+        user_id = params.get('user_id', 'default')
+        session_id = params.get('session_id', 'default')
+        
+        if not query:
+            return create_error_response(
+                400,
+                'MISSING_PARAMETER',
+                'query is required'
+            )
+        
+        logger.info(f"Processing advisor query: user={user_id}, session={session_id}")
+        
+        # Initialize advisor engine
+        advisor_engine = _get_advisor_engine()
+        
+        # Process query
+        response = advisor_engine.process_query(query, user_id, session_id)
+        
+        # Format response
+        response_data = {
+            'success': True,
+            'response': response.response_text,
+            'recommendations': [
+                {
+                    'action': rec.action,
+                    'rationale': rec.rationale,
+                    'estimated_savings': float(rec.estimated_savings),
+                    'priority': rec.priority,
+                    'safe': rec.safe
+                }
+                for rec in response.recommendations
+            ],
+            'cost_data': response.cost_data,
+            'confidence': float(response.confidence),
+            'cached': response.cached
+        }
+        
+        logger.info(f"Query processed successfully: cached={response.cached}, recommendations={len(response.recommendations)}")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_advisor_query: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_advisor_history(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/advisor/history request to retrieve conversation history.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        session_id = query_params.get('session_id', 'default')
+        
+        logger.info(f"Retrieving conversation history: session={session_id}")
+        
+        # Initialize advisor engine
+        advisor_engine = _get_advisor_engine()
+        
+        # Get conversation history
+        history = advisor_engine.get_conversation_history(session_id)
+        
+        # Format response
+        response_data = {
+            'success': True,
+            'history': [
+                {
+                    'query': turn.query,
+                    'response': turn.response,
+                    'timestamp': turn.timestamp.isoformat()
+                }
+                for turn in history
+            ],
+            'count': len(history)
+        }
+        
+        logger.info(f"Retrieved {len(history)} conversation turns")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_advisor_history: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_advisor_clear_history(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle DELETE /api/advisor/history request to clear conversation history.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            params = json.loads(body) if body else {}
+        else:
+            params = body
+        
+        session_id = params.get('session_id', 'default')
+        
+        logger.info(f"Clearing conversation history: session={session_id}")
+        
+        # Initialize advisor engine
+        advisor_engine = _get_advisor_engine()
+        
+        # Clear conversation history
+        advisor_engine.clear_conversation_history(session_id)
+        
+        logger.info(f"Conversation history cleared for session {session_id}")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'success': True,
+                'message': 'Conversation history cleared',
+                'session_id': session_id
+            })
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_advisor_clear_history: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_advisor_suggestions(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/advisor/suggestions request to get proactive insights.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        Response dict with status code and body
+    """
+    try:
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        user_id = query_params.get('user_id', 'default')
+        
+        logger.info(f"Generating proactive insights: user={user_id}")
+        
+        # Initialize advisor engine
+        advisor_engine = _get_advisor_engine()
+        
+        # Generate proactive insights
+        insights = advisor_engine.generate_proactive_insights(user_id)
+        
+        # Format response
+        response_data = {
+            'success': True,
+            'insights': [
+                {
+                    'insight_type': insight.insight_type,
+                    'title': insight.title,
+                    'description': insight.description,
+                    'severity': insight.severity,
+                    'action_required': insight.action_required,
+                    'related_services': insight.related_services,
+                    'estimated_impact': float(insight.estimated_impact) if insight.estimated_impact else None
+                }
+                for insight in insights
+            ],
+            'count': len(insights)
+        }
+        
+        logger.info(f"Generated {len(insights)} proactive insights")
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(response_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in handle_advisor_suggestions: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def _get_advisor_engine() -> AdvisorEngine:
+    """
+    Initialize and return an AdvisorEngine instance.
+    
+    Returns:
+        Configured AdvisorEngine instance
+    """
+    # Initialize DynamoDB client
+    dynamodb_client = get_dynamodb_client()
+    
+    # Initialize Phase 4 components
+    query_processor = QueryProcessor()
+    context_manager = ContextManager(
+        cost_explorer_client=None,
+        dynamodb_client=dynamodb_client
+    )
+    bedrock_advisor_client = BedrockAdvisorClient(
+        bedrock_client=None
+    )
+    response_formatter = ResponseFormatter()
+    cache_manager = AdvisorCacheManager(
+        dynamodb_client=dynamodb_client,
+        table_name='costguard-advisor-cache'
+    )
+    insight_generator = InsightGenerator(
+        cost_explorer_client=None,
+        dynamodb_client=dynamodb_client
+    )
+    
+    # Create advisor engine
+    advisor_engine = AdvisorEngine(
+        query_processor=query_processor,
+        context_manager=context_manager,
+        bedrock_client=bedrock_advisor_client,
+        response_formatter=response_formatter,
+        cache_manager=cache_manager,
+        insight_generator=insight_generator,
+        dynamodb_client=dynamodb_client,
+        conversation_table_name='costguard-advisor-conversation-history'
+    )
+    
+    return advisor_engine
 
 
 def _get_prevention_engine() -> PreventionEngine:

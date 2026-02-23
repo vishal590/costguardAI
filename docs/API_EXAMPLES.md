@@ -2972,3 +2972,621 @@ Phase 3 includes comprehensive error handling:
   }
 }
 ```
+
+
+---
+
+## Phase 4: AI Cost Advisor
+
+Phase 4 provides a conversational AI interface for cost analysis powered by Amazon Bedrock Nova Lite. Ask natural language questions about your AWS costs and get context-aware responses with recommendations.
+
+### POST /api/advisor/query Examples
+
+#### Example 1: Simple Cost Query
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What were my EC2 costs last month?",
+    "user_id": "user123",
+    "session_id": "session456"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "response": "Your **EC2 costs last month** were **$150.25**.\n\n| Service | Cost | % of Total |\n|---------|------|------------|\n| EC2 | $150.25 | 100% |\n\nThis represents a **15% increase** compared to the previous month ($130.50).",
+  "recommendations": [
+    {
+      "action": "Stop 3 idle EC2 instances that have been running for >7 days with <5% CPU utilization",
+      "rationale": "These instances are consuming resources without providing value",
+      "estimated_savings": 45.00,
+      "priority": 5,
+      "safe": true
+    }
+  ],
+  "cost_data": {
+    "ec2": 150.25,
+    "previous_month": 130.50,
+    "change_percent": 15.0
+  },
+  "confidence": 0.95,
+  "cached": false
+}
+```
+
+#### Example 2: Optimization Query
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "How can I reduce my Lambda costs?",
+    "user_id": "user123",
+    "session_id": "session456"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "response": "Here are **3 ways to reduce your Lambda costs**:\n\n1. **Optimize memory allocation** - Your functions are using 1024 MB but only consuming 512 MB on average\n2. **Reduce execution time** - Functions taking >3s could be optimized\n3. **Use Lambda Power Tuning** - Find the optimal memory/performance balance\n\n**Estimated monthly savings: $25-40**",
+  "recommendations": [
+    {
+      "action": "Reduce memory allocation for 5 Lambda functions from 1024 MB to 512 MB",
+      "rationale": "Functions are only using 50% of allocated memory",
+      "estimated_savings": 25.00,
+      "priority": 4,
+      "safe": true
+    },
+    {
+      "action": "Optimize function code to reduce execution time by 30%",
+      "rationale": "Faster execution = lower costs",
+      "estimated_savings": 15.00,
+      "priority": 3,
+      "safe": true
+    }
+  ],
+  "cost_data": {
+    "lambda": 80.00,
+    "potential_savings": 40.00
+  },
+  "confidence": 0.90,
+  "cached": false
+}
+```
+
+#### Example 3: Forecast Query
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What will my costs be next week?",
+    "user_id": "user123",
+    "session_id": "session456"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "response": "Based on your current usage patterns, **next week's costs are forecasted at $285-315** (95% confidence interval).\n\n**Breakdown by service:**\n- EC2: $150-165\n- Lambda: $80-90\n- DynamoDB: $35-40\n- S3: $20-20\n\nThis is **10% higher** than last week due to increased EC2 usage.",
+  "recommendations": [],
+  "cost_data": {
+    "forecast_total": 300.00,
+    "confidence_lower": 285.00,
+    "confidence_upper": 315.00,
+    "services": {
+      "ec2": 157.50,
+      "lambda": 85.00,
+      "dynamodb": 37.50,
+      "s3": 20.00
+    }
+  },
+  "confidence": 0.95,
+  "cached": false
+}
+```
+
+#### Example 4: Follow-up Query (Conversation Context)
+
+**First Query:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Show me my EC2 costs",
+    "user_id": "user123",
+    "session_id": "session789"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Follow-up Query:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Which instances are the most expensive?",
+    "user_id": "user123",
+    "session_id": "session789"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Success - Context-Aware):**
+```json
+{
+  "success": true,
+  "response": "Looking at your **EC2 instances**, the top 3 most expensive are:\n\n1. **i-1234567890abcdef0** (m5.2xlarge) - $120/month\n2. **i-0987654321fedcba0** (m5.xlarge) - $60/month\n3. **i-abcdef1234567890** (t3.large) - $30/month\n\nThe m5.2xlarge instance accounts for **40% of your EC2 costs**.",
+  "recommendations": [
+    {
+      "action": "Consider downsizing i-1234567890abcdef0 to m5.xlarge if CPU utilization is consistently <50%",
+      "rationale": "Right-sizing can reduce costs by 50% while maintaining performance",
+      "estimated_savings": 60.00,
+      "priority": 5,
+      "safe": true
+    }
+  ],
+  "cost_data": {
+    "instances": {
+      "i-1234567890abcdef0": 120.00,
+      "i-0987654321fedcba0": 60.00,
+      "i-abcdef1234567890": 30.00
+    }
+  },
+  "confidence": 0.92,
+  "cached": false
+}
+```
+
+#### Example 5: Cached Response
+
+**Request (Same as Previous):**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What were my EC2 costs last month?",
+    "user_id": "user123",
+    "session_id": "session456"
+  }' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Cached - Fast):**
+```json
+{
+  "success": true,
+  "response": "Your **EC2 costs last month** were **$150.25**...",
+  "recommendations": [...],
+  "cost_data": {...},
+  "confidence": 0.95,
+  "cached": true
+}
+```
+
+**Note:** Cached responses return in <500ms vs <5s for non-cached queries.
+
+### GET /api/advisor/history Examples
+
+#### Example 1: Get Conversation History
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/advisor/history?session_id=session456"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "history": [
+    {
+      "query": "What were my EC2 costs last month?",
+      "response": "Your **EC2 costs last month** were **$150.25**...",
+      "timestamp": "2026-02-23T10:00:00Z"
+    },
+    {
+      "query": "How can I reduce my Lambda costs?",
+      "response": "Here are **3 ways to reduce your Lambda costs**...",
+      "timestamp": "2026-02-23T10:05:00Z"
+    }
+  ],
+  "count": 2
+}
+```
+
+#### Example 2: Empty History
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/advisor/history?session_id=new_session"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "history": [],
+  "count": 0
+}
+```
+
+### DELETE /api/advisor/history Examples
+
+#### Example 1: Clear Conversation History
+
+**Request:**
+```bash
+curl -X DELETE \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "session456"}' \
+  "$API_ENDPOINT/api/advisor/history"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Conversation history cleared",
+  "session_id": "session456"
+}
+```
+
+### GET /api/advisor/suggestions Examples
+
+#### Example 1: Get Proactive Insights
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/advisor/suggestions?user_id=user123"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "insights": [
+    {
+      "insight_type": "summary",
+      "title": "Daily Cost Summary",
+      "description": "Yesterday's costs: $50.25 (5% increase from average)",
+      "severity": "info",
+      "action_required": false,
+      "related_services": ["ec2", "lambda"],
+      "estimated_impact": 0.0
+    },
+    {
+      "insight_type": "anomaly",
+      "title": "Cost Spike Detected",
+      "description": "EC2 costs increased 60% compared to last week",
+      "severity": "warning",
+      "action_required": true,
+      "related_services": ["ec2"],
+      "estimated_impact": 30.00
+    },
+    {
+      "insight_type": "optimization",
+      "title": "Idle Resources Found",
+      "description": "3 EC2 instances idle for >7 days. Potential savings: $45/month",
+      "severity": "info",
+      "action_required": true,
+      "related_services": ["ec2"],
+      "estimated_impact": 45.00
+    },
+    {
+      "insight_type": "forecast_alert",
+      "title": "Budget Overrun Predicted",
+      "description": "Forecast shows 95% probability of exceeding budget by $50 next week",
+      "severity": "critical",
+      "action_required": true,
+      "related_services": ["ec2", "lambda", "dynamodb"],
+      "estimated_impact": 50.00
+    }
+  ],
+  "count": 4
+}
+```
+
+#### Example 2: No Insights Available
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/advisor/suggestions?user_id=new_user"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "insights": [],
+  "count": 0
+}
+```
+
+---
+
+## Python Examples
+
+### Phase 4: AI Cost Advisor
+
+```python
+import requests
+import json
+
+# Configuration
+API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key-here"
+
+headers = {
+    "x-api-key": API_KEY,
+    "Content-Type": "application/json"
+}
+
+# Example 1: Ask a cost question
+def ask_cost_question(query, user_id="default", session_id="default"):
+    """Ask a natural language cost question."""
+    url = f"{API_ENDPOINT}/api/advisor/query"
+    payload = {
+        "query": query,
+        "user_id": user_id,
+        "session_id": session_id
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    data = response.json()
+    
+    if data["success"]:
+        print(f"Response: {data['response']}")
+        print(f"Cached: {data['cached']}")
+        
+        if data["recommendations"]:
+            print("\nRecommendations:")
+            for rec in data["recommendations"]:
+                print(f"  - {rec['action']}")
+                print(f"    Savings: ${rec['estimated_savings']:.2f}/month")
+    else:
+        print(f"Error: {data['error']['message']}")
+    
+    return data
+
+# Example 2: Get conversation history
+def get_conversation_history(session_id="default"):
+    """Get conversation history for a session."""
+    url = f"{API_ENDPOINT}/api/advisor/history"
+    params = {"session_id": session_id}
+    
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+    
+    if data["success"]:
+        print(f"Found {data['count']} conversation turns:")
+        for turn in data["history"]:
+            print(f"\nQ: {turn['query']}")
+            print(f"A: {turn['response'][:100]}...")
+            print(f"Time: {turn['timestamp']}")
+    
+    return data
+
+# Example 3: Clear conversation history
+def clear_conversation_history(session_id="default"):
+    """Clear conversation history for a session."""
+    url = f"{API_ENDPOINT}/api/advisor/history"
+    payload = {"session_id": session_id}
+    
+    response = requests.delete(url, headers=headers, json=payload)
+    data = response.json()
+    
+    if data["success"]:
+        print(f"Cleared history for session: {data['session_id']}")
+    
+    return data
+
+# Example 4: Get proactive insights
+def get_proactive_insights(user_id="default"):
+    """Get proactive cost insights."""
+    url = f"{API_ENDPOINT}/api/advisor/suggestions"
+    params = {"user_id": user_id}
+    
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+    
+    if data["success"]:
+        print(f"Found {data['count']} insights:")
+        for insight in data["insights"]:
+            print(f"\n[{insight['severity'].upper()}] {insight['title']}")
+            print(f"  {insight['description']}")
+            if insight['estimated_impact']:
+                print(f"  Impact: ${insight['estimated_impact']:.2f}")
+    
+    return data
+
+# Example 5: Conversational flow
+def conversational_example():
+    """Example of a multi-turn conversation."""
+    session_id = "demo_session"
+    
+    # First question
+    print("=== Question 1 ===")
+    ask_cost_question(
+        "What were my costs last month?",
+        session_id=session_id
+    )
+    
+    # Follow-up question (uses conversation context)
+    print("\n=== Question 2 (Follow-up) ===")
+    ask_cost_question(
+        "Which service was the most expensive?",
+        session_id=session_id
+    )
+    
+    # Another follow-up
+    print("\n=== Question 3 (Follow-up) ===")
+    ask_cost_question(
+        "How can I reduce those costs?",
+        session_id=session_id
+    )
+    
+    # View conversation history
+    print("\n=== Conversation History ===")
+    get_conversation_history(session_id)
+    
+    # Clear history
+    print("\n=== Clear History ===")
+    clear_conversation_history(session_id)
+
+# Run examples
+if __name__ == "__main__":
+    # Simple query
+    ask_cost_question("What were my EC2 costs last month?")
+    
+    # Get insights
+    get_proactive_insights()
+    
+    # Conversational flow
+    conversational_example()
+```
+
+### Example Query Formats
+
+The AI advisor understands various query formats:
+
+**Cost Analysis:**
+- "What were my costs last month?"
+- "Show me EC2 spending for January"
+- "How much did I spend on Lambda?"
+- "What's my total AWS bill?"
+
+**Optimization:**
+- "How can I reduce costs?"
+- "What resources are idle?"
+- "Show me optimization opportunities"
+- "Which instances should I downsize?"
+
+**Forecasting:**
+- "What will my costs be next week?"
+- "Forecast my EC2 spending"
+- "Will I exceed my budget?"
+- "Show me cost trends"
+
+**Prevention:**
+- "What prevention actions were taken?"
+- "Show me stopped resources"
+- "What savings did prevention achieve?"
+- "Which resources are protected?"
+
+**Trends:**
+- "Show me cost trends"
+- "Compare this month to last month"
+- "What's my spending pattern?"
+- "Are costs increasing?"
+
+---
+
+## Error Examples
+
+### Phase 4 Errors
+
+#### Missing Query Parameter
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user123"}' \
+  "$API_ENDPOINT/api/advisor/query"
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "MISSING_PARAMETER",
+    "message": "query is required"
+  }
+}
+```
+
+#### Bedrock Service Unavailable
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SERVICE_UNAVAILABLE",
+    "message": "Bedrock API is currently unavailable. Please try again later.",
+    "details": {
+      "retry_after": "30"
+    }
+  }
+}
+```
+
+#### Rate Limit Exceeded
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Bedrock API rate limit exceeded. Please try again later.",
+    "details": {
+      "retry_after": "60"
+    }
+  }
+}
+```
+
+---
+
+## Performance Notes
+
+### Phase 4 Response Times
+
+- **Cached queries:** <500ms (P95)
+- **Non-cached queries:** <5s (P95)
+- **Cache hit rate target:** 40%+
+- **Cache TTL:** 24 hours
+
+### Optimization Tips
+
+1. **Reuse session IDs** for related questions to maintain conversation context
+2. **Cache warming:** Common queries are automatically cached
+3. **Batch insights:** Use `/api/advisor/suggestions` for multiple insights at once
+4. **Clear old sessions:** Delete conversation history when no longer needed
+
+---
+
+## Additional Resources
+
+- [README.md](../README.md) - Project overview and setup
+- [Phase 4 Technical Documentation](./technical/phase4-ai-advisor/) - Detailed Phase 4 design
+- [Competition Documentation](./competition/) - AWS 10,000 AIdeas competition info

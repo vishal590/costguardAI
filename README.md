@@ -35,7 +35,7 @@
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly)
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
 - **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
-- **Automated Cost Prevention (Phase 3 - NEW):** Automatically detect and prevent cost overruns with:
+- **Automated Cost Prevention (Phase 3):** Automatically detect and prevent cost overruns with:
   - Budget threshold monitoring (80% warning, 90% action)
   - Idle resource detection across 20+ AWS services
   - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
@@ -43,6 +43,13 @@
   - Approval workflows with 30-minute timeout
   - 24-hour rollback capability
   - Comprehensive audit logging
+- **AI Cost Advisor (Phase 4 - NEW):** Conversational AI assistant powered by Amazon Bedrock Nova Lite:
+  - Natural language cost queries ("What were my EC2 costs last month?")
+  - Context-aware responses with historical data, forecasts, and prevention actions
+  - Proactive cost insights (daily summaries, anomaly detection, optimization suggestions)
+  - Conversation history for follow-up questions
+  - Aggressive caching (40%+ hit rate) for cost efficiency
+  - Markdown-formatted responses with cost tables and highlights
 - **RESTful API:** Simple HTTP API with API key authentication
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
 - **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, Amazon Bedrock, and EventBridge for automatic scaling
@@ -56,6 +63,7 @@
 │  Phase 1.5: /api/cost-estimation/*                          │
 │  Phase 2: /api/cost-forecast/*                              │
 │  Phase 3: /api/prevention/* (NEW)                           │
+│  Phase 4: /api/advisor/* (NEW)                              │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -67,9 +75,12 @@
 │  - Pricing data management                                  │
 │  - AI forecasting with Amazon Bedrock                       │
 │  - Forecast caching with DynamoDB                           │
-│  - Budget monitoring & prevention engine (NEW)              │
-│  - Resource discovery & idle detection (NEW)                │
-│  - Safety guards & action execution (NEW)                   │
+│  - Budget monitoring & prevention engine                    │
+│  - Resource discovery & idle detection                      │
+│  - Safety guards & action execution                         │
+│  - AI Cost Advisor with conversational interface (NEW)      │
+│  - Query processing & context management (NEW)              │
+│  - Response formatting & caching (NEW)                      │
 └────┬────────────────────┬────────────────────┬─────────────┘
      │                    │                    │
      ▼                    ▼                    ▼
@@ -80,6 +91,10 @@
 │          │      │  - Config    │    │  & SNS Topics   │
 │          │      │  - Inventory │    │                 │
 │          │      │  - Audit Log │    │                 │
+│          │      │  - Advisor   │    │                 │
+│          │      │    Cache     │    │                 │
+│          │      │  - Advisor   │    │                 │
+│          │      │    History   │    │                 │
 └──────────┘      └──────────────┘    └─────────────────┘
                            ▲
                            │
@@ -108,7 +123,8 @@ aws-ideas/
 │   │   ├── phase1-cost-pipeline/  # Phase 1 docs
 │   │   ├── phase1.5-near-realtime/ # Phase 1.5 docs
 │   │   ├── phase2-ai-forecasting/ # Phase 2 docs
-│   │   └── phase3-automated-prevention/ # Phase 3 docs (NEW)
+│   │   ├── phase3-automated-prevention/ # Phase 3 docs
+│   │   └── phase4-ai-advisor/     # Phase 4 docs (NEW)
 │   └── INDEX.md                   # Master documentation index
 ├── src/                           # Source code
 │   ├── lambda_handler.py          # Main Lambda handler
@@ -131,11 +147,18 @@ aws-ideas/
 │   │   ├── rollback_manager.py    # Rollback management (NEW)
 │   │   ├── notification_service.py # SNS notifications (NEW)
 │   │   ├── eventbridge_scheduler.py # EventBridge integration (NEW)
+│   │   ├── advisor_engine.py      # AI advisor orchestration (NEW)
+│   │   ├── query_processor.py     # NLP query parsing (NEW)
+│   │   ├── context_manager.py     # Context retrieval (NEW)
+│   │   ├── bedrock_advisor_client.py # Bedrock advisor client (NEW)
+│   │   ├── response_formatter.py  # Response formatting (NEW)
+│   │   ├── advisor_cache_manager.py # Advisor caching (NEW)
+│   │   ├── insight_generator.py   # Proactive insights (NEW)
 │   │   └── dynamodb.py            # DynamoDB operations
 │   └── utils/                     # Utility modules
 ├── tests/                         # Test suite
-│   ├── unit/                      # Unit tests (579 tests)
-│   ├── property/                  # Property-based tests (75 tests)
+│   ├── unit/                      # Unit tests (598 tests)
+│   ├── property/                  # Property-based tests (82 tests)
 │   └── integration/               # Integration tests
 ├── infrastructure/                # AWS CDK infrastructure code
 │   ├── cdk_stack.py               # Complete CDK stack
@@ -299,6 +322,67 @@ curl -H "x-api-key: YOUR_API_KEY" \
 - 24-hour rollback capability
 - Comprehensive audit logging
 
+#### Phase 4: AI Cost Advisor
+
+**Ask natural language cost questions:**
+```bash
+curl -X POST \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What were my EC2 costs last month?",
+    "user_id": "user123",
+    "session_id": "session456"
+  }' \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/advisor/query"
+```
+
+**Get conversation history:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/advisor/history?session_id=session456"
+```
+
+**Clear conversation history:**
+```bash
+curl -X DELETE \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "session456"}' \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/advisor/history"
+```
+
+**Get proactive cost insights:**
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod/api/advisor/suggestions?user_id=user123"
+```
+
+**Features:**
+- Natural language query processing with intent classification
+- Context-aware responses using historical data, forecasts, and prevention actions
+- Conversation history for follow-up questions (last 10 turns)
+- Proactive insights: daily summaries, anomaly detection, optimization suggestions
+- Aggressive caching (40%+ hit rate, 24-hour TTL) for cost efficiency
+- Markdown-formatted responses with cost tables and number highlighting
+- Response time: <500ms (cached), <5s (non-cached)
+
+**Example queries:**
+- "What were my costs last month?"
+- "Show me EC2 spending trends"
+- "How can I reduce my Lambda costs?"
+- "What's my forecast for next week?"
+- "Which resources are idle?"
+
+**Features:**
+- Automatic budget monitoring every 5 minutes via EventBridge
+- Idle resource detection across 20+ AWS services (EC2, RDS, Lambda, EBS, S3, DynamoDB, etc.)
+- Safety guards: tag-based protection, whitelists, active usage checks
+- Dry run mode for testing (enabled by default)
+- Approval workflows with 30-minute timeout
+- 24-hour rollback capability
+- Comprehensive audit logging
+
 For more examples, see [docs/API_EXAMPLES.md](./docs/API_EXAMPLES.md)
 
 ### Running Tests
@@ -384,6 +468,15 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 | POST | `/api/prevention/rollback` | Rollback a prevention action |
 | GET | `/api/prevention/history` | Get prevention action history |
 
+### Phase 4: AI Cost Advisor
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/advisor/query` | Ask natural language cost questions |
+| GET | `/api/advisor/history` | Get conversation history for a session |
+| DELETE | `/api/advisor/history` | Clear conversation history |
+| GET | `/api/advisor/suggestions` | Get proactive cost insights |
+
 **Query Parameters:**
 - `hours` - Time range in hours for estimation (default: 1, max: 168)
 - `days` - Forecast horizon for forecasting: 7, 14, or 30 (default: 30)
@@ -393,21 +486,24 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 - `service` - Filter by service name
 - `state` - Filter resources by state (running, stopped, etc.)
 - `limit` - Maximum number of records to return
+- `user_id` - User identifier for advisor queries (default: "default")
+- `session_id` - Session identifier for conversation history (default: "default")
 
 ## 🧪 Testing
 
 The project uses a comprehensive testing strategy:
 
-- **Unit Tests:** Test individual components with mocked dependencies (579 tests)
-- **Property-Based Tests:** Validate universal properties using Hypothesis (75 tests, 100+ iterations per property)
+- **Unit Tests:** Test individual components with mocked dependencies (598 tests)
+- **Property-Based Tests:** Validate universal properties using Hypothesis (82 tests, 100+ iterations per property)
 - **Integration Tests:** Test end-to-end flows and service interactions
 
-**Test Coverage:** 87%+ code coverage maintained (654 tests passing)
+**Test Coverage:** 87%+ code coverage maintained (680 tests passing)
 
 **Key Properties Tested:**
 - **Phase 1 & 1.5:** Non-negative cost estimates, pricing data freshness, API response validation
 - **Phase 2:** Forecast confidence intervals, cache key uniqueness, Bedrock prompt structure
-- **Phase 3 (NEW):** Budget threshold detection, protected resource safety, idle detection consistency, action reversibility, dry run safety, audit trail completeness, multi-service coverage, safety check ordering, notification delivery, configuration validation, approval timeout handling, resource inventory freshness, action prioritization, error isolation, backward compatibility
+- **Phase 3:** Budget threshold detection, protected resource safety, idle detection consistency, action reversibility, dry run safety, audit trail completeness, multi-service coverage, safety check ordering, notification delivery, configuration validation, approval timeout handling, resource inventory freshness, action prioritization, error isolation, backward compatibility
+- **Phase 4 (NEW):** Query intent extraction consistency, context retrieval completeness, response caching correctness, conversation context continuity, time range interpretation, service name normalization, response time bounds, error message clarity, forecast integration accuracy, prevention action attribution, backward compatibility
 
 ## 💰 Cost Optimization
 
@@ -417,24 +513,28 @@ CostGuard is designed to operate within AWS Free Tier:
   - API requests: ~2,000/month
   - EventBridge scheduled: ~8,640/month (budget monitoring every 5 minutes)
 - **API Gateway:** ~2,000 requests/month (within 1M free tier)
-- **DynamoDB:** On-demand billing, ~200 MB storage (within 25 GB free tier)
+- **DynamoDB:** On-demand billing, ~260 MB storage (within 25 GB free tier)
   - Cost data table: ~50 MB
   - Forecast cache table: ~50 MB
   - Prevention config table: ~10 MB
   - Resource inventory table: ~40 MB
   - Prevention audit table: ~30 MB
   - Approval requests table: ~20 MB
+  - Advisor cache table: ~50 MB (NEW)
+  - Advisor conversation history table: ~10 MB (NEW)
 - **CloudWatch:** ~50,000 API requests/month (within 1M free tier)
 - **Cost Explorer:** ~100 API calls/month (~$1/month)
 - **AWS Budgets:** 2 budgets (free)
 - **Pricing API:** ~100 calls/month with caching (~$0.01/month)
-- **Amazon Bedrock (Nova Lite):** ~500 requests/month with 80%+ cache hit rate (~$0.50/month)
+- **Amazon Bedrock (Nova Lite):** ~1,000 requests/month with 80%+ cache hit rate (~$1.00/month)
+  - Phase 2 forecasting: ~500 requests/month (~$0.50/month)
+  - Phase 4 advisor: ~500 requests/month (~$0.50/month)
 - **SNS:** ~348 messages/month (within 1M publishes/month free tier)
 - **EventBridge:** Rules are free, invocations count toward Lambda free tier
 
-**Estimated Monthly Cost:** ~$1.51 (mostly Cost Explorer API and Bedrock)
+**Estimated Monthly Cost:** ~$2.01 (mostly Cost Explorer API and Bedrock)
 
-**Phase 3 adds minimal cost** while providing significant cost savings through automated prevention.
+**Phase 4 adds ~$0.50/month** for conversational AI capabilities while providing significant value through natural language cost insights.
 
 ## 🔗 Resources
 
