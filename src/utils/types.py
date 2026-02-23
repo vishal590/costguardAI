@@ -455,3 +455,68 @@ class NotificationConfig:
     warning_topic_arn: Optional[str]
     action_topic_arn: Optional[str]
     error_topic_arn: Optional[str]
+
+
+# ============================================================================
+# Phase 4: AI Cost Advisor Data Models
+# ============================================================================
+
+@dataclass
+class QueryIntent:
+    """Parsed natural language query intent."""
+    intent_type: str  # "cost_analysis", "optimization", "trend_analysis", "forecast", "prevention"
+    services: List[str]  # AWS service identifiers
+    time_range: tuple  # (start_date, end_date)
+    accounts: List[str]  # AWS account IDs
+    entities: Dict[str, Any]  # Extracted entities (resource IDs, etc.)
+
+
+@dataclass
+class CostContext:
+    """Cost data context for AI advisor."""
+    historical_costs: Dict[str, List[Dict[str, Any]]]  # Service -> cost data
+    forecast_data: Optional[Dict[str, List[Dict[str, Any]]]]
+    prevention_actions: List[Dict[str, Any]]
+    current_budget: Optional[BudgetStatus]
+    anomalies: List[Dict[str, Any]]
+
+
+@dataclass
+class ConversationTurn:
+    """Single conversation turn."""
+    query: str
+    response: str
+    timestamp: datetime
+    context_used: Optional[CostContext]
+
+
+@dataclass
+class AdvisorResponse:
+    """AI advisor response."""
+    response_text: str  # Formatted markdown response
+    recommendations: List['Recommendation']
+    cost_data: Dict[str, Any]  # Structured cost data
+    confidence: float  # AI confidence score
+    cached: bool  # Whether response was cached
+
+
+@dataclass
+class Recommendation:
+    """Cost optimization recommendation."""
+    action: str  # Description of recommended action
+    rationale: str  # Why this is recommended
+    estimated_savings: float  # Monthly savings estimate
+    priority: int  # 1-5, 5 being highest
+    safe: bool  # Whether action respects safety guards
+
+
+@dataclass
+class Insight:
+    """Proactive cost insight."""
+    insight_type: str  # "summary", "anomaly", "optimization", "forecast_alert"
+    title: str
+    description: str
+    severity: str  # "info", "warning", "critical"
+    action_required: bool
+    related_services: List[str]
+    estimated_impact: Optional[float]  # Cost impact

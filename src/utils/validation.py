@@ -320,3 +320,156 @@ def validate_rollback_window(hours: int) -> bool:
         True if valid, False otherwise
     """
     return 1 <= hours <= 72
+
+
+# ============================================================================
+# Phase 4: AI Cost Advisor Validation Functions
+# ============================================================================
+
+# Valid intent types
+VALID_INTENT_TYPES: Set[str] = {
+    'cost_analysis', 'optimization', 'trend_analysis', 'forecast', 'prevention'
+}
+
+# Valid insight types
+VALID_INSIGHT_TYPES: Set[str] = {
+    'summary', 'anomaly', 'optimization', 'forecast_alert'
+}
+
+# Valid severity levels
+VALID_SEVERITY_LEVELS: Set[str] = {'info', 'warning', 'critical'}
+
+
+def validate_intent_type(intent_type: str) -> bool:
+    """
+    Validate query intent type.
+    
+    Args:
+        intent_type: Intent type to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return intent_type.lower() in VALID_INTENT_TYPES
+
+
+def validate_query_length(query: str, max_length: int = 500) -> bool:
+    """
+    Validate query length is within limits.
+    
+    Args:
+        query: Query string
+        max_length: Maximum allowed length
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 0 < len(query) <= max_length
+
+
+def validate_session_id(session_id: str) -> bool:
+    """
+    Validate session ID format.
+    
+    Args:
+        session_id: Session identifier
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    # Basic validation: non-empty string, reasonable length
+    return isinstance(session_id, str) and 1 <= len(session_id) <= 128
+
+
+def validate_cache_ttl(ttl_hours: int) -> bool:
+    """
+    Validate cache TTL is reasonable (1-168 hours / 1 week).
+    
+    Args:
+        ttl_hours: TTL in hours
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 1 <= ttl_hours <= 168
+
+
+def validate_insight_type(insight_type: str) -> bool:
+    """
+    Validate insight type.
+    
+    Args:
+        insight_type: Insight type to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return insight_type.lower() in VALID_INSIGHT_TYPES
+
+
+def validate_severity_level(severity: str) -> bool:
+    """
+    Validate severity level.
+    
+    Args:
+        severity: Severity level to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return severity.lower() in VALID_SEVERITY_LEVELS
+
+
+def validate_recommendation_priority(priority: int) -> bool:
+    """
+    Validate recommendation priority (1-5).
+    
+    Args:
+        priority: Priority value
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 1 <= priority <= 5
+
+
+def validate_ai_confidence(confidence: float) -> bool:
+    """
+    Validate AI confidence score (0.0-1.0).
+    
+    Args:
+        confidence: Confidence score
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 0.0 <= confidence <= 1.0
+
+
+def validate_response_length(response: str, max_words: int = 500) -> bool:
+    """
+    Validate response length is within limits.
+    
+    Args:
+        response: Response text
+        max_words: Maximum word count
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    word_count = len(response.split())
+    return 0 < word_count <= max_words
+
+
+def validate_conversation_history_size(history: list, max_turns: int = 10) -> bool:
+    """
+    Validate conversation history size.
+    
+    Args:
+        history: List of conversation turns
+        max_turns: Maximum allowed turns
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return 0 <= len(history) <= max_turns
