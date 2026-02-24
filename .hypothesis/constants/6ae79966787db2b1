@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\api_auth.py
+# hypothesis_version: 6.151.9
+
+[100, 365, 401, 1000000, '*', '+00:00', '0', '100', 'API key has expired', 'API key is disabled', 'API key is required', 'API-Key', 'Authentication error', 'BOOL', 'Content-Type', 'DELETE', 'GET', 'Invalid API key', 'Item', 'N', 'POST', 'PUT', 'RATE_LIMIT_EXCEEDED', 'S', 'SS', 'WWW-Authenticate', 'X-API-Key', 'Z', 'api_key', 'api_key_id', 'application/json', 'body', 'code', 'costguard-api-keys', 'created_at', 'error', 'expires_at', 'headers', 'httpMethod', 'is_active', 'message', 'path', 'permissions', 'rate_limit', 'read', 'request_count', 'statusCode', 'success', 'ttl', 'user_id', 'window_key', 'window_start', 'write', 'x-api-key']

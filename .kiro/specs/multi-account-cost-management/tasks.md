@@ -389,8 +389,8 @@ This document outlines the implementation tasks for Phase 5 of CostGuard AI: Mul
 
 ### Milestone 7: API Endpoints & Integration
 
-- [ ] 22. Implement Multi-Account API Endpoints
-  - [ ] 22.1 Create API Gateway endpoints
+- [x] 22. Implement Multi-Account API Endpoints
+  - [x] 22.1 Create API Gateway endpoints
     - `GET /api/organizations` - List organizations
     - `GET /api/organizations/{org_id}/accounts` - List accounts
     - `GET /api/costs/consolidated` - Consolidated costs
@@ -398,32 +398,32 @@ This document outlines the implementation tasks for Phase 5 of CostGuard AI: Mul
     - `GET /api/costs/account/{account_id}` - Account costs
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-  - [ ] 22.2 Create allocation API endpoints
+  - [x] 22.2 Create allocation API endpoints
     - `GET /api/allocation/by-tag` - Allocated costs by tag
     - `GET /api/allocation/unallocated` - Unallocated costs
     - `POST /api/allocation/rules` - Create allocation rules
     - _Requirements: 16.6, 16.7, 16.8_
 
-  - [ ] 22.3 Create budget API endpoints
+  - [x] 22.3 Create budget API endpoints
     - `GET /api/budgets/hierarchy` - Budget hierarchy
     - `POST /api/budgets/organization` - Create org budget
     - `POST /api/budgets/ou/{ou_id}` - Create OU budget
     - _Requirements: 16.9_
 
-  - [ ] 22.4 Add API authentication
+  - [x] 22.4 Add API authentication
     - Implement API key authentication
     - Add IAM-based authorization
     - Add rate limiting
     - _Requirements: 16.10, 17.6_
 
-  - [ ] 22.5 Write integration tests for API endpoints
+  - [x] 22.5 Write integration tests for API endpoints
     - Test all GET endpoints
     - Test all POST endpoints
     - Test authentication
     - Test error responses
     - _Requirements: 16.1-16.10_
 
-  - [ ] 22.6 Write property test for API response time
+  - [x] 22.6 Write property test for API response time
     - **Property 13: API Response Time Bound**
     - **Validates: Requirements 4.6, 17.3**
     - Generate random cost queries
