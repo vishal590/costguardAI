@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\models.py
+# hypothesis_version: 6.151.9
+
+['ACCOUNT', 'ACTIVE', 'FAILED', 'ORGANIZATION', 'OU', 'PARTIAL', 'PENDING', 'PENDING_CLOSURE', 'SUCCESS', 'SUSPENDED']

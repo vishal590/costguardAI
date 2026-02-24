@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\multi_account_cost_collector_handler.py
+# hypothesis_version: 6.151.9
+
+[0.2, 200, 207, 500, '7', 'DAYS_TO_COLLECT', 'EXTERNAL_ID', 'INFO', 'LOG_LEVEL', 'ORGANIZATION_ID', 'SUCCESS', 'account_ids', 'body', 'date_range', 'end', 'end_date', 'error', 'external_id', 'failed', 'failed_accounts', 'message', 'org_id', 'start', 'start_date', 'statusCode', 'successful', 'summary', 'total_accounts', 'total_cost']

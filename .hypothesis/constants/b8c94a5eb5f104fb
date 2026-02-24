@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\cross_account_advisor_service.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, '%Y-%m-%d', '0', ':', 'Account not found', 'No accounts found', 'No cost data found', 'Team:', 'account_count', 'account_id', 'account_name', 'account_status', 'allocated_cost', 'allocation', 'allocation_insights', 'allocation_warning', 'cost_analysis', 'costs_by_account', 'costs_by_service', 'description', 'end_date', 'error', 'low', 'medium', 'organization_id', 'percentage', 'recommendation', 'severity', 'start_date', 'team_costs', 'time_period', 'title', 'total_cost', 'type', 'unallocated_cost']

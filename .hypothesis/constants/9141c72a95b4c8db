@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\showback_report_service.py
+# hypothesis_version: 6.151.9
+
+['0', 'Cost', 'Cost Trend by Date', 'Date', 'Environment', 'Project', 'Service', 'Team', 'costs_by_day', 'costs_by_service', 'environment', 'project', 'team']

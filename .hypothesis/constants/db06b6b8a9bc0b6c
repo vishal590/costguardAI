@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\cost_allocation_engine.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, '0', ':', 'Environment', 'FIXED', 'PERCENTAGE', 'Project', 'TAG_BASED', 'Team', 'Team:', 'costs_by_service', 'costs_by_tag', 'service', 'tag_key', 'tag_value']

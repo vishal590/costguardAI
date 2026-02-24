@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\cross_account_role_manager.py
+# hypothesis_version: 6.151.9
+
+[3600, '*', '2010-09-09', '2012-10-17', 'AWS', 'AWS::IAM::Role', 'AccessDenied', 'AccessKeyId', 'Action', 'Allow', 'Arn', 'Code', 'Condition', 'Credentials', 'Default', 'Description', 'Effect', 'Error', 'Expiration', 'ExternalId', 'Fn::GetAtt', 'ManagedPolicyArns', 'ManagementAccountId', 'NoSuchEntity', 'Outputs', 'Parameters', 'Policies', 'PolicyDocument', 'PolicyName', 'Principal', 'Properties', 'Resource', 'Resources', 'RoleArn', 'RoleName', 'SecretAccessKey', 'SessionToken', 'Statement', 'String', 'StringEquals', 'Type', 'Value', 'Version', 'ce:GetCostAndUsage', 'ce:GetCostCategories', 'ce:GetCostForecast', 'ce:GetTags', 'sts', 'sts:AssumeRole', 'sts:ExternalId', 'us-east-1']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\organization_budget_service.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, '0', 'CRITICAL', 'EXCEEDED', 'MONTHLY', 'NO_BUDGET', 'OK', 'WARNING', 'account_id', 'account_name', 'accounts', 'budget_amount', 'budget_id', 'current_spend', 'level', 'message', 'org_id', 'organization', 'ou_id', 'status', 'utilization']

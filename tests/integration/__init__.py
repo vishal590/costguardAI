@@ -1,1 +1,3 @@
-"""Integration tests for Cost Data Pipeline"""
+"""
+Integration tests for CostGuard AI
+"""

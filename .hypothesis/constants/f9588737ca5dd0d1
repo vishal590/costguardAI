@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\chargeback_report_service.py
+# hypothesis_version: 6.151.9
+
+['0', 'Account ID', 'Account Name', 'Cost', 'Date', 'Line Items', 'Project', 'Service', 'Summary by Account', 'Summary by Service', 'Team', 'Total Cost', 'costs_by_service', 'project', 'team']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\repositories.py
+# hypothesis_version: 6.151.9
+
+['#date', '#date = :date', '0', ':date', ':entity_id', ':entity_type', ':org_id', 'Item', 'Items', 'M', 'N', 'PENDING', 'S', 'SUCCESS', 'account_id', 'accounts', 'allocation_rules', 'allocation_target', 'arn', 'budget_amount', 'budget_id', 'budgets', 'collection_status', 'collection_timestamp', 'conditions', 'costs_by_day', 'costs_by_service', 'created_at', 'current_spend', 'date', 'date-index', 'dynamodb', 'email', 'entity_id', 'entity_id-index', 'entity_type', 'feature_set', 'last_collection', 'last_updated', 'master_account_id', 'multi_account_costs', 'name', 'org_id', 'org_id = :org_id', 'org_id-index', 'organizations', 'period', 'priority', 'rule_id', 'rule_type', 'status', 'total_cost', 'ttl', 'updated_at']

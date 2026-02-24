@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\organization_discovery.py
+# hypothesis_version: 6.151.9
+
+['0', 'Accounts', 'Arn', 'Email', 'FeatureSet', 'Id', 'JoinedMethod', 'JoinedTimestamp', 'MasterAccountId', 'N', 'Name', 'Organization', 'OrganizationalUnits', 'PENDING', 'Roots', 'S', 'Status', 'account_id', 'accounts', 'arn', 'collection_status', 'dynamodb', 'email', 'feature_set', 'last_collection', 'last_updated', 'list_accounts', 'master_account_id', 'name', 'org_id', 'organizations', 'status', 'ttl']

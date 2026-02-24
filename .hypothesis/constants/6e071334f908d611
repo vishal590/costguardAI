@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\allocation_rules_engine.py
+# hypothesis_version: 6.151.9
+
+[100, '0', 'FIXED', 'PERCENTAGE', 'TAG_BASED', 'account_id', 'percentage', 'service', 'tag_key', 'tag_value']
