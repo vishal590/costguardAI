@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from .models import AllocationRule, AllocationResult, AccountCostData
 from .repositories import MultiAccountCostRepository, AllocationRuleRepository
+from .cloudwatch_metrics import get_metrics_service
 
 
 logger = logging.getLogger(__name__)
@@ -229,6 +230,14 @@ class CostAllocationEngine:
         
         # Get allocation result
         result = self.allocate_by_tags(account_id, start_date, end_date, tag_keys)
+        
+        # Record unallocated percentage metric
+        metrics_service = get_metrics_service()
+        metrics_service.record_unallocated_percentage(
+            float(result.unallocated_cost),
+            float(result.total_cost),
+            account_id  # Using account_id as organization identifier
+        )
         
         logger.info(
             f"Unallocated costs for account {account_id}: ${result.unallocated_cost}"

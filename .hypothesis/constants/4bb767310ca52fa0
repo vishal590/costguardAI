@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\cost_aggregation_engine.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, 3600, '0', 'Cache cleared', 'CostAggregation', 'ORGANIZATION', 'OU', 'costs_by_day', 'costs_by_service', 'name']

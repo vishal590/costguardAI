@@ -5,6 +5,7 @@ This handler processes API Gateway requests for multi-account cost operations.
 """
 import json
 import logging
+import time
 from typing import Dict, Any, Optional
 from datetime import datetime, UTC
 
@@ -22,6 +23,7 @@ from .services.multi_account.repositories import (
     BudgetRepository
 )
 from .services.multi_account.api_auth import authenticate_and_authorize, create_auth_error_response
+from .services.multi_account.cloudwatch_metrics import get_metrics_service
 from .services.dynamodb import get_dynamodb_client
 from .utils.error_handler import format_error
 from .utils.date_utils import validate_date_format, validate_date_range
@@ -49,6 +51,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             - headers: Response headers
             - body: JSON string response
     """
+    start_time = time.time()
+    metrics_service = get_metrics_service()
+    endpoint = event.get('path', 'unknown')
+    
     try:
         # Log incoming event
         logger.info(f"Received multi-account API event: {json.dumps(event)}")
@@ -70,43 +76,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Route to appropriate handler
         # Organization endpoints
         if http_method == 'GET' and path.endswith('/organizations'):
-            return handle_list_organizations(event)
+            response = handle_list_organizations(event)
         elif http_method == 'GET' and '/organizations/' in path and path.endswith('/accounts'):
-            return handle_list_accounts(event)
+            response = handle_list_accounts(event)
         
         # Cost endpoints
         elif http_method == 'GET' and path.endswith('/costs/consolidated'):
-            return handle_consolidated_costs(event)
+            response = handle_consolidated_costs(event)
         elif http_method == 'GET' and path.endswith('/costs/by-account'):
-            return handle_costs_by_account(event)
+            response = handle_costs_by_account(event)
         elif http_method == 'GET' and '/costs/account/' in path:
-            return handle_account_costs(event)
+            response = handle_account_costs(event)
         
         # Allocation endpoints
         elif http_method == 'GET' and path.endswith('/allocation/by-tag'):
-            return handle_allocation_by_tag(event)
+            response = handle_allocation_by_tag(event)
         elif http_method == 'GET' and path.endswith('/allocation/unallocated'):
-            return handle_unallocated_costs(event)
+            response = handle_unallocated_costs(event)
         elif http_method == 'POST' and path.endswith('/allocation/rules'):
-            return handle_create_allocation_rule(event)
+            response = handle_create_allocation_rule(event)
         
         # Budget endpoints
         elif http_method == 'GET' and path.endswith('/budgets/hierarchy'):
-            return handle_budget_hierarchy(event)
+            response = handle_budget_hierarchy(event)
         elif http_method == 'POST' and path.endswith('/budgets/organization'):
-            return handle_create_organization_budget(event)
+            response = handle_create_organization_budget(event)
         elif http_method == 'POST' and '/budgets/ou/' in path:
-            return handle_create_ou_budget(event)
+            response = handle_create_ou_budget(event)
         
         else:
-            return create_error_response(
+            response = create_error_response(
                 400,
                 'INVALID_REQUEST',
                 f'Unsupported method {http_method} or path {path}'
             )
+        
+        # Record response time metric
+        duration_ms = (time.time() - start_time) * 1000
+        metrics_service.record_api_response_time(endpoint, duration_ms)
+        
+        return response
     
     except Exception as e:
         logger.error(f"Unhandled exception in multi-account API: {str(e)}", exc_info=True)
+        
+        # Record error and response time
+        duration_ms = (time.time() - start_time) * 1000
+        metrics_service.record_api_response_time(endpoint, duration_ms)
+        metrics_service.record_lambda_error('MultiAccountAPIHandler', type(e).__name__)
+        
         error_response = format_error(e)
         return create_error_response(
             500,

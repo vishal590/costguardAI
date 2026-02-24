@@ -17,6 +17,7 @@ from botocore.exceptions import ClientError
 
 from .cross_account_role_manager import CrossAccountRoleManager
 from .repositories import MultiAccountCostRepository
+from .cloudwatch_metrics import get_metrics_service, metrics_collector
 
 
 logger = logging.getLogger(__name__)
@@ -103,33 +104,46 @@ class MultiAccountCostCollector:
             f"from {start_date} to {end_date}"
         )
         
-        start_time = time.time()
+        metrics_service = get_metrics_service()
         
-        # Collect costs in parallel
-        account_data = self.collect_parallel(account_ids, start_date, end_date)
-        
-        # Calculate summary statistics
-        successful = sum(1 for data in account_data if data.status == "SUCCESS")
-        failed = sum(1 for data in account_data if data.status == "FAILED")
-        failed_accounts = [data.account_id for data in account_data if data.status == "FAILED"]
-        
-        duration = time.time() - start_time
-        
-        result = CollectionResult(
-            total_accounts=len(account_ids),
-            successful=successful,
-            failed=failed,
-            failed_accounts=failed_accounts,
-            collection_duration=duration,
-            account_data=account_data
-        )
-        
-        logger.info(
-            f"Cost collection completed: {successful}/{len(account_ids)} successful, "
-            f"{failed} failed, duration: {duration:.2f}s"
-        )
-        
-        return result
+        with metrics_collector('MultiAccountCostCollection', 
+                             {'OrganizationId': org_id, 'AccountCount': str(len(account_ids))}) as collector:
+            
+            start_time = time.time()
+            
+            # Collect costs in parallel
+            account_data = self.collect_parallel(account_ids, start_date, end_date)
+            
+            # Calculate summary statistics
+            successful = sum(1 for data in account_data if data.status == "SUCCESS")
+            failed = sum(1 for data in account_data if data.status == "FAILED")
+            failed_accounts = [data.account_id for data in account_data if data.status == "FAILED"]
+            
+            duration = time.time() - start_time
+            
+            # Record metrics
+            metrics_service.record_cost_collection_duration(duration, len(account_ids))
+            metrics_service.record_cost_collection_success_rate(successful, len(account_ids))
+            
+            collector.record_custom_metric('AccountsProcessed', len(account_ids))
+            collector.record_custom_metric('SuccessfulAccounts', successful)
+            collector.record_custom_metric('FailedAccounts', failed)
+            
+            result = CollectionResult(
+                total_accounts=len(account_ids),
+                successful=successful,
+                failed=failed,
+                failed_accounts=failed_accounts,
+                collection_duration=duration,
+                account_data=account_data
+            )
+            
+            logger.info(
+                f"Cost collection completed: {successful}/{len(account_ids)} successful, "
+                f"{failed} failed, duration: {duration:.2f}s"
+            )
+            
+            return result
     
     def collect_account(
         self,

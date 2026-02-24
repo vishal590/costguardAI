@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\multi_account_cost_collector.py
+# hypothesis_version: 6.151.9
+
+['%Y-%m-%d', '0', 'AccountCount', 'AccountsProcessed', 'Amount', 'DAILY', 'DIMENSION', 'End', 'FAILED', 'FailedAccounts', 'Groups', 'Key', 'Keys', 'Metrics', 'OrganizationId', 'ResultsByTime', 'SERVICE', 'SUCCESS', 'Start', 'SuccessfulAccounts', 'TimePeriod', 'Timeout', 'Type', 'UnblendedCost', 'ce']

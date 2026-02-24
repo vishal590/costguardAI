@@ -233,8 +233,9 @@ class TestMultiAccountAPIHandler:
         mock_org_service = Mock()
         mock_accounts = [
             Account(
-                account_id='123456789012',
-                account_name='Production',
+                id='123456789012',
+                arn='arn:aws:organizations::123456789012:account/o-example123456/123456789012',
+                name='Production',
                 email='prod@example.com',
                 status='ACTIVE',
                 joined_method='CREATED',

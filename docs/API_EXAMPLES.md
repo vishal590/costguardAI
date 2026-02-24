@@ -3590,3 +3590,324 @@ curl -X POST \
 - [README.md](../README.md) - Project overview and setup
 - [Phase 4 Technical Documentation](./technical/phase4-ai-advisor/) - Detailed Phase 4 design
 - [Competition Documentation](./competition/) - AWS 10,000 AIdeas competition info
+
+
+---
+
+## Phase 5: Multi-Account Cost Management
+
+### Organizations API
+
+#### List Organizations
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/organizations"
+```
+
+**Response:**
+```json
+{
+  "organizations": [
+    {
+      "id": "o-abc123xyz",
+      "arn": "arn:aws:organizations::123456789012:organization/o-abc123xyz",
+      "master_account_id": "123456789012",
+      "feature_set": "ALL",
+      "account_count": 15
+    }
+  ]
+}
+```
+
+#### List Accounts in Organization
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/organizations/o-abc123xyz/accounts?status=ACTIVE"
+```
+
+**Response:**
+```json
+{
+  "organization_id": "o-abc123xyz",
+  "accounts": [
+    {
+      "id": "123456789012",
+      "name": "Production Account",
+      "email": "prod@example.com",
+      "status": "ACTIVE",
+      "ou_id": "ou-xyz-12345678",
+      "ou_name": "Production"
+    }
+  ],
+  "total_count": 15
+}
+```
+
+### Consolidated Costs API
+
+#### Get Consolidated Costs
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/costs/consolidated?start_date=2026-01-01&end_date=2026-01-31&granularity=DAILY"
+```
+
+**Response:**
+```json
+{
+  "start_date": "2026-01-01",
+  "end_date": "2026-01-31",
+  "total_cost": 15234.56,
+  "currency": "USD",
+  "costs_by_account": {
+    "123456789012": 8500.00,
+    "234567890123": 4234.56,
+    "345678901234": 2500.00
+  },
+  "costs_by_service": {
+    "EC2": 6000.00,
+    "S3": 3000.00,
+    "RDS": 2500.00,
+    "Lambda": 1500.00
+  }
+}
+```
+
+#### Get Costs by Account
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/costs/by-account?start_date=2026-01-01&end_date=2026-01-31&top_n=5"
+```
+
+**Response:**
+```json
+{
+  "accounts": [
+    {
+      "account_id": "123456789012",
+      "account_name": "Production Account",
+      "total_cost": 8500.00,
+      "percentage_of_total": 55.8,
+      "trend": {
+        "previous_period": 7800.00,
+        "change_percentage": 8.97
+      }
+    }
+  ],
+  "total_cost": 15234.56
+}
+```
+
+### Cost Allocation API
+
+#### Get Allocated Costs by Tag
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/allocation/by-tag?tag_key=Team&start_date=2026-01-01&end_date=2026-01-31"
+```
+
+**Response:**
+```json
+{
+  "tag_key": "Team",
+  "total_allocated": 12500.00,
+  "total_unallocated": 2734.56,
+  "allocation_percentage": 82.05,
+  "allocations": [
+    {
+      "tag_value": "Engineering",
+      "cost": 7500.00,
+      "percentage": 60.00
+    },
+    {
+      "tag_value": "Marketing",
+      "cost": 3000.00,
+      "percentage": 24.00
+    }
+  ]
+}
+```
+
+#### Get Unallocated Costs
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/allocation/unallocated?start_date=2026-01-01&end_date=2026-01-31"
+```
+
+**Response:**
+```json
+{
+  "total_cost": 15234.56,
+  "unallocated_cost": 2734.56,
+  "unallocated_percentage": 17.95,
+  "unallocated_by_service": {
+    "EC2": 1000.00,
+    "S3": 800.00,
+    "RDS": 500.00
+  }
+}
+```
+
+#### Create Allocation Rule
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Split VPC Costs 50/50",
+    "priority": 10,
+    "rule_type": "PERCENTAGE",
+    "conditions": {"service": "VPC"},
+    "allocations": [
+      {"target": "Team-A", "percentage": 50},
+      {"target": "Team-B", "percentage": 50}
+    ]
+  }' \
+  "$API_ENDPOINT/api/allocation/rules"
+```
+
+**Response:**
+```json
+{
+  "rule_id": "rule-abc123xyz",
+  "name": "Split VPC Costs 50/50",
+  "status": "ACTIVE",
+  "created_at": "2026-02-24T10:30:00Z"
+}
+```
+
+### Budgets API
+
+#### Get Budget Hierarchy
+
+**Request:**
+```bash
+curl -H "x-api-key: $API_KEY" \
+  "$API_ENDPOINT/api/budgets/hierarchy"
+```
+
+**Response:**
+```json
+{
+  "organization": {
+    "budget_amount": 50000.00,
+    "current_spend": 42500.00,
+    "utilization_percentage": 85.00,
+    "status": "WARNING"
+  },
+  "organizational_units": [
+    {
+      "ou_name": "Production",
+      "budget_amount": 30000.00,
+      "current_spend": 25000.00,
+      "utilization_percentage": 83.33
+    }
+  ]
+}
+```
+
+#### Create Organization Budget
+
+**Request:**
+```bash
+curl -X POST \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "budget_amount": 50000.00,
+    "period": "MONTHLY",
+    "alert_thresholds": [80, 100]
+  }' \
+  "$API_ENDPOINT/api/budgets/organization"
+```
+
+**Response:**
+```json
+{
+  "budget_id": "budget-org-123",
+  "budget_amount": 50000.00,
+  "period": "MONTHLY",
+  "status": "ACTIVE",
+  "created_at": "2026-02-24T10:30:00Z"
+}
+```
+
+### Python Examples for Phase 5
+
+```python
+import requests
+
+API_KEY = "your-api-key"
+BASE_URL = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod/api"
+
+headers = {"x-api-key": API_KEY}
+
+# Get consolidated costs
+response = requests.get(
+    f"{BASE_URL}/costs/consolidated",
+    headers=headers,
+    params={
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+    }
+)
+costs = response.json()
+print(f"Total organizational cost: ${costs['total_cost']:.2f}")
+
+# Get allocated costs by team
+response = requests.get(
+    f"{BASE_URL}/allocation/by-tag",
+    headers=headers,
+    params={
+        "tag_key": "Team",
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31"
+    }
+)
+allocation = response.json()
+for team in allocation['allocations']:
+    print(f"{team['tag_value']}: ${team['cost']:.2f}")
+
+# Create allocation rule
+rule_data = {
+    "name": "Split VPC Costs",
+    "priority": 10,
+    "rule_type": "PERCENTAGE",
+    "conditions": {"service": "VPC"},
+    "allocations": [
+        {"target": "Team-A", "percentage": 50},
+        {"target": "Team-B", "percentage": 50}
+    ]
+}
+response = requests.post(
+    f"{BASE_URL}/allocation/rules",
+    headers=headers,
+    json=rule_data
+)
+rule = response.json()
+print(f"Created rule: {rule['rule_id']}")
+```
+
+---
+
+## Complete Documentation
+
+For complete API documentation including all endpoints, parameters, and response formats, see:
+
+- **Phase 5 Multi-Account API**: [API_DOCUMENTATION.md](./technical/phase5-multi-account/API_DOCUMENTATION.md)
+- **Phase 5 README**: [README.md](./technical/phase5-multi-account/README.md)
+- **Deployment Guide**: [DEPLOYMENT_SCRIPTS.md](../DEPLOYMENT_SCRIPTS.md)
+- **Cross-Account Setup**: [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)

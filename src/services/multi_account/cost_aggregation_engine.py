@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from .models import AggregatedCosts, AccountSpending
 from .repositories import MultiAccountCostRepository, AccountRepository, OrganizationRepository
+from .cloudwatch_metrics import get_metrics_service
 
 
 logger = logging.getLogger(__name__)
@@ -422,7 +423,11 @@ class CostAggregationEngine:
         Returns:
             Cached AggregatedCosts or None if not found/expired
         """
+        metrics_service = get_metrics_service()
+        
         if cache_key not in self._cache:
+            # Cache miss
+            metrics_service.record_cache_hit_rate(0, 1, 'CostAggregation')
             return None
         
         entry = self._cache[cache_key]
@@ -431,8 +436,11 @@ class CostAggregationEngine:
         if age_seconds > entry.ttl_seconds:
             # Cache expired
             del self._cache[cache_key]
+            metrics_service.record_cache_hit_rate(0, 1, 'CostAggregation')
             return None
         
+        # Cache hit
+        metrics_service.record_cache_hit_rate(1, 1, 'CostAggregation')
         return entry.data
     
     def _put_in_cache(self, cache_key: str, data: AggregatedCosts) -> None:

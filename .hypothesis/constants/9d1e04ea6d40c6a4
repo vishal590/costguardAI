@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\cloudwatch_metrics.py
+# hypothesis_version: 6.151.9
+
+[100, 'API.ResponseTime', 'AccountCount', 'CacheType', 'CostAggregation', 'Count', 'Dimensions', 'DynamoDB.Throttles', 'Endpoint', 'ErrorType', 'FunctionName', 'Lambda.Errors', 'MetricName', 'Milliseconds', 'Name', 'Operation', 'OrganizationId', 'Percent', 'Seconds', 'TableName', 'Timestamp', 'TotalAccounts', 'Unit', 'Value', 'cloudwatch']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\multi_account\backward_compatibility.py
+# hypothesis_version: 6.151.9
+
+[1000, 'DynamoDB access', 'IAM permissions', 'Validating migration', 'advise_costs', 'budget_records', 'checks_failed', 'checks_passed', 'cost_records', 'costguard-accounts', 'costguard-budgets', 'costguard-cost-data', 'costguard-forecasts', 'data_counts', 'data_preserved', 'errors', 'estimate_costs', 'false', 'fetch_costs', 'forecast_costs', 'forecast_records', 'migration_timestamp', 'mode_after', 'mode_before', 'multi-account', 'preserved_tables', 'prevent_costs', 'query_costs', 'single-account', 'success', 'validation_passed', 'warnings']

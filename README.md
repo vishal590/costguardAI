@@ -16,6 +16,12 @@
 
 **Start here:** [docs/INDEX.md](./docs/INDEX.md) - Master documentation index with navigation to all files
 
+**NEW:** [docs/DOCUMENTATION_MAP.md](./docs/DOCUMENTATION_MAP.md) - Complete documentation map with:
+- Role-based navigation (Developers, PMs, Stakeholders)
+- Topic clustering and semantic organization
+- Cross-reference matrix and use case navigation
+- Comprehensive search tags and documentation metrics
+
 ### Quick Links
 - ⚠️ **[Mandatory Rules](./docs/MANDATORY-RULES.md)** - All mandatory requirements
 - ⚠️ **[Terms & Conditions](./docs/competition/terms.md)** - Complete terms
