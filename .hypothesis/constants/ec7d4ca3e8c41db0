@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\ai_ml_handler.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 100, 200, 400, 500, 501, '*', '/bedrock-costs', '/cost-per-inference', '/cost-per-training', '/gpu-costs', '/gpu-utilization', '/idle-gpus', '/inference-trends', '/sagemaker-costs', '/spot-savings', '/training-comparison', '10.0', 'Content-Type', 'GET', 'INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE', 'INVALID_JSON', 'INVALID_REQUEST', 'INVALID_THRESHOLD', 'MISSING_PARAMETER', 'NOT_IMPLEMENTED', 'POST', 'application/json', 'body', 'classification', 'code', 'count', 'date_range', 'details', 'end_date', 'error', 'gpu_costs', 'headers', 'httpMethod', 'idle', 'idle_gpus', 'inference', 'instance_id', 'instance_type', 'manual-tag', 'message', 'path', 'reason', 'start_date', 'statusCode', 'threshold', 'total_cost', 'total_gpu_hours', 'total_idle_hours', 'total_wasted_cost', 'training', 'workload_type', '{}']

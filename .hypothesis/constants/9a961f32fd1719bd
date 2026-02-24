@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\gpu_cost_tracker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 10.0, 'g4.', 'g5.', 'g6.', 'instance_id', 'instance_type', 'p3.', 'p4.', 'p4d.', 'p5.', 'utilization']

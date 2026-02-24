@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\bedrock_cost_tracker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.0002, 0.0006, 0.00075, 0.0008, 0.001, 0.00163, 0.0024, 0.008, 0.01, 0.01102, 0.0188, 0.024, 100, 500, 1000, 86400, '%Y-%m-%d', 'AWS/Bedrock', 'Amazon Bedrock', 'Amount', 'Claude', 'DAILY', 'DIMENSION', 'Datapoints', 'Dimensions', 'End', 'Groups', 'Invocations', 'Jurassic', 'Key', 'Keys', 'Llama', 'Metrics', 'ModelId', 'ModelInvocation', 'Name', 'ResultsByTime', 'SERVICE', 'Start', 'Sum', 'Titan', 'Type', 'USAGE_TYPE', 'UnblendedCost', 'Value', 'Values', 'ai21.j2-ultra-v1', 'anthropic.claude-v2', 'bedrock-runtime', 'ce', 'claude-instant', 'cloudwatch', 'cost', 'cost_per_1k_tokens', 'input_cost_per_1k', 'input_tokens', 'invocations', 'llama', 'output_cost_per_1k', 'output_tokens', 'titan', 'total_tokens', 'unknown']

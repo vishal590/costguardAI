@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\ai_ml_cache_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, ':', ':type', 'Item', 'Items', 'LastEvaluatedKey', 'N', 'S', 'ai-ml-cost-cache', 'cache_hits', 'cache_key', 'cache_misses', 'cache_type', 'cache_type = :type', 'created_at', 'data', 'hit_rate', 'params', 'total_requests', 'ttl']

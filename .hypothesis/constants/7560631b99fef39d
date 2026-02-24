@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\idle_detector.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.526, 0.752, 1.006, 1.204, 1.212, 1.624, 2.176, 2.448, 3.06, 3.912, 4.352, 4.896, 5.0, 5.672, 8.144, 10.0, 12.24, 16.288, 24.48, 32.77, 50.0, 98.32, 100.0, 500.0, 3600, 'critical', 'g4dn.12xlarge', 'g4dn.16xlarge', 'g4dn.2xlarge', 'g4dn.4xlarge', 'g4dn.8xlarge', 'g4dn.xlarge', 'g5.12xlarge', 'g5.16xlarge', 'g5.24xlarge', 'g5.2xlarge', 'g5.48xlarge', 'g5.4xlarge', 'g5.8xlarge', 'g5.xlarge', 'high', 'instance_id', 'instance_type', 'low', 'medium', 'p3.16xlarge', 'p3.2xlarge', 'p3.8xlarge', 'p4d.24xlarge', 'p5.48xlarge']
