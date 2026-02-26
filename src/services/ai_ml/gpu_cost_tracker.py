@@ -60,6 +60,7 @@ class GPUCostTracker:
         """
         self.dynamodb = dynamodb_client
         self.cost_explorer = cost_explorer_client
+        self._default_session = None
         
     @retry_with_exponential_backoff(max_retries=3)
     def collect_gpu_costs(
@@ -67,7 +68,8 @@ class GPUCostTracker:
         start_date: str,
         end_date: str,
         workload_type: Optional[str] = None,
-        instance_type: Optional[str] = None
+        instance_type: Optional[str] = None,
+        boto3_session=None
     ) -> List[GPUCostData]:
         """
         Collect GPU costs from Cost Explorer for specified date range.
@@ -77,6 +79,7 @@ class GPUCostTracker:
             end_date: End date in YYYY-MM-DD format
             workload_type: Optional filter by workload type
             instance_type: Optional filter by instance type
+            boto3_session: Optional boto3 session for cross-account access
             
         Returns:
             List of GPUCostData objects
@@ -86,6 +89,12 @@ class GPUCostTracker:
         logger.info(f"Collecting GPU costs from {start_date} to {end_date}")
         
         try:
+            # Use provided session or default Cost Explorer client
+            if boto3_session:
+                ce_client = boto3_session.client('ce')
+            else:
+                ce_client = self.cost_explorer
+            
             # TODO: Implement Cost Explorer integration
             # For now, return empty list as placeholder
             return []

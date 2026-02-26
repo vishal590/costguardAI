@@ -18,6 +18,7 @@ from src.services.ai_ml.spot_instance_recommender import SpotInstanceRecommender
 from src.services.ai_ml.sagemaker_cost_tracker import SageMakerCostTracker
 from src.services.ai_ml.bedrock_cost_tracker import BedrockCostTracker
 from src.services.ai_ml.ai_ml_cache_manager import AIMLCacheManager
+from src.services.ai_ml.prevention_integration import GPUPreventionIntegration
 from src.services.dynamodb import get_dynamodb_client
 from src.utils.error_handler import format_error
 from src.utils.date_utils import validate_date_format, validate_date_range
@@ -63,6 +64,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_gpu_utilization(event)
         elif http_method == 'GET' and path.endswith('/idle-gpus'):
             return handle_idle_gpus(event)
+        elif http_method == 'POST' and path.endswith('/gpu-prevention'):
+            return handle_gpu_prevention(event)
+        elif http_method == 'GET' and path.endswith('/gpu-cost-savings'):
+            return handle_gpu_cost_savings(event)
         elif http_method == 'GET' and path.endswith('/workload-classification'):
             return handle_get_workload_classification(event)
         elif http_method == 'POST' and path.endswith('/workload-classification'):
@@ -87,6 +92,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_bedrock_costs(event)
         elif http_method == 'GET' and path.endswith('/bedrock-cost-per-invocation'):
             return handle_bedrock_cost_per_invocation(event)
+        elif http_method == 'GET' and path.endswith('/multi-account/gpu-costs'):
+            return handle_multi_account_gpu_costs(event)
+        elif http_method == 'GET' and path.endswith('/multi-account/gpu-utilization'):
+            return handle_multi_account_gpu_utilization(event)
+        elif http_method == 'GET' and path.endswith('/multi-account/top-gpu-accounts'):
+            return handle_multi_account_top_gpu_accounts(event)
         else:
             return create_error_response(
                 400,
@@ -1241,6 +1252,208 @@ def handle_bedrock_cost_per_invocation(event: Dict[str, Any]) -> Dict[str, Any]:
         )
 
 
+def handle_gpu_prevention(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle POST /api/ai-ml/gpu-prevention request.
+    
+    Run prevention cycle for idle GPU instances.
+    
+    Request body:
+        {
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-31",
+            "threshold": 10.0,
+            "dry_run": true
+        }
+    
+    Response:
+        {
+            "success": true,
+            "idle_gpus_found": 5,
+            "actions_planned": 3,
+            "actions_executed": 0,
+            "total_savings": 1500.00,
+            "dry_run": true
+        }
+    
+    Requirements: IR-2.3
+    """
+    try:
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        
+        start_date = body.get('start_date')
+        end_date = body.get('end_date')
+        threshold = float(body.get('threshold', 10.0))
+        dry_run = body.get('dry_run', True)
+        
+        # Validate required parameters
+        if not start_date or not end_date:
+            return create_error_response(
+                400,
+                'MISSING_PARAMETERS',
+                'start_date and end_date are required'
+            )
+        
+        # Validate date formats
+        if not validate_date_format(start_date) or not validate_date_format(end_date):
+            return create_error_response(
+                400,
+                'INVALID_DATE_FORMAT',
+                'Dates must be in YYYY-MM-DD format'
+            )
+        
+        # Validate date range
+        if not validate_date_range(start_date, end_date):
+            return create_error_response(
+                400,
+                'INVALID_DATE_RANGE',
+                'end_date must be after start_date'
+            )
+        
+        # Initialize components
+        dynamodb = get_dynamodb_client()
+        idle_gpu_detector = IdleGPUDetector(dynamodb)
+        
+        # Note: prevention_engine would be the Phase 3 PreventionEngine instance
+        # For now, we pass None as it's optional for the integration to work
+        prevention_engine = None
+        
+        # Initialize prevention integration
+        integration = GPUPreventionIntegration(
+            idle_gpu_detector=idle_gpu_detector,
+            prevention_engine=prevention_engine,
+            dynamodb_client=dynamodb
+        )
+        
+        logger.info(f"Running GPU prevention cycle: {start_date} to {end_date}, threshold={threshold}, dry_run={dry_run}")
+        
+        # Run prevention cycle
+        result = integration.run_gpu_prevention_cycle(
+            start_date=start_date,
+            end_date=end_date,
+            threshold=threshold,
+            dry_run=dry_run
+        )
+        
+        return create_success_response(result)
+        
+    except ValueError as e:
+        logger.error(f"Invalid parameter in GPU prevention request: {e}")
+        return create_error_response(
+            400,
+            'INVALID_PARAMETER',
+            str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error in GPU prevention handler: {e}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
+def handle_gpu_cost_savings(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/ai-ml/gpu-cost-savings request.
+    
+    Get GPU cost savings from prevention actions.
+    
+    Query parameters:
+        - start_date: Start date (YYYY-MM-DD)
+        - end_date: End date (YYYY-MM-DD)
+    
+    Response:
+        {
+            "period_start": "2024-01-01",
+            "period_end": "2024-01-31",
+            "total_savings": 5000.00,
+            "actions_count": 10,
+            "instances_stopped": 7,
+            "instances_terminated": 3,
+            "avg_idle_hours": 48.5,
+            "breakdown_by_instance_type": {
+                "p3.2xlarge": 1500.00,
+                "g4dn.xlarge": 500.00,
+                "g5.2xlarge": 3000.00
+            }
+        }
+    
+    Requirements: IR-2.3
+    """
+    try:
+        # Parse query parameters
+        params = event.get('queryStringParameters', {}) or {}
+        
+        start_date = params.get('start_date')
+        end_date = params.get('end_date')
+        
+        # Validate required parameters
+        if not start_date or not end_date:
+            return create_error_response(
+                400,
+                'MISSING_PARAMETERS',
+                'start_date and end_date are required'
+            )
+        
+        # Validate date formats
+        if not validate_date_format(start_date) or not validate_date_format(end_date):
+            return create_error_response(
+                400,
+                'INVALID_DATE_FORMAT',
+                'Dates must be in YYYY-MM-DD format'
+            )
+        
+        # Validate date range
+        if not validate_date_range(start_date, end_date):
+            return create_error_response(
+                400,
+                'INVALID_DATE_RANGE',
+                'end_date must be after start_date'
+            )
+        
+        # Initialize components
+        dynamodb = get_dynamodb_client()
+        idle_gpu_detector = IdleGPUDetector(dynamodb)
+        
+        # Note: prevention_engine would be the Phase 3 PreventionEngine instance
+        # For now, we pass None as it's optional for the integration to work
+        prevention_engine = None
+        
+        # Initialize prevention integration
+        integration = GPUPreventionIntegration(
+            idle_gpu_detector=idle_gpu_detector,
+            prevention_engine=prevention_engine,
+            dynamodb_client=dynamodb
+        )
+        
+        logger.info(f"Retrieving GPU cost savings: {start_date} to {end_date}")
+        
+        # Get cost savings
+        savings = integration.get_gpu_cost_savings(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        # Convert to dictionary for JSON response
+        result = savings.to_dict()
+        
+        return create_success_response(result)
+        
+    except Exception as e:
+        logger.error(f"Error in GPU cost savings handler: {e}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(
+            500,
+            error_response.code,
+            error_response.message,
+            error_response.details
+        )
+
+
 def create_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a successful API Gateway response."""
     return {
@@ -1272,3 +1485,227 @@ def create_error_response(status_code: int, error_code: str, message: str, detai
         },
         'body': json.dumps(body)
     }
+
+
+# Multi-Account GPU Cost Handlers
+
+def handle_multi_account_gpu_costs(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/ai-ml/multi-account/gpu-costs
+    
+    Collect and aggregate GPU costs across multiple accounts in an organization.
+    
+    Query Parameters:
+        - org_id: Organization ID (required)
+        - account_ids: Comma-separated list of account IDs (required)
+        - start_date: Start date in YYYY-MM-DD format (required)
+        - end_date: End date in YYYY-MM-DD format (required)
+        - role_name: Cross-account role name (optional, default: CostGuardCollectorRole)
+        - external_id: External ID for role assumption (optional)
+    """
+    try:
+        from src.services.ai_ml.multi_account_gpu_integration import MultiAccountGPUIntegration
+        from datetime import datetime
+        
+        params = event.get('queryStringParameters', {}) or {}
+        
+        # Validate required parameters
+        org_id = params.get('org_id')
+        account_ids_str = params.get('account_ids')
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not all([org_id, account_ids_str, start_date_str, end_date_str]):
+            return create_error_response(
+                400,
+                'MISSING_PARAMETERS',
+                'Required parameters: org_id, account_ids, start_date, end_date'
+            )
+        
+        # Parse account IDs
+        account_ids = [aid.strip() for aid in account_ids_str.split(',')]
+        
+        # Validate dates
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError as e:
+            return create_error_response(
+                400,
+                'INVALID_DATE_FORMAT',
+                f'Dates must be in YYYY-MM-DD format: {str(e)}'
+            )
+        
+        # Optional parameters
+        role_name = params.get('role_name', 'CostGuardCollectorRole')
+        external_id = params.get('external_id')
+        
+        # Collect multi-account GPU costs
+        integration = MultiAccountGPUIntegration()
+        result = integration.collect_gpu_costs_all_accounts(
+            org_id=org_id,
+            account_ids=account_ids,
+            start_date=start_date,
+            end_date=end_date,
+            role_name=role_name,
+            external_id=external_id
+        )
+        
+        # Format response
+        response_data = {
+            'org_id': result.org_id,
+            'start_date': result.start_date.isoformat(),
+            'end_date': result.end_date.isoformat(),
+            'total_gpu_cost': float(result.total_gpu_cost),
+            'account_count': result.account_count,
+            'costs_by_account': {k: float(v) for k, v in result.costs_by_account.items()},
+            'costs_by_workload_type': {k: float(v) for k, v in result.costs_by_workload_type.items()},
+            'costs_by_instance_type': {k: float(v) for k, v in result.costs_by_instance_type.items()},
+            'gpu_hours_by_account': result.gpu_hours_by_account,
+            'utilization_by_account': result.utilization_by_account
+        }
+        
+        return create_success_response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error collecting multi-account GPU costs: {str(e)}", exc_info=True)
+        return create_error_response(
+            500,
+            'INTERNAL_ERROR',
+            f'Failed to collect multi-account GPU costs: {str(e)}'
+        )
+
+
+def handle_multi_account_gpu_utilization(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/ai-ml/multi-account/gpu-utilization
+    
+    Get organization-wide GPU utilization metrics.
+    
+    Query Parameters:
+        - org_id: Organization ID (required)
+        - account_ids: Comma-separated list of account IDs (required)
+        - start_date: Start date in YYYY-MM-DD format (required)
+        - end_date: End date in YYYY-MM-DD format (required)
+    """
+    try:
+        from src.services.ai_ml.multi_account_gpu_integration import MultiAccountGPUIntegration
+        from datetime import datetime
+        
+        params = event.get('queryStringParameters', {}) or {}
+        
+        # Validate required parameters
+        org_id = params.get('org_id')
+        account_ids_str = params.get('account_ids')
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not all([org_id, account_ids_str, start_date_str, end_date_str]):
+            return create_error_response(
+                400,
+                'MISSING_PARAMETERS',
+                'Required parameters: org_id, account_ids, start_date, end_date'
+            )
+        
+        # Parse account IDs
+        account_ids = [aid.strip() for aid in account_ids_str.split(',')]
+        
+        # Validate dates
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError as e:
+            return create_error_response(
+                400,
+                'INVALID_DATE_FORMAT',
+                f'Dates must be in YYYY-MM-DD format: {str(e)}'
+            )
+        
+        # Get organization GPU utilization
+        integration = MultiAccountGPUIntegration()
+        result = integration.get_organization_gpu_utilization(
+            org_id=org_id,
+            account_ids=account_ids,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return create_success_response(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting organization GPU utilization: {str(e)}", exc_info=True)
+        return create_error_response(
+            500,
+            'INTERNAL_ERROR',
+            f'Failed to get organization GPU utilization: {str(e)}'
+        )
+
+
+def handle_multi_account_top_gpu_accounts(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle GET /api/ai-ml/multi-account/top-gpu-accounts
+    
+    Get top GPU spending accounts in organization.
+    
+    Query Parameters:
+        - org_id: Organization ID (required)
+        - account_ids: Comma-separated list of account IDs (required)
+        - start_date: Start date in YYYY-MM-DD format (required)
+        - end_date: End date in YYYY-MM-DD format (required)
+        - limit: Number of top accounts to return (optional, default: 5)
+    """
+    try:
+        from src.services.ai_ml.multi_account_gpu_integration import MultiAccountGPUIntegration
+        from datetime import datetime
+        
+        params = event.get('queryStringParameters', {}) or {}
+        
+        # Validate required parameters
+        org_id = params.get('org_id')
+        account_ids_str = params.get('account_ids')
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not all([org_id, account_ids_str, start_date_str, end_date_str]):
+            return create_error_response(
+                400,
+                'MISSING_PARAMETERS',
+                'Required parameters: org_id, account_ids, start_date, end_date'
+            )
+        
+        # Parse account IDs
+        account_ids = [aid.strip() for aid in account_ids_str.split(',')]
+        
+        # Validate dates
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError as e:
+            return create_error_response(
+                400,
+                'INVALID_DATE_FORMAT',
+                f'Dates must be in YYYY-MM-DD format: {str(e)}'
+            )
+        
+        # Optional limit parameter
+        limit = int(params.get('limit', 5))
+        
+        # Get top GPU spending accounts
+        integration = MultiAccountGPUIntegration()
+        result = integration.get_top_gpu_spending_accounts(
+            org_id=org_id,
+            account_ids=account_ids,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit
+        )
+        
+        return create_success_response({'top_accounts': result})
+        
+    except Exception as e:
+        logger.error(f"Error getting top GPU spending accounts: {str(e)}", exc_info=True)
+        return create_error_response(
+            500,
+            'INTERNAL_ERROR',
+            f'Failed to get top GPU spending accounts: {str(e)}'
+        )

@@ -22,6 +22,8 @@ class TestAIMLHandler:
         """Test successful GPU cost retrieval. Requirements: API-1.1, FR-1.1, FR-1.6"""
         # Mock DynamoDB client
         mock_dynamodb = Mock()
+        mock_dynamodb.get_item.return_value = {}  # No cached data
+        mock_dynamodb.put_item.return_value = {}
         mock_get_dynamodb.return_value = mock_dynamodb
         
         # Mock GPU cost tracker
@@ -99,7 +101,7 @@ class TestAIMLHandler:
         assert body['gpu_costs'][0]['utilization'] == 85.0
         
         # Verify service calls
-        mock_get_dynamodb.assert_called_once()
+        assert mock_get_dynamodb.called  # Called for cache manager
         mock_tracker_class.assert_called_once_with(mock_dynamodb)
         mock_tracker.collect_gpu_costs.assert_called_once_with(
             '2026-02-24',
