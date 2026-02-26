@@ -103,6 +103,9 @@
   - **[specification.md](./technical/phase4-ai-advisor/specification.md)** - Complete Phase 4 Kiro specification
   - **[implementation-summary.md](./technical/phase4-ai-advisor/implementation-summary.md)** - Test results (971/971 passing, 88% coverage, 270 Phase 4 tests)
   - **[infrastructure-updates.md](./technical/phase4-ai-advisor/infrastructure-updates.md)** - AWS infrastructure deployment guide (DynamoDB, IAM, API Gateway)
+- **[docs/api/phase6-api-documentation.md](./api/phase6-api-documentation.md)** - ✅ **Phase 6: AI/ML Workload Cost Management API Documentation**
+- **[docs/deployment/phase6-deployment-guide.md](./deployment/phase6-deployment-guide.md)** - ✅ **Phase 6: Deployment Guide (Infrastructure, IAM, Lambda, DynamoDB)**
+- **[docs/user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md)** - ✅ **Phase 6: User Guide (GPU Costs, Workload Classification, Spot Recommendations)**
 - **[DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)** - 📋 **Phase 4 deployment checklist with step-by-step instructions, testing procedures, and monitoring guide**
 - **[PHASE4_STATUS.md](./PHASE4_STATUS.md)** - ⚡ **Phase 4 quick status reference**
 - **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - 📊 **Complete project status across all phases**
@@ -136,6 +139,9 @@
 - **Bedrock & Nova:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md) (CostGuard AI forecasting & advisor)
 - **Model Selection:** [technical/architecture.md](./technical/architecture.md) (Nova models for CostGuard AI), [resources/research.md](./resources/research.md)
 - **CostGuard AI:** [project/ideas.md](./project/ideas.md) (features), [technical/architecture.md](./technical/architecture.md) (AI integration)
+- **GPU Cost Management:** [api/phase6-api-documentation.md](./api/phase6-api-documentation.md) (Phase 6 API), [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md) (GPU tracking, workload classification)
+- **ML Workload Optimization:** [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md) (cost-per-inference, cost-per-training, spot recommendations)
+- **SageMaker & Bedrock Costs:** [api/phase6-api-documentation.md](./api/phase6-api-documentation.md) (SageMaker tracking, Bedrock token usage)
 
 ### AWS Infrastructure
 - **Services:** [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services), [technical/architecture.md](./technical/architecture.md) (serverless architecture)
@@ -205,6 +211,16 @@
 - **...see Phase 4 deployment guide** → [technical/phase4-ai-advisor/infrastructure-updates.md](./technical/phase4-ai-advisor/infrastructure-updates.md)
 - **...see Phase 4 deployment checklist** → [DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md) 📋 **Step-by-step deployment**
 - **...see Phase 4 status** → [PHASE4_STATUS.md](./PHASE4_STATUS.md) ⚡ **Quick reference**
+- **...see Phase 6 API documentation** → [api/phase6-api-documentation.md](./api/phase6-api-documentation.md) ✅ **GPU costs, workload classification, spot recommendations**
+- **...see Phase 6 deployment guide** → [deployment/phase6-deployment-guide.md](./deployment/phase6-deployment-guide.md) ✅ **Infrastructure setup, IAM, Lambda, DynamoDB**
+- **...see Phase 6 user guide** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md) ✅ **GPU tracking, cost-per-inference, spot savings**
+- **...track GPU costs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#gpu-cost-tracking) 🎯 **GPU cost by workload type**
+- **...classify ML workloads** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#workload-classification) 🎯 **Training vs inference vs idle**
+- **...calculate cost-per-inference** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#cost-per-inference) 🎯 **Unit economics for AI products**
+- **...save money with spot instances** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#spot-instance-recommendations) 🎯 **Up to 70% savings**
+- **...track SageMaker costs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#sagemaker-cost-tracking) 🎯 **Training, inference, notebooks**
+- **...track Bedrock costs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#bedrock-cost-tracking) 🎯 **Model invocations, token usage**
+- **...stop idle GPUs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#gpu-prevention) 🎯 **Automated idle detection**
 - **...see complete project status** → [PROJECT_STATUS.md](./PROJECT_STATUS.md) 📊 **All phases**
 - **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1, 1.5, 2, 3 & 4 examples**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
@@ -242,7 +258,7 @@
 
 ### Semantic Search Keywords
 Each documentation file includes keywords in its header. Search for:
-- **Technologies:** AWS, SageMaker, Lambda, Bedrock, Kiro, Nova, DynamoDB, etc.
+- **Technologies:** AWS, SageMaker, Lambda, Bedrock, Kiro, Nova, DynamoDB, EC2, GPU, etc.
 - **Concepts:** AI, ML, architecture, design, planning, Free Tier, forecasting, prediction, confidence intervals
 - **Topics:** competition, submission, requirements, ideas, tracks, prizes
 - **Services:** Bedrock, AgentCore, Nova, Strands Agents, Nova Lite, time series forecasting
@@ -251,6 +267,7 @@ Each documentation file includes keywords in its header. Search for:
 - **Phase 2:** AI forecasting, cost prediction, Bedrock, Nova Lite, confidence intervals, forecast cache, historical data, time series
 - **Phase 3:** automated prevention, cost prevention, budget monitoring, idle detection, resource management, safety guards, action execution, approval workflows, rollback, audit logging, EventBridge, SNS notifications
 - **Phase 4:** AI advisor, conversational AI, natural language processing, NLP, query processing, intent classification, context management, response caching, proactive insights, anomaly detection, optimization suggestions, markdown formatting, conversation history, Bedrock Nova Lite
+- **Phase 6:** GPU costs, GPU tracking, workload classification, training workloads, inference workloads, idle GPUs, cost-per-inference, cost-per-training, spot instances, spot recommendations, SageMaker costs, Bedrock costs, token usage, ML optimization, AI workload costs, GPU utilization, GPU prevention, multi-account GPU
 
 ## 📝 File Structure
 

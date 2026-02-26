@@ -83,6 +83,17 @@
 - **Cross-Account Setup:** [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)
 - **Deployment:** [Deployment Scripts](../DEPLOYMENT_SCRIPTS.md)
 
+### GPU Cost Management
+- **Overview:** [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
+- **API:** [Phase 6 API Documentation](./api/phase6-api-documentation.md)
+- **Deployment:** [Phase 6 Deployment Guide](./deployment/phase6-deployment-guide.md)
+- **GPU Tracking:** [GPU Cost Tracking](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
+- **Workload Classification:** [Workload Classification](./user-guide/phase6-user-guide.md#workload-classification)
+- **Cost-Per-Inference:** [Cost-Per-Inference](./user-guide/phase6-user-guide.md#cost-per-inference)
+- **Spot Recommendations:** [Spot Instance Recommendations](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
+- **SageMaker Costs:** [SageMaker Cost Tracking](./user-guide/phase6-user-guide.md#sagemaker-cost-tracking)
+- **Bedrock Costs:** [Bedrock Cost Tracking](./user-guide/phase6-user-guide.md#bedrock-cost-tracking)
+
 ---
 
 ## 🔧 By Technology
@@ -121,6 +132,7 @@
 | **3** | [README](./technical/phase3-automated-prevention/README.md) | [API](./API_EXAMPLES.md#phase-3-automated-cost-prevention) | [Spec](./technical/phase3-automated-prevention/specification.md) | [Infra](./technical/phase3-automated-prevention/infrastructure-updates.md) | [Tests](./technical/phase3-automated-prevention/implementation-summary.md) |
 | **4** | [README](./technical/phase4-ai-advisor/README.md) | [API](./API_EXAMPLES.md#phase-4-ai-cost-advisor) | [Spec](./technical/phase4-ai-advisor/specification.md) | [Checklist](../DEPLOYMENT_CHECKLIST.md) | [Tests](./technical/phase4-ai-advisor/implementation-summary.md) |
 | **5** | [README](./technical/phase5-multi-account/README.md) | [API Docs](./technical/phase5-multi-account/API_DOCUMENTATION.md) | [Design](../.kiro/specs/multi-account-cost-management/design.md) | [Scripts](../DEPLOYMENT_SCRIPTS.md) | [Tasks](../.kiro/specs/multi-account-cost-management/tasks.md#task-32-run-comprehensive-test-suite) |
+| **6** | [User Guide](./user-guide/phase6-user-guide.md) | [API Docs](./api/phase6-api-documentation.md) | [Deployment](./deployment/phase6-deployment-guide.md) | [Deploy](./deployment/phase6-deployment-guide.md) | [Validation](../PHASE6_VALIDATION_REPORT.md) |
 
 ---
 
@@ -147,6 +159,26 @@
 1. Read [Phase 5 README](./technical/phase5-multi-account/README.md)
 2. Follow [Cross-Account Setup](../infrastructure/CROSS_ACCOUNT_SETUP.md)
 3. Deploy with [Deployment Scripts](../DEPLOYMENT_SCRIPTS.md)
+
+**...track GPU costs?**
+1. Read [Phase 6 User Guide](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
+2. Check [Phase 6 API Docs](./api/phase6-api-documentation.md#gpu-cost-tracking-endpoints)
+3. Deploy with [Phase 6 Deployment Guide](./deployment/phase6-deployment-guide.md)
+
+**...optimize ML workload costs?**
+1. Read [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
+2. Check [Workload Classification](./user-guide/phase6-user-guide.md#workload-classification)
+3. Use [Spot Recommendations](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
+
+**...calculate cost-per-inference?**
+1. Read [Cost-Per-Inference Guide](./user-guide/phase6-user-guide.md#cost-per-inference)
+2. Check [API Documentation](./api/phase6-api-documentation.md#cost-per-inference-endpoints)
+3. See [Real-World Examples](./user-guide/phase6-user-guide.md#real-world-example-2)
+
+**...stop idle GPUs?**
+1. Read [GPU Prevention Guide](./user-guide/phase6-user-guide.md#gpu-prevention)
+2. Check [Idle GPU Detection](./api/phase6-api-documentation.md#get-idle-gpus)
+3. Use [GPU Prevention API](./api/phase6-api-documentation.md#run-gpu-prevention-cycle)
 
 **...understand the architecture?**
 1. Read [Architecture Overview](./technical/architecture.md)
@@ -178,12 +210,16 @@
 - Forecasting: [Phase 2](#ai-forecasting)
 - Prevention: [Phase 3](#automated-prevention)
 - Multi-Account: [Phase 5](#multi-account-management)
+- GPU Costs: [Phase 6](#gpu-cost-management)
 
 **AI/ML:**
 - Bedrock: [AWS Services](./technical/aws-services.md#amazon-bedrock)
 - Forecasting: [Phase 2](#ai-forecasting)
 - Advisor: [Phase 4](#ai-cost-advisor)
 - NLP: [Phase 4 Design](./technical/phase4-ai-advisor/design.md#query-processor)
+- GPU Tracking: [Phase 6](#gpu-cost-management)
+- Workload Classification: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#workload-classification)
+- ML Optimization: [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
 
 **AWS Services:**
 - Cost Explorer: [Phase 1](#historical-cost-data)
@@ -198,6 +234,11 @@
 - Conversational AI: [Phase 4](#ai-cost-advisor)
 - Cost Allocation: [Phase 5](#multi-account-management)
 - Chargeback: [Phase 5](#multi-account-management)
+- GPU Tracking: [Phase 6](#gpu-cost-management)
+- Workload Classification: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#workload-classification)
+- Cost-Per-Inference: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#cost-per-inference)
+- Spot Recommendations: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
+- Idle GPU Detection: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#gpu-prevention)
 
 ---
 

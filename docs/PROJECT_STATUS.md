@@ -15,13 +15,14 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 3. **Phase 2:** AI-powered cost forecasting ✅ COMPLETE & DEPLOYED
 4. **Phase 3:** Automated cost prevention ✅ COMPLETE & DEPLOYED
 5. **Phase 4:** AI cost advisor ✅ CODE COMPLETE - ⏸️ PENDING DEPLOYMENT
-6. **Phase 5:** Multi-account cost management ⏸️ PLANNED
-7. **Phase 6:** Unit economics + RI/SP optimization ⏸️ PLANNED
-8. **Phase 7:** React frontend dashboard ⏸️ PLANNED
+6. **Phase 5:** Multi-account cost management ✅ CODE COMPLETE
+7. **Phase 6:** AI/ML workload cost management ✅ COMPLETE
+8. **Phase 7:** Unit economics + RI/SP optimization ⏸️ PLANNED
+9. **Phase 8:** React frontend dashboard ⏸️ PLANNED
 
-**Total Tests:** 1234 passing (826 unit + 321 property + 87 integration)  
+**Total Tests:** 1376 passing (922 unit + 367 property + 87 integration)  
 **Overall Coverage:** 87%  
-**Monthly Cost:** ~$2.01 (Phases 1-4), ~$3.51 (with Phase 5-6)
+**Monthly Cost:** ~$2.51 (Phases 1-6)
 
 ---
 
@@ -35,8 +36,9 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 | **Phase 3** | ✅ | ✅ 312 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 4** | ✅ | ✅ 270 | ✅ | ⏸️ | ⏸️ | **CODE COMPLETE** |
 | **Phase 5** | ✅ | ✅ 263 | ✅ | ✅ | ✅ | **CODE COMPLETE** |
-| **Phase 6** | ⏸️ | ⏸️ | ✅ | ⏸️ | ⏸️ | **PLANNED** |
-| **Phase 7** | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | **PLANNED** |
+| **Phase 6** | ✅ | ✅ 142 | ✅ | ✅ | ✅ | **COMPLETE** |
+| **Phase 7** | ⏸️ | ⏸️ | ✅ | ⏸️ | ⏸️ | **PLANNED** |
+| **Phase 8** | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | **PLANNED** |
 
 ---
 
@@ -240,7 +242,43 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 
 ---
 
-## Phase 6: Unit Economics + RI/SP Optimization
+## Phase 6: AI/ML Workload Cost Management
+
+**Status:** ✅ **COMPLETE**
+
+### Features
+- GPU cost tracking by workload type (training, inference, idle)
+- Automated workload classification using CloudWatch metrics
+- Cost-per-inference calculations for ML models
+- Cost-per-training calculations for training jobs
+- Spot instance recommendations (up to 70% savings)
+- SageMaker cost tracking (training, inference, notebooks)
+- Bedrock cost tracking (model invocations, token usage)
+- GPU prevention (stop/terminate idle GPUs)
+- Multi-account GPU cost aggregation
+
+### Metrics
+- **Tests:** 142 passing (96 unit + 46 property)
+- **Coverage:** 60-96% on core modules
+- **API Endpoints:** 20+
+- **Monthly Cost:** ~$0.50
+
+### What's Done ✅
+- ✅ All 7 service modules implemented
+- ✅ All 142+ tests passing
+- ✅ All documentation complete (API, deployment, user guide)
+- ✅ Backward compatibility verified
+- ✅ Integration with Phases 2-5 complete
+- ✅ Cost compliant (~$0.50/month)
+
+### Documentation
+- ✅ [API Documentation](./api/phase6-api-documentation.md) - Complete API reference
+- ✅ [Deployment Guide](./deployment/phase6-deployment-guide.md) - Infrastructure setup
+- ✅ [User Guide](./user-guide/phase6-user-guide.md) - GPU tracking, optimization
+
+---
+
+## Phase 7: Unit Economics + RI/SP Optimization
 
 **Status:** ⏸️ **PLANNED**
 
@@ -276,6 +314,7 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 - Prevention policy builder
 - AI advisor chat interface
 - Cost allocation dashboard
+- GPU cost visualization
 
 ### Metrics
 - **Tests:** TBD
@@ -293,47 +332,53 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 ### Test Coverage
 
 ```
-Total Tests: 971 (all passing)
-├── Unit Tests: 680
-└── Property Tests: 291
+Total Tests: 1376 (all passing)
+├── Unit Tests: 922
+├── Property Tests: 367
+└── Integration Tests: 87
 
 Coverage by Phase:
 ├── Phase 1: 94.43%
 ├── Phase 1.5: 89%
 ├── Phase 2: 94.16%
 ├── Phase 3: 87%+
-└── Phase 4: 89-100%
+├── Phase 4: 89-100%
+├── Phase 5: 85%+
+└── Phase 6: 60-96%
 
-Overall Coverage: 88%
+Overall Coverage: 87%
 ```
 
 ### API Endpoints
 
 ```
-Total Endpoints: 16
+Total Endpoints: 36+
 ├── Phase 1: 2 endpoints
 ├── Phase 1.5: 2 endpoints
 ├── Phase 2: 2 endpoints
 ├── Phase 3: 6 endpoints
-└── Phase 4: 4 endpoints
+├── Phase 4: 4 endpoints
+├── Phase 5: 15+ endpoints
+└── Phase 6: 20+ endpoints
 ```
 
 ### Monthly Cost Breakdown
 
 ```
-Total Monthly Cost: ~$2.01
+Total Monthly Cost: ~$2.51
 ├── Phase 1: ~$1.00 (Cost Explorer API)
 ├── Phase 1.5: ~$0.01 (Pricing API)
 ├── Phase 2: ~$0.50 (Bedrock API)
 ├── Phase 3: ~$0.00 (within free tier)
-└── Phase 4: ~$0.50 (Bedrock API)
+├── Phase 4: ~$0.50 (Bedrock API)
+└── Phase 6: ~$0.50 (Cost Explorer + CloudWatch + Bedrock)
 
 Free Tier Usage:
-├── Lambda: ~11,640 invocations/month (within 1M free tier)
-├── API Gateway: ~2,000 requests/month (within 1M free tier)
-├── DynamoDB: ~320 MB storage (within 25 GB free tier)
-├── CloudWatch: ~50,000 API requests/month (within 1M free tier)
-└── SNS: ~348 messages/month (within 1M free tier)
+├── Lambda: ~15,000 invocations/month (within 1M free tier)
+├── API Gateway: ~3,000 requests/month (within 1M free tier)
+├── DynamoDB: ~450 MB storage (within 25 GB free tier)
+├── CloudWatch: ~75,000 API requests/month (within 1M free tier)
+└── SNS: ~500 messages/month (within 1M free tier)
 ```
 
 ---
@@ -353,6 +398,8 @@ Free Tier Usage:
 - ✅ Phase 2: 4 documents (README, spec, implementation, infrastructure)
 - ✅ Phase 3: 4 documents (README, spec, implementation, infrastructure)
 - ✅ Phase 4: 4 documents (README, spec, implementation, infrastructure)
+- ✅ Phase 5: 5 documents (README, API docs, cross-account setup, deployment scripts, requirements/design/tasks)
+- ✅ Phase 6: 3 documents (API documentation, deployment guide, user guide)
 
 ### Technical Documentation
 - ✅ [architecture.md](./technical/architecture.md) - System architecture
@@ -469,11 +516,13 @@ Free Tier Usage:
 - **Phase 2:** AI forecasting, Bedrock, Nova Lite, confidence intervals, time series
 - **Phase 3:** automated prevention, budget monitoring, idle detection, safety guards, rollback
 - **Phase 4:** AI advisor, conversational AI, NLP, query processing, proactive insights
+- **Phase 5:** multi-account, AWS Organizations, cross-account access, cost allocation, chargeback, showback
+- **Phase 6:** GPU costs, GPU tracking, workload classification, training workloads, inference workloads, idle GPUs, cost-per-inference, cost-per-training, spot instances, spot recommendations, SageMaker costs, Bedrock costs, token usage, ML optimization, AI workload costs, GPU utilization, GPU prevention, multi-account GPU
 
 **By Feature:**
-- **Cost Management:** monitoring, tracking, estimation, forecasting, prevention, optimization
-- **AI/ML:** Bedrock, Nova Lite, machine learning, natural language processing, intent classification
-- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, CloudWatch, EventBridge, SNS
+- **Cost Management:** monitoring, tracking, estimation, forecasting, prevention, optimization, GPU costs, ML workload costs
+- **AI/ML:** Bedrock, Nova Lite, machine learning, natural language processing, intent classification, GPU tracking, workload classification, SageMaker, Bedrock token usage
+- **AWS Services:** Lambda, API Gateway, DynamoDB, Cost Explorer, CloudWatch, EventBridge, SNS, EC2, SageMaker, Bedrock, Pricing API
 - **Testing:** unit tests, property-based testing, integration tests, test coverage, correctness properties
 - **Infrastructure:** CDK, CloudFormation, IAM, environment variables, deployment
 
@@ -499,12 +548,17 @@ Free Tier Usage:
 - [Phase 2](./technical/phase2-ai-forecasting/README.md)
 - [Phase 3](./technical/phase3-automated-prevention/README.md)
 - [Phase 4](./technical/phase4-ai-advisor/README.md)
+- [Phase 5](./technical/phase5-multi-account/README.md)
+- [Phase 6 API](./api/phase6-api-documentation.md)
+- [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
 
 ### Deployment Guides
 - [Phase 1.5 Infrastructure](./technical/phase1.5-near-realtime/infrastructure-updates.md)
 - [Phase 2 Infrastructure](./technical/phase2-ai-forecasting/infrastructure-updates.md)
 - [Phase 3 Infrastructure](./technical/phase3-automated-prevention/infrastructure-updates.md)
 - [Phase 4 Infrastructure](./technical/phase4-ai-advisor/infrastructure-updates.md) ⏸️ **NEXT STEP**
+- [Phase 5 Deployment](../DEPLOYMENT_SCRIPTS.md)
+- [Phase 6 Deployment](./deployment/phase6-deployment-guide.md)
 
 ---
 

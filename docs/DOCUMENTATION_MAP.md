@@ -178,6 +178,32 @@
 
 ---
 
+### Phase 6: AI/ML Workload Cost Management ✅ COMPLETE
+
+**Core Documentation:**
+- 📖 [API Documentation](./api/phase6-api-documentation.md) - Complete API reference with 20+ endpoints
+- 🚀 [Deployment Guide](./deployment/phase6-deployment-guide.md) - Infrastructure setup, IAM, Lambda, DynamoDB
+- 📘 [User Guide](./user-guide/phase6-user-guide.md) - GPU tracking, workload classification, optimization
+
+**Related Topics:**
+- [GPU Cost Tracking](#gpu-cost-management)
+- [Workload Classification](#ml-workload-classification)
+- [Cost-Per-Inference](#unit-cost-calculations)
+- [Cost-Per-Training](#unit-cost-calculations)
+- [Spot Instance Recommendations](#spot-instance-optimization)
+- [SageMaker Cost Tracking](#sagemaker-cost-management)
+- [Bedrock Cost Tracking](#bedrock-cost-management)
+- [GPU Prevention](#gpu-idle-detection)
+- [Multi-Account GPU](#multi-account-gpu-tracking)
+
+**Key Metrics:**
+- Tests: 142+ passing (96 unit + 46 property)
+- Coverage: 60-96% on core modules
+- Monthly Cost: ~$0.50
+- API Endpoints: 20+
+
+---
+
 ## 🔍 Documentation by Topic
 
 ### AWS Service Integration
@@ -251,6 +277,41 @@
 - [Pricing Data Management](./technical/phase1.5-near-realtime/design.md#pricing-manager)
 - [Supported Services](./technical/phase1.5-near-realtime/README.md#supported-services)
 
+**GPU Cost Management:**
+- [GPU Cost Tracking](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
+- [GPU Utilization Metrics](./api/phase6-api-documentation.md#gpu-cost-tracking-endpoints)
+- [Idle GPU Detection](./user-guide/phase6-user-guide.md#gpu-prevention)
+
+**ML Workload Classification:**
+- [Workload Classification](./user-guide/phase6-user-guide.md#workload-classification)
+- [Training vs Inference Detection](./api/phase6-api-documentation.md#workload-classification-endpoints)
+- [Manual Classification Override](./user-guide/phase6-user-guide.md#manual-classification-override)
+
+**Unit Cost Calculations:**
+- [Cost-Per-Inference](./user-guide/phase6-user-guide.md#cost-per-inference)
+- [Cost-Per-Training](./user-guide/phase6-user-guide.md#cost-per-training)
+- [Training Cost Comparison](./api/phase6-api-documentation.md#cost-per-training-endpoints)
+
+**Spot Instance Optimization:**
+- [Spot Recommendations](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
+- [Spot Savings Calculator](./api/phase6-api-documentation.md#spot-instance-recommendation-endpoints)
+- [Interruption Risk Assessment](./user-guide/phase6-user-guide.md#handling-interruptions)
+
+**SageMaker Cost Management:**
+- [SageMaker Cost Tracking](./user-guide/phase6-user-guide.md#sagemaker-cost-tracking)
+- [Idle Endpoint Detection](./api/phase6-api-documentation.md#sagemaker-cost-endpoints)
+- [Training Job Cost Analysis](./user-guide/phase6-user-guide.md#sagemaker-optimization-tips)
+
+**Bedrock Cost Management:**
+- [Bedrock Cost Tracking](./user-guide/phase6-user-guide.md#bedrock-cost-tracking)
+- [Token Usage Analysis](./api/phase6-api-documentation.md#bedrock-cost-endpoints)
+- [Model Cost Comparison](./user-guide/phase6-user-guide.md#bedrock-optimization-tips)
+
+**Multi-Account GPU Tracking:**
+- [Organization-Wide GPU Costs](./api/phase6-api-documentation.md#multi-account-gpu-endpoints)
+- [Cross-Account GPU Utilization](./user-guide/phase6-user-guide.md#multi-account-gpu-tracking)
+- [Top GPU Spending Accounts](./api/phase6-api-documentation.md#get-top-gpu-spending-accounts)
+
 **Caching Strategies:**
 - [Forecast Caching](./technical/phase2-ai-forecasting/design.md#forecast-cache)
 - [Advisor Caching](./technical/phase4-ai-advisor/design.md#advisor-cache-manager)
@@ -312,6 +373,7 @@
 - [Phase 3 APIs](./API_EXAMPLES.md#phase-3-automated-cost-prevention)
 - [Phase 4 APIs](./API_EXAMPLES.md#phase-4-ai-cost-advisor)
 - [Phase 5 APIs](./technical/phase5-multi-account/API_DOCUMENTATION.md)
+- [Phase 6 APIs](./api/phase6-api-documentation.md)
 
 **Authentication:**
 - [API Key Setup](./technical/api-design.md#authentication)
@@ -414,12 +476,23 @@
 - Then: [Cross-Account Setup](../infrastructure/CROSS_ACCOUNT_SETUP.md)
 - Deep dive: [Cost Allocation](#cost-allocation)
 
+**...GPU cost tracking:**
+- Start: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
+- Then: [Phase 6 API Docs](./api/phase6-api-documentation.md#gpu-cost-tracking-endpoints)
+- Deep dive: [GPU Cost Management](#gpu-cost-management)
+
+**...ML workload optimization:**
+- Start: [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
+- Then: [Workload Classification](#ml-workload-classification)
+- Deep dive: [Spot Instance Optimization](#spot-instance-optimization)
+
 ### "I need to..."
 
 **...deploy the system:**
 1. [README Deployment](../README.md#deployment)
 2. [Phase-specific Infrastructure](#deployment-guides)
 3. [Deployment Checklist](../DEPLOYMENT_CHECKLIST.md) (Phase 4)
+4. [Phase 6 Deployment Guide](./deployment/phase6-deployment-guide.md) (Phase 6)
 
 **...write tests:**
 1. [Testing Strategy](#testing-documentation)
@@ -435,11 +508,22 @@
 1. [Phase README](#phase-documentation) - Common issues
 2. [Infrastructure Updates](#deployment-guides) - Setup issues
 3. [API Examples](./API_EXAMPLES.md) - Usage examples
+4. [Phase 6 Troubleshooting](./user-guide/phase6-user-guide.md#troubleshooting) - GPU/ML issues
 
 **...understand costs:**
 1. [Cost Breakdown](../README.md#cost-optimization)
 2. [Free Tier Usage](./technical/aws-services.md#free-tier)
 3. [Phase-specific Costs](#phase-documentation)
+
+**...optimize GPU costs:**
+1. [GPU Cost Tracking](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
+2. [Spot Recommendations](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
+3. [Idle GPU Detection](./user-guide/phase6-user-guide.md#gpu-prevention)
+
+**...calculate unit economics:**
+1. [Cost-Per-Inference](./user-guide/phase6-user-guide.md#cost-per-inference)
+2. [Cost-Per-Training](./user-guide/phase6-user-guide.md#cost-per-training)
+3. [Training Cost Comparison](./api/phase6-api-documentation.md#compare-training-costs)
 
 ---
 
@@ -488,10 +572,10 @@
 `AWS` `Lambda` `DynamoDB` `Bedrock` `CloudWatch` `Cost Explorer` `EventBridge` `SNS` `API Gateway` `Organizations` `IAM` `CloudFormation` `CDK`
 
 **By Concept:**
-`cost-management` `forecasting` `prevention` `AI` `ML` `NLP` `conversational-AI` `real-time` `caching` `monitoring` `budgets` `idle-detection` `safety-guards` `rollback` `approval-workflow` `multi-account` `cost-allocation` `chargeback` `showback`
+`cost-management` `forecasting` `prevention` `AI` `ML` `NLP` `conversational-AI` `real-time` `caching` `monitoring` `budgets` `idle-detection` `safety-guards` `rollback` `approval-workflow` `multi-account` `cost-allocation` `chargeback` `showback` `GPU-costs` `GPU-tracking` `workload-classification` `training-workloads` `inference-workloads` `idle-GPUs` `cost-per-inference` `cost-per-training` `spot-instances` `spot-recommendations` `SageMaker-costs` `Bedrock-costs` `token-usage` `ML-optimization` `AI-workload-costs` `GPU-utilization` `GPU-prevention`
 
 **By Phase:**
-`phase-1` `phase-1.5` `phase-2` `phase-3` `phase-4` `phase-5` `historical-data` `real-time-estimation` `ai-forecasting` `automated-prevention` `ai-advisor` `multi-account`
+`phase-1` `phase-1.5` `phase-2` `phase-3` `phase-4` `phase-5` `phase-6` `historical-data` `real-time-estimation` `ai-forecasting` `automated-prevention` `ai-advisor` `multi-account` `ai-ml-workloads` `gpu-cost-management`
 
 **By Document Type:**
 `README` `specification` `design` `requirements` `implementation` `infrastructure` `API` `testing` `deployment` `guide` `reference`
