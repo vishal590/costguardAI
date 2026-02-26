@@ -280,7 +280,7 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 
 ## Phase 7: Unit Economics + RI/SP Optimization
 
-**Status:** ⏸️ **PLANNED**
+**Status:** ⏸️ **PLANNED - POST-HACKATHON**
 
 ### Features
 - Unit economics tracking (cost per customer, per transaction)
@@ -294,36 +294,45 @@ CostGuard AI is a comprehensive AWS cost management system with 7 phases:
 - **Tests:** TBD
 - **Coverage:** TBD
 - **API Endpoints:** TBD
-- **Monthly Cost:** ~$1.00
+- **Monthly Cost:** ~$0.50
 
 ### Documentation
-- ✅ [PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md) - Detailed recommendation
-- ✅ [PHASE5-6-UPDATE-SUMMARY.md](./PHASE5-6-UPDATE-SUMMARY.md) - Phase 5/6/7 update summary
+- ✅ [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) - Complete Phase 7-8 roadmap
+- ✅ [project/phase7-recommendation.md](./project/phase7-recommendation.md) - Detailed recommendation
+- ✅ [project/phase-timeline.md](./project/phase-timeline.md) - Phase timeline and priorities
+
+### Why Deferred
+- Phase 6 (AI/ML workload costs) has higher hackathon alignment (93.33% vs 84.06%)
+- ALL competitors already have Phase 7 features (not differentiating)
+- Traditional FinOps, not AI-focused (hackathon requires "innovative AI applications")
+- Still valuable for commercial launch post-hackathon
 
 ---
 
-## Phase 7: React Frontend Dashboard
+## Phase 8: Developer Cost Transparency Tools
 
-**Status:** ⏸️ **PLANNED**
+**Status:** ⏸️ **PLANNED - POST-HACKATHON**
 
 ### Features
-- Organization-wide cost overview
-- Unit economics dashboard
-- RI/SP optimization interface
-- Interactive forecasting
-- Prevention policy builder
-- AI advisor chat interface
-- Cost allocation dashboard
-- GPU cost visualization
+- VS Code extension (real-time cost feedback)
+- GitHub Action (PR cost impact analysis)
+- IaC cost preview (CloudFormation, CDK, Terraform)
+- AI-powered optimization suggestions
 
 ### Metrics
 - **Tests:** TBD
 - **Coverage:** TBD
-- **Kiro Usage:** 85-90%
-- **Monthly Cost:** ~$0.00 (S3 + CloudFront within free tier)
+- **Kiro Usage:** 60%
+- **Monthly Cost:** ~$0.50
 
 ### Documentation
-- ✅ [PHASE5-6-UPDATE-SUMMARY.md](./PHASE5-6-UPDATE-SUMMARY.md) - Phase 5/6/7 update summary
+- ✅ [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) - Complete Phase 7-8 roadmap
+- ✅ [project/phase-timeline.md](./project/phase-timeline.md) - Phase timeline and priorities
+
+### Why Deferred
+- Requires AI integration to align with hackathon theme
+- Lower priority than Phase 6 (AI/ML workload costs)
+- Unique positioning but can be built post-hackathon
 
 ---
 

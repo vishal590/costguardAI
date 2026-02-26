@@ -74,10 +74,10 @@
   - [x] Phase 4: AI cost advisor ✅
   - [ ] Phase 5: Multi-account cost management
   - [ ] Phase 6: AI/ML Workload Cost Management (GPU costs, cost-per-inference, spot instances)
-  - [ ] Phase 7: Unit Economics + RI/SP Optimization
-  - [ ] Phase 8: Developer Cost Transparency (VS Code extension, GitHub Action, pre-deployment preview)
-  - [ ] Phase 9: Post-Launch Cost Shock Prevention (launch tracking, trajectory alerts, runway calculator)
-  - [ ] Phase 10: React frontend dashboard
+  - [ ] Phase 7: Unit Economics + RI/SP Optimization (POST-HACKATHON - See [FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md))
+  - [ ] Phase 8: Developer Cost Transparency (POST-HACKATHON - VS Code extension, GitHub Action, pre-deployment preview)
+  - [ ] Phase 9: Post-Launch Cost Shock Prevention (POST-HACKATHON - launch tracking, trajectory alerts, runway calculator)
+  - [ ] Phase 10: React frontend dashboard (POST-HACKATHON)
   - [ ] Builder Center article written
   - [ ] Demo prepared
 
@@ -235,20 +235,22 @@
 - ✅ Phase 4: AI Cost Advisor - **COMPLETE** (February 2026)
 - ⏳ Phase 5: Multi-Account Cost Management - **PENDING**
 - ⏳ Phase 6: AI/ML Workload Cost Management - **PENDING** (HIGHEST PRIORITY - GPU costs, cost-per-inference)
-- ⏳ Phase 7: Unit Economics + RI/SP Optimization - **PENDING** (Enterprise features at SMB prices)
-- ⏳ Phase 8: Developer Cost Transparency - **PENDING** (VS Code extension, GitHub Action, pre-deployment preview)
-- ⏳ Phase 9: Post-Launch Cost Shock Prevention - **PENDING** (Launch tracking, trajectory alerts, runway calculator)
-- ⏳ Phase 10: React Frontend Dashboard - **PENDING**
+- ⏸️ Phase 7: Unit Economics + RI/SP Optimization - **POST-HACKATHON** (See [FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md))
+- ⏸️ Phase 8: Developer Cost Transparency - **POST-HACKATHON** (See [FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md))
+- ⏸️ Phase 9: Post-Launch Cost Shock Prevention - **POST-HACKATHON**
+- ⏸️ Phase 10: React Frontend Dashboard - **POST-HACKATHON**
 
 **Phase Updates:**
 - **Phase 5:** Multi-account cost management (95% of AWS users need this)
 - **Phase 6:** AI/ML Workload Cost Management (February 2026) - HIGHEST HACKATHON ALIGNMENT
   - **Why:** Higher hackathon alignment (+9.27% score), NO competitor does GPU cost tracking, AI startups fastest-growing segment
   - **See:** [../HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) and [../PHASE6_ACTIVATION_SUMMARY.md](../PHASE6_ACTIVATION_SUMMARY.md)
-- **Phase 7:** Unit Economics + RI/SP (deferred from original Phase 6, still valuable)
-- **Phase 8:** Developer Cost Transparency (NEW - unique positioning, "shift-left" cost management)
-- **Phase 9:** Post-Launch Cost Shock Prevention (NEW - prevents launch cost disasters)
-- **Phase 10:** React Frontend Dashboard (moved from Phase 6 → Phase 7 → Phase 8 → Phase 10)
+- **Phase 7:** Unit Economics + RI/SP (POST-HACKATHON - deferred from original Phase 6, still valuable)
+  - **See:** [../FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md) and [phase7-recommendation.md](./phase7-recommendation.md)
+- **Phase 8:** Developer Cost Transparency (POST-HACKATHON - NEW - unique positioning, "shift-left" cost management)
+  - **See:** [../FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md)
+- **Phase 9:** Post-Launch Cost Shock Prevention (POST-HACKATHON - NEW - prevents launch cost disasters)
+- **Phase 10:** React Frontend Dashboard (POST-HACKATHON - moved from Phase 6 → Phase 7 → Phase 8 → Phase 10)
 
 See [../technical/development-notes.md](../technical/development-notes.md) for detailed progress.
 

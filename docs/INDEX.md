@@ -64,6 +64,7 @@
 
 ### Project Planning
 - **[project/phase-timeline.md](./project/phase-timeline.md)** - 📅 **Complete Phase Timeline & Priorities - All 10 phases with hackathon priorities, effort estimates, and success criteria**
+- **[FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md)** - 🗺️ **Phase 7-8 Future Roadmap - Post-hackathon features (Unit Economics, Developer Tools)**
 - **[HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md)** - 🎯 **CRITICAL - What AWS Emphasizes Most - Analysis of hackathon priorities (Agent workflows, painkiller problems, ROI, execution over slides)**
 - **[project/phase6-activation-summary.md](./project/phase6-activation-summary.md)** - ✅ **Phase 6 Activation Summary - What changed and why (AI/ML replaces Unit Economics)**
 - **[project/phase5-6-update-summary.md](./project/phase5-6-update-summary.md)** - 📋 **Phase 5/6/7 Update Summary - What changed and why (February 2026)**
@@ -222,6 +223,7 @@
 - **...track Bedrock costs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#bedrock-cost-tracking) 🎯 **Model invocations, token usage**
 - **...stop idle GPUs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#gpu-prevention) 🎯 **Automated idle detection**
 - **...see complete project status** → [PROJECT_STATUS.md](./PROJECT_STATUS.md) 📊 **All phases**
+- **...see future roadmap** → [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) 🗺️ **Phase 7-8 post-hackathon**
 - **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1, 1.5, 2, 3 & 4 examples**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)

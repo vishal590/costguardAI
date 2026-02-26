@@ -204,6 +204,32 @@
 
 ---
 
+### Phase 7-8: Future Roadmap ⏸️ PLANNED
+
+**Core Documentation:**
+- 📖 [Future Roadmap](./FUTURE_ROADMAP.md) - Complete Phase 7-8 post-hackathon roadmap
+- 📋 [Phase 7 Recommendation](./project/phase7-recommendation.md) - Unit Economics + RI/SP detailed analysis
+- 📅 [Phase Timeline](./project/phase-timeline.md) - Complete phase priorities and timeline
+
+**Phase 7: Unit Economics + RI/SP Optimization**
+- Unit economics tracking (cost per customer, per transaction)
+- RI/SP optimization (automated recommendations, waste detection)
+- Enterprise FinOps features at SMB prices ($10-50/month vs $500-2000+)
+- Deferred: ALL competitors already have this, not differentiating for hackathon
+
+**Phase 8: Developer Cost Transparency Tools**
+- VS Code extension (real-time cost feedback)
+- GitHub Action (PR cost impact analysis)
+- IaC cost preview (CloudFormation, CDK, Terraform)
+- Deferred: Requires AI integration for hackathon alignment
+
+**Key Metrics:**
+- Phase 7: ~$0.50/month additional cost
+- Phase 8: ~$0.50/month additional cost
+- Target Launch: Q2-Q3 2026 (Post-Hackathon)
+
+---
+
 ## 🔍 Documentation by Topic
 
 ### AWS Service Integration
@@ -575,13 +601,13 @@
 `cost-management` `forecasting` `prevention` `AI` `ML` `NLP` `conversational-AI` `real-time` `caching` `monitoring` `budgets` `idle-detection` `safety-guards` `rollback` `approval-workflow` `multi-account` `cost-allocation` `chargeback` `showback` `GPU-costs` `GPU-tracking` `workload-classification` `training-workloads` `inference-workloads` `idle-GPUs` `cost-per-inference` `cost-per-training` `spot-instances` `spot-recommendations` `SageMaker-costs` `Bedrock-costs` `token-usage` `ML-optimization` `AI-workload-costs` `GPU-utilization` `GPU-prevention`
 
 **By Phase:**
-`phase-1` `phase-1.5` `phase-2` `phase-3` `phase-4` `phase-5` `phase-6` `historical-data` `real-time-estimation` `ai-forecasting` `automated-prevention` `ai-advisor` `multi-account` `ai-ml-workloads` `gpu-cost-management`
+`phase-1` `phase-1.5` `phase-2` `phase-3` `phase-4` `phase-5` `phase-6` `phase-7` `phase-8` `historical-data` `real-time-estimation` `ai-forecasting` `automated-prevention` `ai-advisor` `multi-account` `ai-ml-workloads` `gpu-cost-management` `unit-economics` `RI-SP-optimization` `developer-tools` `future-roadmap` `post-hackathon`
 
 **By Document Type:**
 `README` `specification` `design` `requirements` `implementation` `infrastructure` `API` `testing` `deployment` `guide` `reference`
 
 **By Status:**
-`complete` `deployed` `code-complete` `pending-deployment` `planned`
+`complete` `deployed` `code-complete` `pending-deployment` `planned` `post-hackathon` `future-roadmap`
 
 ---
 

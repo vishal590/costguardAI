@@ -36,7 +36,7 @@
 
 **CostGuard** is a near-real-time AWS cost monitoring and estimation system that provides immediate visibility into cloud spending. Unlike traditional cost tracking tools that rely on AWS Cost Explorer's 24-hour delayed data, CostGuard estimates current costs by collecting CloudWatch metrics and applying real-time pricing calculations.
 
-### Key Features
+### Key Features (Phases 1-6 Complete)
 
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly)
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
@@ -49,16 +49,34 @@
   - Approval workflows with 30-minute timeout
   - 24-hour rollback capability
   - Comprehensive audit logging
-- **AI Cost Advisor (Phase 4 - NEW):** Conversational AI assistant powered by Amazon Bedrock Nova Lite:
+- **AI Cost Advisor (Phase 4):** Conversational AI assistant powered by Amazon Bedrock Nova Lite:
   - Natural language cost queries ("What were my EC2 costs last month?")
   - Context-aware responses with historical data, forecasts, and prevention actions
   - Proactive cost insights (daily summaries, anomaly detection, optimization suggestions)
   - Conversation history for follow-up questions
   - Aggressive caching (40%+ hit rate) for cost efficiency
   - Markdown-formatted responses with cost tables and highlights
+- **Multi-Account Cost Management (Phase 5):** Enterprise-grade multi-account support:
+  - AWS Organizations integration
+  - Cross-account cost aggregation
+  - Tag-based cost allocation
+  - Chargeback and showback reports
+  - Hierarchical budgets
+- **AI/ML Workload Cost Management (Phase 6):** GPU cost tracking and optimization:
+  - GPU cost tracking by workload type (training, inference, idle)
+  - Cost-per-inference and cost-per-training calculations
+  - Spot instance recommendations (up to 70% savings)
+  - SageMaker and Bedrock cost optimization
+  - Automated workload classification
 - **RESTful API:** Simple HTTP API with API key authentication
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
 - **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, Amazon Bedrock, and EventBridge for automatic scaling
+
+### Future Roadmap (Phase 7-8)
+
+See [docs/FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md) for post-hackathon features:
+- **Phase 7:** Unit Economics + RI/SP Optimization (enterprise FinOps at SMB prices)
+- **Phase 8:** Developer Cost Transparency Tools (VS Code extension, GitHub Action, IaC cost preview)
 
 ### Architecture
 
@@ -433,6 +451,7 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 
 ### Key Documentation
 
+- **[Future Roadmap](./docs/FUTURE_ROADMAP.md)** - Phase 7-8 post-hackathon features
 - **[API Examples](./docs/API_EXAMPLES.md)** - Complete API usage examples with curl and Python
 - **[Phase 1 Technical Docs](./docs/technical/phase1-cost-pipeline/)** - Historical cost data pipeline
 - **[Phase 1.5 Technical Docs](./docs/technical/phase1.5-near-realtime/)** - Near-real-time cost estimation

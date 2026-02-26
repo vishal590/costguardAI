@@ -133,6 +133,7 @@
 | **4** | [README](./technical/phase4-ai-advisor/README.md) | [API](./API_EXAMPLES.md#phase-4-ai-cost-advisor) | [Spec](./technical/phase4-ai-advisor/specification.md) | [Checklist](../DEPLOYMENT_CHECKLIST.md) | [Tests](./technical/phase4-ai-advisor/implementation-summary.md) |
 | **5** | [README](./technical/phase5-multi-account/README.md) | [API Docs](./technical/phase5-multi-account/API_DOCUMENTATION.md) | [Design](../.kiro/specs/multi-account-cost-management/design.md) | [Scripts](../DEPLOYMENT_SCRIPTS.md) | [Tasks](../.kiro/specs/multi-account-cost-management/tasks.md#task-32-run-comprehensive-test-suite) |
 | **6** | [User Guide](./user-guide/phase6-user-guide.md) | [API Docs](./api/phase6-api-documentation.md) | [Deployment](./deployment/phase6-deployment-guide.md) | [Deploy](./deployment/phase6-deployment-guide.md) | [Validation](../PHASE6_VALIDATION_REPORT.md) |
+| **7-8** | [Future Roadmap](./FUTURE_ROADMAP.md) | [Phase 7 Rec](./project/phase7-recommendation.md) | [Timeline](./project/phase-timeline.md) | ⏸️ Post-Hackathon | ⏸️ Planned |
 
 ---
 
@@ -179,6 +180,11 @@
 1. Read [GPU Prevention Guide](./user-guide/phase6-user-guide.md#gpu-prevention)
 2. Check [Idle GPU Detection](./api/phase6-api-documentation.md#get-idle-gpus)
 3. Use [GPU Prevention API](./api/phase6-api-documentation.md#run-gpu-prevention-cycle)
+
+**...see future roadmap?**
+1. Read [Future Roadmap](./FUTURE_ROADMAP.md) - Phase 7-8 post-hackathon features
+2. Check [Phase 7 Recommendation](./project/phase7-recommendation.md) - Unit Economics + RI/SP
+3. Review [Phase Timeline](./project/phase-timeline.md) - Complete priorities
 
 **...understand the architecture?**
 1. Read [Architecture Overview](./technical/architecture.md)
@@ -239,6 +245,9 @@
 - Cost-Per-Inference: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#cost-per-inference)
 - Spot Recommendations: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#spot-instance-recommendations)
 - Idle GPU Detection: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#gpu-prevention)
+- Unit Economics: [Future Roadmap](./FUTURE_ROADMAP.md#feature-71-unit-economics-tracking) (Phase 7)
+- RI/SP Optimization: [Future Roadmap](./FUTURE_ROADMAP.md#feature-72-reserved-instance--savings-plan-optimization) (Phase 7)
+- Developer Tools: [Future Roadmap](./FUTURE_ROADMAP.md#phase-8-developer-cost-transparency-tools) (Phase 8)
 
 ---
 
