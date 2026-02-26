@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\ai_advisor_integration.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.7, 10.0, 100.0, 100, 200, 500, '%Y-%m-%d', 'action_items', 'affected_instances', 'affected_models', 'avg_input_tokens', 'avg_output_tokens', 'avg_utilization', 'by_instance_type', 'by_workload', 'classification', 'confidence', 'cost_trends', 'description', 'end_date', 'error', 'explanation', 'gpu_costs', 'high', 'idle', 'idle_cost_percent', 'idle_gpu', 'idle_gpu_count', 'idle_gpus', 'idle_hours', 'idle_percent', 'inference', 'inference_percent', 'instance_id', 'instance_type', 'manual-tag', 'medium', 'metrics', 'period', 'potential_savings', 'priority', 'recommendation', 'recommendations', 'savings', 'spot_instance', 'start_date', 'summary', 'timestamp', 'total', 'total_gpu_cost', 'total_gpu_hours', 'total_wasted_cost', 'training', 'training_percent', 'type', 'utilization', 'wasted_cost']

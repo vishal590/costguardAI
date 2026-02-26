@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\spot_instance_recommender.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.05, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3, 0.5, 0.526, 0.752, 1.0, 1.006, 1.212, 3.06, 12.24, 24.0, 24.48, 32.77, 50.0, 98.32, 100.0, 100, 730, 3600, '0% Spot (Current)', '100% Spot Usage', 'InstanceId', 'InstanceType', 'Instances', 'Key', 'LaunchTime', 'Linux/UNIX', 'Name', 'Reservations', 'SpotPrice', 'SpotPriceHistory', 'State', 'Tags', 'Value', 'Values', 'WorkloadType', 'cloudwatch', 'duration_hours', 'ec2', 'g4', 'g4dn.2xlarge', 'g4dn.xlarge', 'g5', 'g5.2xlarge', 'g5.xlarge', 'g6', 'instance-state-name', 'instance_type', 'p3', 'p3.16xlarge', 'p3.2xlarge', 'p3.8xlarge', 'p4', 'p4d', 'p4d.24xlarge', 'p5', 'p5.48xlarge', 'price', 'pricing', 'running', 'state', 'tag:WorkloadType', 'training', 'unknown', 'us-east-1', 'workload_type']

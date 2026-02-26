@@ -32,6 +32,7 @@ class IdleDetector:
         # Default idle criteria by service
         self.idle_criteria = {
             'ec2': {'metric': 'CPUUtilization', 'threshold': 5.0, 'duration_minutes': 120},
+            'ec2_gpu': {'metric': 'GPUUtilization', 'threshold': 10.0, 'duration_minutes': 120},  # GPU instances
             'rds': {'metric': 'DatabaseConnections', 'threshold': 0.0, 'duration_minutes': 60},
             'lambda': {'metric': 'Invocations', 'threshold': 0.0, 'duration_minutes': 1440},
             'ebs': {'metric': 'Attached', 'threshold': 0.0, 'duration_minutes': 10080},  # 7 days
@@ -68,6 +69,8 @@ class IdleDetector:
         # Check service-specific idle condition
         if service == 'ec2':
             return self._check_ec2_idle(resource, metadata, criteria)
+        elif service == 'ec2_gpu':
+            return self._check_ec2_gpu_idle(resource, metadata, criteria)
         elif service == 'rds':
             return self._check_rds_idle(resource, metadata, criteria)
         elif service == 'lambda':
@@ -119,6 +122,23 @@ class IdleDetector:
             idle_duration=criteria.duration_minutes if is_idle else 0,
             metrics_used={'CPUUtilization': cpu_utilization},
             confidence=0.95 if is_idle else 0.0
+        )
+    
+    def _check_ec2_gpu_idle(self, resource, metadata, criteria) -> Any:
+        """Check if EC2 GPU instance is idle (GPU utilization < 10% for 2 hours)."""
+        from ..utils.types import IdleStatus
+        
+        metrics = metadata.metrics
+        gpu_utilization = metrics.get('GPUUtilization', 100.0)
+        
+        is_idle = gpu_utilization < criteria.threshold
+        
+        return IdleStatus(
+            resource_id=resource.resource_id,
+            is_idle=is_idle,
+            idle_duration=criteria.duration_minutes if is_idle else 0,
+            metrics_used={'GPUUtilization': gpu_utilization},
+            confidence=0.90 if is_idle else 0.0
         )
     
     def _check_rds_idle(self, resource, metadata, criteria) -> Any:

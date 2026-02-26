@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\multi_account_gpu_integration.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, '0', 'account_id', 'avg_utilization', 'gpu_cost', 'gpu_hours', 'idle', 'idle_cost_percentage', 'inference', 'percentage_of_total', 'total_gpu_cost', 'total_gpu_hours', 'training']

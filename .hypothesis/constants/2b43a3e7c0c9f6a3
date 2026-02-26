@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\cost_per_training_calculator.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.125, 0.25, 0.5, 0.526, 0.752, 1.0, 2.0, 3.06, 10.0, 12.24, 24.48, 25.0, 32.77, 50.0, 1000.0, 100, 2024, '2xlarge', '4xlarge', '8xlarge', 'ml.g4dn.2xlarge', 'ml.g4dn.xlarge', 'ml.p3.16xlarge', 'ml.p3.2xlarge', 'ml.p3.8xlarge', 'ml.p4d.24xlarge', 'sagemaker', 'test-dataset', 'test-model', 'xlarge']

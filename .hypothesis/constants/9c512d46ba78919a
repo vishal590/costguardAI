@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\error_handler.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.3, 1.0, 2.0, 10.0, '400', '503', 'Code', 'Error', 'Invocation failed', 'Message', 'Model not found', 'RequestTimeout', 'ResourceNotFound', 'ServiceUnavailable', 'ThrottlingException', 'Unknown', 'ValidationException', 'cached', 'classification', 'confidence', 'data', 'data points', 'error', 'inference', 'manual_tag', 'message', 'not available', 'not found', 'not supported', 'p3', 'p4', 'price', 'source', 'stale', 'timeout', 'training', 'unknown', 'warning']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\prevention_integration.py
+# hypothesis_version: 6.151.9
+
+[0.0, 5.0, 10.0, 100.0, 500.0, ':end', ':start', 'Items', 'M', 'N', 'No idle GPUs found', 'S', 'action_id', 'action_type', 'actions_count', 'actions_executed', 'actions_planned', 'avg_idle_hours', 'breakdown', 'cost_saved', 'dry_run', 'executed', 'failed', 'gpu_cost_savings', 'idle_gpus_found', 'idle_hours', 'instance_id', 'instance_type', 'instances_stopped', 'instances_terminated', 'monitor', 'planned', 'reason', 'savings_id', 'status', 'stop', 'success', 'terminate', 'timestamp', 'total_savings']

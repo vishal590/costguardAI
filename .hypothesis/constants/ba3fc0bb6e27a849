@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\ai_ml\cost_per_inference_calculator.py
+# hypothesis_version: 6.151.9
+
+[0.0, 5.0, 20.0, 100.0, 1000, 999999]
