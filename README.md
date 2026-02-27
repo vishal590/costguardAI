@@ -226,18 +226,26 @@ aws-ideas/
 
 ### Deployment
 
+**📖 Complete Deployment Guide:** See [DEPLOYMENT_PLAN.md](./DEPLOYMENT_PLAN.md) for detailed phase-by-phase deployment instructions.
+
+**🔧 Troubleshooting:** See [DEPLOYMENT_TROUBLESHOOTING.md](./DEPLOYMENT_TROUBLESHOOTING.md) for solutions to common deployment issues.
+
+**Quick Start:**
+
 1. **Bootstrap CDK (first time only):**
    ```bash
    cd infrastructure
-   cdk bootstrap
+   cdk bootstrap aws://YOUR-ACCOUNT-ID/us-east-1
    ```
 
 2. **Deploy the stack:**
    ```bash
-   cdk deploy
+   cdk deploy --require-approval never
    ```
 
-3. **Note the API endpoint and API key from the deployment output**
+3. **Note the API endpoint from the deployment output**
+
+**Deployment Status:** ✅ Phase 1-3 deployed successfully on February 27, 2026. See [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) for details.
 
 ### Usage
 

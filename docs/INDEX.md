@@ -77,6 +77,16 @@
 - **[project/planning.md](./project/planning.md)** - CostGuard AI project plan, milestones, timeline aligned with competition (Updated with Phases 5-10)
 
 ### Technical Documentation
+
+**🚀 Deployment Documentation (NEW):**
+- **[../DEPLOYMENT_INDEX.md](../DEPLOYMENT_INDEX.md)** - 📋 **Central hub for all deployment documentation**
+- **[../DEPLOYMENT_STATUS.md](../DEPLOYMENT_STATUS.md)** - ✅ **Current deployment status (Phase 1-3 LIVE)**
+- **[../DEPLOYMENT_PLAN.md](../DEPLOYMENT_PLAN.md)** - 📖 **Complete phase-by-phase deployment guide**
+- **[../DEPLOYMENT_TROUBLESHOOTING.md](../DEPLOYMENT_TROUBLESHOOTING.md)** - 🔧 **Solutions to all deployment issues (CRITICAL)**
+- **[../DEPLOYMENT_SUMMARY.md](../DEPLOYMENT_SUMMARY.md)** - 📝 **Quick deployment summary and key learnings**
+- **[../COST_MONITORING_GUIDE.md](../COST_MONITORING_GUIDE.md)** - 💰 **Cost tracking and monitoring guide**
+
+**Phase Documentation:**
 - **[technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/)** - ✅ **Phase 1: Cost Data Pipeline (COMPLETE)**
   - **[specification.md](./technical/phase1-cost-pipeline/specification.md)** - Phase 1 Kiro specification
   - **[implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md)** - Test results (134/134 passing, 94.43% coverage)

@@ -324,7 +324,25 @@ class CostGuardStack(Stack):
             function_name="CostGuardLambda",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.lambda_handler.handler",
-            code=lambda_.Code.from_asset("../"),  # Adjust path as needed
+            code=lambda_.Code.from_asset(
+                "../",
+                exclude=[
+                    "infrastructure/*",
+                    "cdk.out/*",
+                    ".git/*",
+                    ".hypothesis/*",
+                    "tests/*",
+                    "docs/*",
+                    "scripts/*",
+                    "*.md",
+                    ".coverage",
+                    ".pytest_cache/*",
+                    "__pycache__/*",
+                    "*.pyc",
+                    ".venv/*",
+                    "venv/*",
+                ]
+            ),
             role=lambda_role,
             timeout=Duration.minutes(15),
             memory_size=512,

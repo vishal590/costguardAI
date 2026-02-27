@@ -9,7 +9,7 @@ This app creates the complete CostGuard infrastructure stack including:
 
 import aws_cdk as cdk
 from cdk_stack import CostGuardStack
-from multi_account_stack import MultiAccountStack
+# from multi_account_stack import MultiAccountStack  # Disabled for Phase 1 deployment
 
 
 app = cdk.App()
@@ -24,17 +24,17 @@ costguard_stack = CostGuardStack(
     ),
 )
 
-# Deploy Phase 5 infrastructure (multi-account stack)
-multi_account_stack = MultiAccountStack(
-    app, "CostGuardMultiAccountStack",
-    description="CostGuard - Multi-Account Cost Management System (Phase 5)",
-    env=cdk.Environment(
-        account=app.node.try_get_context("account"),
-        region=app.node.try_get_context("region") or "us-east-1",
-    ),
-)
-
-# Add dependency to ensure single-account stack deploys first
-multi_account_stack.add_dependency(costguard_stack)
+# Deploy Phase 5 infrastructure (multi-account stack) - DISABLED FOR NOW
+# multi_account_stack = MultiAccountStack(
+#     app, "CostGuardMultiAccountStack",
+#     description="CostGuard - Multi-Account Cost Management System (Phase 5)",
+#     env=cdk.Environment(
+#         account=app.node.try_get_context("account"),
+#         region=app.node.try_get_context("region") or "us-east-1",
+#     ),
+# )
+# 
+# # Add dependency to ensure single-account stack deploys first
+# multi_account_stack.add_dependency(costguard_stack)
 
 app.synth()
