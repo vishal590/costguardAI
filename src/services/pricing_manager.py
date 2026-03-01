@@ -31,7 +31,7 @@ class PricingManager:
         self.pricing_client = pricing_client or boto3.client('pricing', region_name='us-east-1')
         self.dynamodb_client = dynamodb_client or boto3.client('dynamodb', region_name=region)
         self.region = region
-        self.table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'CostDataPipeline')
+        self.table_name = os.environ.get('PRICING_CACHE_TABLE', 'costguard-pricing-cache')
     
     def get_pricing_data(
         self,
@@ -184,36 +184,9 @@ class PricingManager:
             region: AWS region
             pricing: Pricing data to cache
         """
-        try:
-            # Create partition key: PRICING#service#region
-            pk = f"PRICING#{service}#{region}"
-            sk = "METADATA"
-            
-            # Calculate TTL (24 hours from now)
-            ttl = int((datetime.now(timezone.utc) + timedelta(hours=24)).timestamp())
-            
-            # Convert prices dict to DynamoDB format
-            prices_json = json.dumps({k: str(v) for k, v in pricing.prices.items()})
-            
-            item = {
-                'pk': {'S': pk},
-                'sk': {'S': sk},
-                'service': {'S': pricing.service},
-                'region': {'S': pricing.region},
-                'prices': {'S': prices_json},
-                'currency': {'S': pricing.currency},
-                'last_updated': {'S': pricing.last_updated.isoformat()},
-                'ttl': {'N': str(ttl)}
-            }
-            
-            self.dynamodb_client.put_item(
-                TableName=self.table_name,
-                Item=item
-            )
-            
-        except ClientError as e:
-            error_info = format_error(e)
-            raise Exception(f"Failed to cache pricing data: {error_info.message}")
+        # Caching disabled - pricing cache table not yet implemented
+        # TODO: Create costguard-pricing-cache table and enable caching
+        pass
     
     def _get_from_cache(
         self,
@@ -228,45 +201,11 @@ class PricingManager:
             region: AWS region
             
         Returns:
-            Cached pricing data or None if not found
+            Cached pricing data or None
         """
-        try:
-            pk = f"PRICING#{service}#{region}"
-            sk = "METADATA"
-            
-            response = self.dynamodb_client.get_item(
-                TableName=self.table_name,
-                Key={
-                    'pk': {'S': pk},
-                    'sk': {'S': sk}
-                }
-            )
-            
-            if 'Item' not in response:
-                return None
-            
-            item = response['Item']
-            
-            # Parse prices from JSON
-            prices_json = item['prices']['S']
-            prices = {k: Decimal(v) for k, v in json.loads(prices_json).items()}
-            
-            # Parse last_updated
-            last_updated = datetime.fromisoformat(item['last_updated']['S'])
-            
-            return PricingData(
-                service=item['service']['S'],
-                region=item['region']['S'],
-                prices=prices,
-                currency=item['currency']['S'],
-                last_updated=last_updated,
-                ttl=int(item['ttl']['N'])
-            )
-            
-        except ClientError:
-            return None
-        except Exception:
-            return None
+        # Caching disabled - pricing cache table not yet implemented
+        # TODO: Create costguard-pricing-cache table and enable caching
+        return None
     
     def _get_location_name(self, region: str) -> str:
         """

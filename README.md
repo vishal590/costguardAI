@@ -226,9 +226,11 @@ aws-ideas/
 
 ### Deployment
 
-**📖 Complete Deployment Guide:** See [DEPLOYMENT_PLAN.md](./DEPLOYMENT_PLAN.md) for detailed phase-by-phase deployment instructions.
+**📖 Complete Deployment Guide:** See [docs/deployment/DEPLOYMENT_PLAN.md](./docs/deployment/DEPLOYMENT_PLAN.md) for detailed phase-by-phase deployment instructions.
 
-**🔧 Troubleshooting:** See [DEPLOYMENT_TROUBLESHOOTING.md](./DEPLOYMENT_TROUBLESHOOTING.md) for solutions to common deployment issues.
+**🔧 Troubleshooting:** See [docs/deployment/DEPLOYMENT_TROUBLESHOOTING.md](./docs/deployment/DEPLOYMENT_TROUBLESHOOTING.md) for solutions to common deployment issues.
+
+**📊 Current Status:** See [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) for the latest deployment status and test results.
 
 **Quick Start:**
 
@@ -245,7 +247,9 @@ aws-ideas/
 
 3. **Note the API endpoint from the deployment output**
 
-**Deployment Status:** ✅ Phase 1-3 deployed successfully on February 27, 2026. See [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) for details.
+**Deployment Status:** ✅ All 6 endpoints working (100% success rate). See [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) for details.
+
+**🧪 API Testing:** See [docs/api/ENDPOINT_TEST_COMMANDS.md](./docs/api/ENDPOINT_TEST_COMMANDS.md) for PowerShell commands to test all endpoints.
 
 ### Usage
 

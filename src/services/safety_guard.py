@@ -19,36 +19,60 @@ logger = logging.getLogger(__name__)
 class SafetyGuard:
     """Enforce safety rules to protect production resources."""
     
-    def __init__(self, config):
+    def __init__(self, config=None):
         """
         Initialize safety guard.
         
         Args:
-            config: SafetyConfig object
+            config: SafetyConfig object (optional, will use defaults if None)
         """
         self.config = config
         
         # Default protected tags
-        self.protected_tags = config.protected_tags or [
-            "Environment=production",
-            "CostGuard=protected",
-            "CostGuard=exclude"
-        ]
+        if config is not None and hasattr(config, 'protected_tags'):
+            self.protected_tags = config.protected_tags or [
+                "Environment=production",
+                "CostGuard=protected",
+                "CostGuard=exclude"
+            ]
+        else:
+            self.protected_tags = [
+                "Environment=production",
+                "CostGuard=protected",
+                "CostGuard=exclude"
+            ]
         
         # Whitelist of resource IDs that should never be touched
-        self.whitelist_ids = config.whitelist_ids or []
+        if config is not None and hasattr(config, 'whitelist_ids'):
+            self.whitelist_ids = config.whitelist_ids or []
+        else:
+            self.whitelist_ids = []
         
         # Minimum idle duration by service (minutes)
-        self.minimum_idle_minutes = config.minimum_idle_minutes or {
-            'ec2': 120,      # 2 hours
-            'rds': 60,       # 1 hour
-            'lambda': 1440,  # 24 hours
-            'ebs': 10080,    # 7 days
-            's3': 43200,     # 30 days
-            'dynamodb': 1440 # 24 hours
-        }
+        if config is not None and hasattr(config, 'minimum_idle_minutes'):
+            self.minimum_idle_minutes = config.minimum_idle_minutes or {
+                'ec2': 120,      # 2 hours
+                'rds': 60,       # 1 hour
+                'lambda': 1440,  # 24 hours
+                'ebs': 10080,    # 7 days
+                's3': 43200,     # 30 days
+                'dynamodb': 1440 # 24 hours
+            }
+        else:
+            self.minimum_idle_minutes = {
+                'ec2': 120,      # 2 hours
+                'rds': 60,       # 1 hour
+                'lambda': 1440,  # 24 hours
+                'ebs': 10080,    # 7 days
+                's3': 43200,     # 30 days
+                'dynamodb': 1440 # 24 hours
+            }
         
-        self.dry_run_mode = config.dry_run_mode
+        # Dry run mode
+        if config is not None and hasattr(config, 'dry_run_mode'):
+            self.dry_run_mode = config.dry_run_mode
+        else:
+            self.dry_run_mode = True  # Default to dry run for safety
     
     def is_action_safe(self, resource, action: str) -> Any:
         """

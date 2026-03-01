@@ -1,0 +1,3302 @@
+{
+ "Description": "CostGuard - AWS Cost Management and Automated Prevention System (Phases 1-4)",
+ "Resources": {
+  "CostDataTable9A27F4BF": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "date_service",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "date_service",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "costguard-cost-data"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostDataTable/Resource"
+   }
+  },
+  "ForecastCacheTable1385EC99": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "cache_key",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "cache_key",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "costguard-forecast-cache",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/ForecastCacheTable/Resource"
+   }
+  },
+  "PreventionConfigTable90DCE122": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "config_key",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "config_key",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "costguard-prevention-config"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/PreventionConfigTable/Resource"
+   }
+  },
+  "ResourceInventoryTable59BFF887": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "resource_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "service",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "last_updated",
+      "AttributeType": "N"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "service-index",
+      "KeySchema": [
+       {
+        "AttributeName": "service",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "last_updated",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "resource_id",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "costguard-resource-inventory",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/ResourceInventoryTable/Resource"
+   }
+  },
+  "PreventionAuditTable90A9EDA4": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "action_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "timestamp",
+      "AttributeType": "N"
+     },
+     {
+      "AttributeName": "resource_id",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "timestamp-index",
+      "KeySchema": [
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "HASH"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "resource-index",
+      "KeySchema": [
+       {
+        "AttributeName": "resource_id",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "action_id",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "costguard-prevention-audit",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/PreventionAuditTable/Resource"
+   }
+  },
+  "ApprovalRequestsTableEACE774C": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "request_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "status",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "created_at",
+      "AttributeType": "N"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "status-index",
+      "KeySchema": [
+       {
+        "AttributeName": "status",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "created_at",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "request_id",
+      "KeyType": "HASH"
+     }
+    ],
+    "TableName": "costguard-approval-requests",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/ApprovalRequestsTable/Resource"
+   }
+  },
+  "PreventionWarningsTopic6326BE7C": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "CostGuard Prevention Warnings",
+    "TopicName": "costguard-prevention-warnings"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/PreventionWarningsTopic/Resource"
+   }
+  },
+  "PreventionActionsTopicE7E0A5B9": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "CostGuard Prevention Actions",
+    "TopicName": "costguard-prevention-actions"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/PreventionActionsTopic/Resource"
+   }
+  },
+  "PreventionErrorsTopic5F82E5A4": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "CostGuard Prevention Errors",
+    "TopicName": "costguard-prevention-errors"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/PreventionErrorsTopic/Resource"
+   }
+  },
+  "LambdaExecutionRoleD5C26073": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": [
+         "events.amazonaws.com",
+         "lambda.amazonaws.com"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/LambdaExecutionRole/Resource"
+   }
+  },
+  "LambdaExecutionRoleDefaultPolicy6D69732F": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "apigateway:GET",
+        "budgets:DescribeBudget",
+        "budgets:ViewBudget",
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast",
+        "cloudfront:ListDistributions",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "dynamodb:DescribeTable",
+        "dynamodb:ListTables",
+        "ec2:DescribeInstances",
+        "ec2:DescribeNatGateways",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeVolumes",
+        "ecs:DescribeClusters",
+        "ecs:ListClusters",
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeReplicationGroups",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "es:DescribeElasticsearchDomain",
+        "es:ListDomainNames",
+        "kinesis:DescribeStream",
+        "kinesis:ListStreams",
+        "lambda:GetFunction",
+        "lambda:ListFunctions",
+        "pricing:GetProducts",
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBInstances",
+        "redshift:DescribeClusters",
+        "s3:GetBucketLocation",
+        "s3:GetBucketTagging",
+        "s3:ListAllMyBuckets",
+        "sns:GetTopicAttributes",
+        "sns:ListTopics",
+        "sqs:GetQueueAttributes",
+        "sqs:ListQueues"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": "bedrock:InvokeModel",
+       "Effect": "Allow",
+       "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+      },
+      {
+       "Action": [
+        "dynamodb:UpdateTable",
+        "ec2:CreateSnapshot",
+        "ec2:CreateVolume",
+        "ec2:DeleteNatGateway",
+        "ec2:DeleteVolume",
+        "ec2:StartInstances",
+        "ec2:StopInstances",
+        "lambda:DeleteFunctionConcurrency",
+        "lambda:PutFunctionConcurrency",
+        "rds:StartDBCluster",
+        "rds:StartDBInstance",
+        "rds:StopDBCluster",
+        "rds:StopDBInstance"
+       ],
+       "Condition": {
+        "StringNotEquals": {
+         "aws:ResourceTag/Environment": "production",
+         "aws:ResourceTag/CostGuard": "protected"
+        }
+       },
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:GetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:UpdateItem"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ApprovalRequestsTableEACE774C",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "CostDataTable9A27F4BF",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "ForecastCacheTable1385EC99",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "PreventionAuditTable90A9EDA4",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "PreventionConfigTable90DCE122",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "ResourceInventoryTable59BFF887",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ApprovalRequestsTableEACE774C",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PreventionAuditTable90A9EDA4",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ResourceInventoryTable59BFF887",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "PreventionActionsTopicE7E0A5B9"
+        },
+        {
+         "Ref": "PreventionErrorsTopic5F82E5A4"
+        },
+        {
+         "Ref": "PreventionWarningsTopic6326BE7C"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "Roles": [
+     {
+      "Ref": "LambdaExecutionRoleD5C26073"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/LambdaExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "CostGuardLambda74DDAE8D": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "a3cf97f68ced9466dd248177a485de3179ba69d49ac3ce7eef85bc23a30316af.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "COST_DATA_TABLE": {
+       "Ref": "CostDataTable9A27F4BF"
+      },
+      "FORECAST_CACHE_TABLE": {
+       "Ref": "ForecastCacheTable1385EC99"
+      },
+      "PREVENTION_CONFIG_TABLE": {
+       "Ref": "PreventionConfigTable90DCE122"
+      },
+      "RESOURCE_INVENTORY_TABLE": {
+       "Ref": "ResourceInventoryTable59BFF887"
+      },
+      "PREVENTION_AUDIT_TABLE": {
+       "Ref": "PreventionAuditTable90A9EDA4"
+      },
+      "APPROVAL_REQUESTS_TABLE": {
+       "Ref": "ApprovalRequestsTableEACE774C"
+      },
+      "PREVENTION_ENABLED": "false",
+      "DRY_RUN_MODE": "true",
+      "APPROVAL_REQUIRED": "true",
+      "APPROVAL_TIMEOUT_MINUTES": "30",
+      "BUDGET_POLL_INTERVAL_MINUTES": "5",
+      "RESOURCE_REFRESH_INTERVAL_MINUTES": "15",
+      "WARNING_THRESHOLD_PERCENT": "80",
+      "ACTION_THRESHOLD_PERCENT": "90",
+      "SNS_TOPIC_WARNINGS": {
+       "Ref": "PreventionWarningsTopic6326BE7C"
+      },
+      "SNS_TOPIC_ACTIONS": {
+       "Ref": "PreventionActionsTopicE7E0A5B9"
+      },
+      "SNS_TOPIC_ERRORS": {
+       "Ref": "PreventionErrorsTopic5F82E5A4"
+      },
+      "LOG_LEVEL": "INFO",
+      "BEDROCK_MODEL_ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+      "FORECAST_CACHE_TTL_HOURS": "24",
+      "ROLLBACK_WINDOW_HOURS": "24"
+     }
+    },
+    "FunctionName": "CostGuardLambda",
+    "Handler": "src.lambda_handler.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "LambdaExecutionRoleD5C26073",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.11",
+    "Timeout": 900
+   },
+   "DependsOn": [
+    "LambdaExecutionRoleDefaultPolicy6D69732F",
+    "LambdaExecutionRoleD5C26073"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardLambda/Resource",
+    "aws:asset:path": "asset.a3cf97f68ced9466dd248177a485de3179ba69d49ac3ce7eef85bc23a30316af",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CostGuardLambdaLogRetentionF089DCD3": {
+   "Type": "Custom::LogRetention",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+      "Arn"
+     ]
+    },
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "CostGuardLambda74DDAE8D"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 7
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardLambda/LogRetention/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:DeleteRetentionPolicy",
+        "logs:PutRetentionPolicy"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "Roles": [
+     {
+      "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Handler": "index.handler",
+    "Runtime": "nodejs18.x",
+    "Timeout": 900,
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "5bc602ecde93c947efe5899ae355f999986a1acbe610b1c0b9c468d738857555.zip"
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource",
+    "aws:asset:path": "asset.5bc602ecde93c947efe5899ae355f999986a1acbe610b1c0b9c468d738857555",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CostGuardAPI27F475EB": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Description": "REST API for CostGuard cost management and automated prevention",
+    "Name": "CostGuardAPI"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Resource"
+   }
+  },
+  "CostGuardAPICloudWatchRoleA8D950AE": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/CloudWatchRole/Resource"
+   }
+  },
+  "CostGuardAPIAccountDFEEF4C1": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "CostGuardAPICloudWatchRoleA8D950AE",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "CostGuardAPI27F475EB"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Account"
+   }
+  },
+  "CostGuardAPIDeployment9F2C2E06a8b5c19439183da9918d41667640a0a3": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "REST API for CostGuard cost management and automated prevention",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "DependsOn": [
+    "CostGuardAPIapicostdataGET062F201E",
+    "CostGuardAPIapicostdataOPTIONS489DBA07",
+    "CostGuardAPIapicostdata255F76EE",
+    "CostGuardAPIapicostestimationcurrentGET226276CE",
+    "CostGuardAPIapicostestimationcurrentOPTIONSA488B0FE",
+    "CostGuardAPIapicostestimationcurrent8317EBEE",
+    "CostGuardAPIapicostestimationOPTIONSAC18B569",
+    "CostGuardAPIapicostestimation4B3903F0",
+    "CostGuardAPIapicostestimationserviceserviceGET90A1097C",
+    "CostGuardAPIapicostestimationserviceserviceOPTIONS67783668",
+    "CostGuardAPIapicostestimationserviceservice794CFADD",
+    "CostGuardAPIapicostestimationserviceOPTIONS1131041E",
+    "CostGuardAPIapicostestimationservice80640298",
+    "CostGuardAPIapicostforecastGETB12C7D2D",
+    "CostGuardAPIapicostforecastOPTIONSE5E682F3",
+    "CostGuardAPIapicostforecast956A9C20",
+    "CostGuardAPIapicostforecastserviceserviceGET01D49C8F",
+    "CostGuardAPIapicostforecastserviceserviceOPTIONS21405908",
+    "CostGuardAPIapicostforecastserviceservice505E3BB9",
+    "CostGuardAPIapicostforecastserviceOPTIONS99DECF44",
+    "CostGuardAPIapicostforecastserviceB53CB48B",
+    "CostGuardAPIapifetchOPTIONS3F926D0B",
+    "CostGuardAPIapifetchPOST4B87CCAA",
+    "CostGuardAPIapifetch60BEA6A4",
+    "CostGuardAPIapiOPTIONS0E46E85E",
+    "CostGuardAPIapipreventiondisableOPTIONSB8B7E8BC",
+    "CostGuardAPIapipreventiondisablePOST2D54B8B3",
+    "CostGuardAPIapipreventiondisableBF79B512",
+    "CostGuardAPIapipreventionenableOPTIONS756D1B8F",
+    "CostGuardAPIapipreventionenablePOST1B153C84",
+    "CostGuardAPIapipreventionenableC8AB6689",
+    "CostGuardAPIapipreventionhistoryGETC0C349D9",
+    "CostGuardAPIapipreventionhistoryOPTIONS950EC518",
+    "CostGuardAPIapipreventionhistory50F34072",
+    "CostGuardAPIapipreventionOPTIONS825FA567",
+    "CostGuardAPIapipreventionE3388B2E",
+    "CostGuardAPIapipreventionresourcesGETDE25C3A5",
+    "CostGuardAPIapipreventionresourcesOPTIONSCBDFDE50",
+    "CostGuardAPIapipreventionresourcesD372C06E",
+    "CostGuardAPIapipreventionrollbackOPTIONS255EC17D",
+    "CostGuardAPIapipreventionrollbackPOST1DBB30D6",
+    "CostGuardAPIapipreventionrollbackB2EB1C81",
+    "CostGuardAPIapipreventionstatusGET11783E23",
+    "CostGuardAPIapipreventionstatusOPTIONS22BC528F",
+    "CostGuardAPIapipreventionstatus27C03D68",
+    "CostGuardAPIapiBF180F41",
+    "CostGuardAPIOPTIONSEECDE89F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Deployment/Resource"
+   }
+  },
+  "CostGuardAPIDeploymentStageprodC5570C33": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "CostGuardAPIDeployment9F2C2E06a8b5c19439183da9918d41667640a0a3"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    },
+    "StageName": "prod"
+   },
+   "DependsOn": [
+    "CostGuardAPIAccountDFEEF4C1"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/DeploymentStage.prod/Resource"
+   }
+  },
+  "CostGuardAPIOPTIONSEECDE89F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "CostGuardAPI27F475EB",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapiBF180F41": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "CostGuardAPI27F475EB",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "api",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/Resource"
+   }
+  },
+  "CostGuardAPIapiOPTIONS0E46E85E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapifetch60BEA6A4": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "PathPart": "fetch",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/Resource"
+   }
+  },
+  "CostGuardAPIapifetchOPTIONS3F926D0B": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapifetch60BEA6A4"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapifetchPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapifetchC1B00831": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/POST/api/fetch"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch"
+   }
+  },
+  "CostGuardAPIapifetchPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapifetch04FB129F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/POST/api/fetch"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch"
+   }
+  },
+  "CostGuardAPIapifetchPOST4B87CCAA": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapifetch60BEA6A4"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/POST/Resource"
+   }
+  },
+  "CostGuardAPIapicostdata255F76EE": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "PathPart": "cost-data",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/Resource"
+   }
+  },
+  "CostGuardAPIapicostdataOPTIONS489DBA07": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostdata255F76EE"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostdataGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostdata8E0F5D01": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/cost-data"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data"
+   }
+  },
+  "CostGuardAPIapicostdataGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostdata19EBB3AB": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/cost-data"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data"
+   }
+  },
+  "CostGuardAPIapicostdataGET062F201E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostdata255F76EE"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimation4B3903F0": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "PathPart": "cost-estimation",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationOPTIONSAC18B569": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimation4B3903F0"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationcurrent8317EBEE": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapicostestimation4B3903F0"
+    },
+    "PathPart": "current",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationcurrentOPTIONSA488B0FE": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimationcurrent8317EBEE"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationcurrentGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrent9B45FFA2": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/cost-estimation/current"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current"
+   }
+  },
+  "CostGuardAPIapicostestimationcurrentGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrentB6AB98A5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/cost-estimation/current"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current"
+   }
+  },
+  "CostGuardAPIapicostestimationcurrentGET226276CE": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimationcurrent8317EBEE"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationservice80640298": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapicostestimation4B3903F0"
+    },
+    "PathPart": "service",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceOPTIONS1131041E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimationservice80640298"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceservice794CFADD": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapicostestimationservice80640298"
+    },
+    "PathPart": "{service}",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceserviceOPTIONS67783668": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimationserviceservice794CFADD"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice5F5E6909": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/cost-estimation/service/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice7ECB24EE": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/cost-estimation/service/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}"
+   }
+  },
+  "CostGuardAPIapicostestimationserviceserviceGET90A1097C": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostestimationserviceservice794CFADD"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecast956A9C20": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "PathPart": "cost-forecast",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastOPTIONSE5E682F3": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostforecast956A9C20"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecast18243D5A": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/cost-forecast"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast"
+   }
+  },
+  "CostGuardAPIapicostforecastGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecast6D8FCF88": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/cost-forecast"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast"
+   }
+  },
+  "CostGuardAPIapicostforecastGETB12C7D2D": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostforecast956A9C20"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceB53CB48B": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapicostforecast956A9C20"
+    },
+    "PathPart": "service",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceOPTIONS99DECF44": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostforecastserviceB53CB48B"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceservice505E3BB9": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapicostforecastserviceB53CB48B"
+    },
+    "PathPart": "{service}",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceserviceOPTIONS21405908": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostforecastserviceservice505E3BB9"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice5858884D": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/cost-forecast/service/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice1A1BF3FD": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/cost-forecast/service/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}"
+   }
+  },
+  "CostGuardAPIapicostforecastserviceserviceGET01D49C8F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapicostforecastserviceservice505E3BB9"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionE3388B2E": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapiBF180F41"
+    },
+    "PathPart": "prevention",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionOPTIONS825FA567": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionstatus27C03D68": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "status",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionstatusOPTIONS22BC528F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionstatus27C03D68"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionstatusGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionstatusAAAB53F8": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/prevention/status"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status"
+   }
+  },
+  "CostGuardAPIapipreventionstatusGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionstatus59F0F5DD": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/prevention/status"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status"
+   }
+  },
+  "CostGuardAPIapipreventionstatusGET11783E23": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionstatus27C03D68"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionenableC8AB6689": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "enable",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionenableOPTIONS756D1B8F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionenableC8AB6689"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionenablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable7D483B07": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/POST/api/prevention/enable"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable"
+   }
+  },
+  "CostGuardAPIapipreventionenablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable84E4E76C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/POST/api/prevention/enable"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable"
+   }
+  },
+  "CostGuardAPIapipreventionenablePOST1B153C84": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionenableC8AB6689"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/Resource"
+   }
+  },
+  "CostGuardAPIapipreventiondisableBF79B512": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "disable",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/Resource"
+   }
+  },
+  "CostGuardAPIapipreventiondisableOPTIONSB8B7E8BC": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventiondisableBF79B512"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventiondisablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableA35C52E8": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/POST/api/prevention/disable"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable"
+   }
+  },
+  "CostGuardAPIapipreventiondisablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableDBCFC116": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/POST/api/prevention/disable"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable"
+   }
+  },
+  "CostGuardAPIapipreventiondisablePOST2D54B8B3": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventiondisableBF79B512"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionresourcesD372C06E": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "resources",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionresourcesOPTIONSCBDFDE50": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionresourcesD372C06E"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionresourcesGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesE0369A60": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/prevention/resources"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources"
+   }
+  },
+  "CostGuardAPIapipreventionresourcesGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesB96E04D6": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/prevention/resources"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources"
+   }
+  },
+  "CostGuardAPIapipreventionresourcesGETDE25C3A5": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionresourcesD372C06E"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionrollbackB2EB1C81": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "rollback",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionrollbackOPTIONS255EC17D": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionrollbackB2EB1C81"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionrollbackPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback567BDF2C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/POST/api/prevention/rollback"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback"
+   }
+  },
+  "CostGuardAPIapipreventionrollbackPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback6F7BC58D": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/POST/api/prevention/rollback"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback"
+   }
+  },
+  "CostGuardAPIapipreventionrollbackPOST1DBB30D6": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionrollbackB2EB1C81"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionhistory50F34072": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "CostGuardAPIapipreventionE3388B2E"
+    },
+    "PathPart": "history",
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionhistoryOPTIONS950EC518": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionhistory50F34072"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/OPTIONS/Resource"
+   }
+  },
+  "CostGuardAPIapipreventionhistoryGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionhistory7040B0AD": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/",
+       {
+        "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+       },
+       "/GET/api/prevention/history"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history"
+   }
+  },
+  "CostGuardAPIapipreventionhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionhistoryB1104849": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "CostGuardAPI27F475EB"
+       },
+       "/test-invoke-stage/GET/api/prevention/history"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history"
+   }
+  },
+  "CostGuardAPIapipreventionhistoryGETC0C349D9": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "CostGuardLambda74DDAE8D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "CostGuardAPIapipreventionhistory50F34072"
+    },
+    "RestApiId": {
+     "Ref": "CostGuardAPI27F475EB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/Resource"
+   }
+  },
+  "BudgetMonitorRuleA2CBED50": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "Description": "Trigger CostGuard Lambda every 5 minutes for budget monitoring",
+    "Name": "costguard-budget-monitor",
+    "ScheduleExpression": "rate(5 minutes)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "CostGuardLambda74DDAE8D",
+        "Arn"
+       ]
+      },
+      "Id": "Target0",
+      "Input": "{\"type\":\"budget-monitoring\",\"source\":\"eventbridge-scheduler\"}"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/BudgetMonitorRule/Resource"
+   }
+  },
+  "BudgetMonitorRuleAllowEventRuleCostGuardStackCostGuardLambda45D7E576CB2FB55F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CostGuardLambda74DDAE8D",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "BudgetMonitorRuleA2CBED50",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/BudgetMonitorRule/AllowEventRuleCostGuardStackCostGuardLambda45D7E576"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02Q3W7CMAyFn4X74MGqPUDZtKtNQ4V75KZeyUiTqnaGqijvPiVlgqvz2cd/yTNsNxvYrPDKa91d1ta0EA+C+qLwyqfYzQ4H37UQj9haUq/frkBS7Bji0Y9Gl2SGpAwOEBu/FBbde2v0nMOFkrI4tB1CfA9Oi/Eue4+8p2kwzMa7pLg6ITMJQ51FcQW7oC8kO2RS1vcMH75vSMiVdhxNj0JXnCE2xFKPplxyx1prH5yoNxqtnwdykrMP0UGwL+cv0BD7MGkqCz9Jzr7L5o3+3duSwknRLzlhiE24fUSwlNK9uLwljzeuf+zM/BVkDJLUfpazd08VbCt4Wf2wMespODEDQbPoH0IklRu7AQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "CostGuardAPIEndpoint741595BA": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "CostGuardAPI27F475EB"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "APIEndpoint": {
+   "Description": "CostGuard API Gateway endpoint",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "CostGuardAPI27F475EB"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "CostGuardAPIDeploymentStageprodC5570C33"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "LambdaFunctionName": {
+   "Description": "CostGuard Lambda function name",
+   "Value": {
+    "Ref": "CostGuardLambda74DDAE8D"
+   }
+  },
+  "WarningsTopicArn": {
+   "Description": "SNS topic for prevention warnings",
+   "Value": {
+    "Ref": "PreventionWarningsTopic6326BE7C"
+   }
+  },
+  "ActionsTopicArn": {
+   "Description": "SNS topic for prevention actions",
+   "Value": {
+    "Ref": "PreventionActionsTopicE7E0A5B9"
+   }
+  },
+  "ErrorsTopicArn": {
+   "Description": "SNS topic for prevention errors",
+   "Value": {
+    "Ref": "PreventionErrorsTopic5F82E5A4"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

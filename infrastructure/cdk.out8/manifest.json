@@ -1,0 +1,861 @@
+{
+  "version": "34.0.0",
+  "artifacts": {
+    "CostGuardStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "CostGuardStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "CostGuardStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "CostGuardStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/6341aa35adcaee129a904c947d8c3a524da2a1786432466b5917b197d6005413.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "CostGuardStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "CostGuardStack.assets"
+      ],
+      "metadata": {
+        "/CostGuardStack/CostDataTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "CostDataTable9A27F4BF"
+            }
+          }
+        ],
+        "/CostGuardStack/CostDataTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostDataTable9A27F4BF"
+          }
+        ],
+        "/CostGuardStack/ForecastCacheTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ForecastCacheTable1385EC99"
+            }
+          }
+        ],
+        "/CostGuardStack/ForecastCacheTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ForecastCacheTable1385EC99"
+          }
+        ],
+        "/CostGuardStack/PreventionConfigTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "PreventionConfigTable90DCE122"
+            }
+          }
+        ],
+        "/CostGuardStack/PreventionConfigTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PreventionConfigTable90DCE122"
+          }
+        ],
+        "/CostGuardStack/ResourceInventoryTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ResourceInventoryTable59BFF887"
+            }
+          }
+        ],
+        "/CostGuardStack/ResourceInventoryTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ResourceInventoryTable59BFF887"
+          }
+        ],
+        "/CostGuardStack/PreventionAuditTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "PreventionAuditTable90A9EDA4"
+            }
+          }
+        ],
+        "/CostGuardStack/PreventionAuditTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PreventionAuditTable90A9EDA4"
+          }
+        ],
+        "/CostGuardStack/ApprovalRequestsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ApprovalRequestsTableEACE774C"
+            }
+          }
+        ],
+        "/CostGuardStack/ApprovalRequestsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalRequestsTableEACE774C"
+          }
+        ],
+        "/CostGuardStack/AdvisorCacheTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AdvisorCacheTableD9379DB3"
+            }
+          }
+        ],
+        "/CostGuardStack/AdvisorCacheTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdvisorCacheTableD9379DB3"
+          }
+        ],
+        "/CostGuardStack/AdvisorHistoryTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AdvisorHistoryTable08ADE7C8"
+            }
+          }
+        ],
+        "/CostGuardStack/AdvisorHistoryTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AdvisorHistoryTable08ADE7C8"
+          }
+        ],
+        "/CostGuardStack/PreventionWarningsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PreventionWarningsTopic6326BE7C"
+          }
+        ],
+        "/CostGuardStack/PreventionActionsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PreventionActionsTopicE7E0A5B9"
+          }
+        ],
+        "/CostGuardStack/PreventionErrorsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PreventionErrorsTopic5F82E5A4"
+          }
+        ],
+        "/CostGuardStack/LambdaExecutionRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaExecutionRoleD5C26073"
+          }
+        ],
+        "/CostGuardStack/LambdaExecutionRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaExecutionRoleDefaultPolicy6D69732F"
+          }
+        ],
+        "/CostGuardStack/CostGuardLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardLambda74DDAE8D"
+          }
+        ],
+        "/CostGuardStack/CostGuardLambda/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardLambdaLogRetentionF089DCD3"
+          }
+        ],
+        "/CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+          }
+        ],
+        "/CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB"
+          }
+        ],
+        "/CostGuardStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPI27F475EB"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPICloudWatchRoleA8D950AE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIAccountDFEEF4C1"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIDeployment9F2C2E063dd70bf9b2cdc78954956f493a0b73d2"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIDeploymentStageprodC5570C33"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIEndpoint741595BA"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIOPTIONSEECDE89F"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiBF180F41"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiOPTIONS0E46E85E"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/fetch/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapifetch60BEA6A4"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/fetch/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapifetchOPTIONS3F926D0B"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapifetchPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapifetchC1B00831"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapifetchPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapifetch04FB129F"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/fetch/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapifetchPOST4B87CCAA"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostdata255F76EE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostdataOPTIONS489DBA07"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostdataGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostdata8E0F5D01"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostdataGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostdata19EBB3AB"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostdataGET062F201E"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimation4B3903F0"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationOPTIONSAC18B569"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationcurrent8317EBEE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationcurrentOPTIONSA488B0FE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationcurrentGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrent9B45FFA2"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationcurrentGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrentB6AB98A5"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationcurrentGET226276CE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationservice80640298"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceOPTIONS1131041E"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceservice794CFADD"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceserviceOPTIONS67783668"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice5F5E6909"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice7ECB24EE"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostestimationserviceserviceGET90A1097C"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecast956A9C20"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastOPTIONSE5E682F3"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecast18243D5A"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecast6D8FCF88"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastGETB12C7D2D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceB53CB48B"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceOPTIONS99DECF44"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceservice505E3BB9"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceserviceOPTIONS21405908"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice5858884D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice1A1BF3FD"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapicostforecastserviceserviceGET01D49C8F"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionE3388B2E"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionOPTIONS825FA567"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionstatus27C03D68"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionstatusOPTIONS22BC528F"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionstatusGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionstatusAAAB53F8"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionstatusGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionstatus59F0F5DD"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionstatusGET11783E23"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionenableC8AB6689"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionenableOPTIONS756D1B8F"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionenablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable7D483B07"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionenablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable84E4E76C"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionenablePOST1B153C84"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventiondisableBF79B512"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventiondisableOPTIONSB8B7E8BC"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventiondisablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableA35C52E8"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventiondisablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableDBCFC116"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventiondisablePOST2D54B8B3"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionresourcesD372C06E"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionresourcesOPTIONSCBDFDE50"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionresourcesGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesE0369A60"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionresourcesGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesB96E04D6"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionresourcesGETDE25C3A5"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionrollbackB2EB1C81"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionrollbackOPTIONS255EC17D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionrollbackPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback567BDF2C"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionrollbackPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback6F7BC58D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionrollbackPOST1DBB30D6"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionhistory50F34072"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionhistoryOPTIONS950EC518"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionhistoryGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionhistory7040B0AD"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionhistoryB1104849"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapipreventionhistoryGETC0C349D9"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorEAF13B17"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorOPTIONS88E36CDD"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorquery38443238"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorqueryOPTIONS5024B05C"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.advisor.query": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorqueryPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapiadvisorqueryA70C71B5"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.advisor.query": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorqueryPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapiadvisorqueryA4267436"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorqueryPOSTFBAD1D6D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistory7E6B9C5B"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryOPTIONS6073BCFA"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapiadvisorhistory0608CE3D"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorhistoryC3F4C51C"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryGET9C2FE638"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/ApiPermission.CostGuardStackCostGuardAPI3984D00B.DELETE..api.advisor.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryDELETEApiPermissionCostGuardStackCostGuardAPI3984D00BDELETEapiadvisorhistory99DD1970"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.DELETE..api.advisor.history": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryDELETEApiPermissionTestCostGuardStackCostGuardAPI3984D00BDELETEapiadvisorhistoryD247C5B2"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorhistoryDELETEA3826F67"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorsuggestions16EEC8D1"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorsuggestionsOPTIONSACEFD804"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.suggestions": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorsuggestionsGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapiadvisorsuggestionsF1BDFA4A"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.suggestions": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorsuggestionsGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorsuggestionsC63D1AE8"
+          }
+        ],
+        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostGuardAPIapiadvisorsuggestionsGETE9DBE598"
+          }
+        ],
+        "/CostGuardStack/BudgetMonitorRule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BudgetMonitorRuleA2CBED50"
+          }
+        ],
+        "/CostGuardStack/BudgetMonitorRule/AllowEventRuleCostGuardStackCostGuardLambda45D7E576": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BudgetMonitorRuleAllowEventRuleCostGuardStackCostGuardLambda45D7E576CB2FB55F"
+          }
+        ],
+        "/CostGuardStack/APIEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APIEndpoint"
+          }
+        ],
+        "/CostGuardStack/LambdaFunctionName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaFunctionName"
+          }
+        ],
+        "/CostGuardStack/WarningsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WarningsTopicArn"
+          }
+        ],
+        "/CostGuardStack/ActionsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ActionsTopicArn"
+          }
+        ],
+        "/CostGuardStack/ErrorsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ErrorsTopicArn"
+          }
+        ],
+        "/CostGuardStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/CostGuardStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/CostGuardStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "CostGuardStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}

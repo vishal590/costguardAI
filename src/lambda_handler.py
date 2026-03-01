@@ -696,9 +696,11 @@ def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Generating forecast: days={days}, granularity={granularity}")
         
         # Initialize Phase 2 services
-        dynamodb_client = get_dynamodb_client()
+        import boto3
+        dynamodb_resource = boto3.resource('dynamodb')
+        dynamodb_client = boto3.client('dynamodb')
         bedrock_client = BedrockClient()
-        historical_data_retriever = HistoricalDataRetriever(dynamodb_client)
+        historical_data_retriever = HistoricalDataRetriever(dynamodb_resource)
         cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
         forecast_engine = ForecastEngine(
             bedrock_client=bedrock_client,
@@ -855,9 +857,11 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Generating forecast for service {service}: days={days}, granularity={granularity}")
         
         # Initialize Phase 2 services
-        dynamodb_client = get_dynamodb_client()
+        import boto3
+        dynamodb_resource = boto3.resource('dynamodb')
+        dynamodb_client = boto3.client('dynamodb')
         bedrock_client = BedrockClient()
-        historical_data_retriever = HistoricalDataRetriever(dynamodb_client)
+        historical_data_retriever = HistoricalDataRetriever(dynamodb_resource)
         cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
         forecast_engine = ForecastEngine(
             bedrock_client=bedrock_client,
@@ -1491,14 +1495,9 @@ def handle_advisor_clear_history(event: Dict[str, Any]) -> Dict[str, Any]:
         Response dict with status code and body
     """
     try:
-        # Parse request body
-        body = event.get('body', '{}')
-        if isinstance(body, str):
-            params = json.loads(body) if body else {}
-        else:
-            params = body
-        
-        session_id = params.get('session_id', 'default')
+        # Parse query parameters (DELETE uses query params, not body)
+        query_params = event.get('queryStringParameters') or {}
+        session_id = query_params.get('session_id', 'default')
         
         logger.info(f"Clearing conversation history: session={session_id}")
         
@@ -1604,8 +1603,13 @@ def _get_advisor_engine() -> AdvisorEngine:
     Returns:
         Configured AdvisorEngine instance
     """
+    import boto3
+    
     # Initialize DynamoDB client
     dynamodb_client = get_dynamodb_client()
+    
+    # Initialize Bedrock Runtime client
+    bedrock_runtime_client = boto3.client('bedrock-runtime')
     
     # Initialize Phase 4 components
     query_processor = QueryProcessor()
@@ -1614,12 +1618,11 @@ def _get_advisor_engine() -> AdvisorEngine:
         dynamodb_client=dynamodb_client
     )
     bedrock_advisor_client = BedrockAdvisorClient(
-        bedrock_client=None
+        bedrock_client=bedrock_runtime_client
     )
     response_formatter = ResponseFormatter()
     cache_manager = AdvisorCacheManager(
-        dynamodb_client=dynamodb_client,
-        table_name='costguard-advisor-cache'
+        dynamodb_client=dynamodb_client
     )
     insight_generator = InsightGenerator(
         cost_explorer_client=None,
@@ -1634,8 +1637,7 @@ def _get_advisor_engine() -> AdvisorEngine:
         response_formatter=response_formatter,
         cache_manager=cache_manager,
         insight_generator=insight_generator,
-        dynamodb_client=dynamodb_client,
-        conversation_table_name='costguard-advisor-conversation-history'
+        dynamodb_client=dynamodb_client
     )
     
     return advisor_engine

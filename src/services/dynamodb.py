@@ -122,9 +122,9 @@ def _write_batch(table: object, batch: List[DynamoDBRecord], retry_config: Retry
             with table.batch_writer() as writer:
                 for record in unprocessed_items:
                     # Convert to DynamoDB format (handle Decimal for numbers)
+                    # Use date_service as partition key to match table schema
                     item = {
-                        'pk': record.pk,
-                        'sk': record.sk,
+                        'date_service': f"{record.date}#{record.service}",
                         'date': record.date,
                         'service': record.service,
                         'blendedCost': Decimal(str(record.blended_cost)),
@@ -183,96 +183,55 @@ def query_cost_data(
     # Determine query strategy based on parameters
     results = []
     
-    # If start_date is provided, use it to build partition keys
-    if params.start_date:
-        # Extract year-month from start_date
-        start_parts = params.start_date.split('-')
-        start_year_month = f"{start_parts[0]}-{start_parts[1]}"
+    # Since our table uses date_service as a single partition key (format: "2026-02-01#AWS Lambda"),
+    # we need to scan with filters instead of querying by partition key
+    
+    def scan_operation():
+        scan_params = {}
+        filter_expressions = []
+        expression_values = {}
+        expression_names = {}
         
-        # If end_date is provided, query multiple months
+        # Add date range filter (date is a reserved keyword, so use expression attribute names)
+        if params.start_date:
+            filter_expressions.append('#dt >= :start_date')
+            expression_values[':start_date'] = params.start_date
+            expression_names['#dt'] = 'date'
+        
         if params.end_date:
-            end_parts = params.end_date.split('-')
-            end_year_month = f"{end_parts[0]}-{end_parts[1]}"
-            
-            # Generate list of year-months to query
-            year_months = _generate_year_months(start_year_month, end_year_month)
-        else:
-            year_months = [start_year_month]
+            filter_expressions.append('#dt <= :end_date')
+            expression_values[':end_date'] = params.end_date
+            expression_names['#dt'] = 'date'
         
-        # Query each year-month
-        for year_month in year_months:
-            pk = f"COST#{year_month}"
-            month_results = _query_partition(table, pk, params, retry_config)
-            results.extend(month_results)
-            
-            # Check limit
-            if params.limit and len(results) >= params.limit:
-                results = results[:params.limit]
-                break
-    else:
-        # No start_date provided - this would require a scan
-        # For Phase 1, we'll return empty results or raise an error
-        # In production, you might want to scan or require start_date
-        return []
-    
-    # Apply additional filters
-    if params.service:
-        normalized_service = normalize_service_name(params.service)
-        results = [r for r in results if normalize_service_name(r.service) == normalized_service]
-    
-    # Apply limit
-    if params.limit:
-        results = results[:params.limit]
-    
-    return results
-
-
-def _query_partition(
-    table: object,
-    pk: str,
-    params: QueryParams,
-    retry_config: RetryConfig
-) -> List[DynamoDBRecord]:
-    """
-    Query a single partition in DynamoDB.
-    
-    Args:
-        table: DynamoDB table object
-        pk: Partition key value
-        params: Query parameters for additional filtering
-        retry_config: Retry configuration
-        
-    Returns:
-        List of DynamoDBRecord objects from this partition
-    """
-    def query_operation():
-        # Build query parameters
-        query_params = {
-            'KeyConditionExpression': 'pk = :pk',
-            'ExpressionAttributeValues': {
-                ':pk': pk
-            }
-        }
-        
-        # Add sort key condition if service is specified
+        # Add service filter
         if params.service:
-            normalized_service = normalize_service_name(params.service)
-            sk = f"SERVICE#{normalized_service}"
-            query_params['KeyConditionExpression'] += ' AND sk = :sk'
-            query_params['ExpressionAttributeValues'][':sk'] = sk
+            filter_expressions.append('service = :service')
+            expression_values[':service'] = params.service
         
-        # Execute query
-        response = table.query(**query_params)
+        # Build filter expression
+        if filter_expressions:
+            scan_params['FilterExpression'] = ' AND '.join(filter_expressions)
+            scan_params['ExpressionAttributeValues'] = expression_values
+        
+        # Add expression attribute names if we used any
+        if expression_names:
+            scan_params['ExpressionAttributeNames'] = expression_names
+        
+        # Add limit
+        if params.limit:
+            scan_params['Limit'] = params.limit
+        
+        # Execute scan
+        response = table.scan(**scan_params)
         return response.get('Items', [])
     
-    items = with_retry(query_operation, retry_config)
+    items = with_retry(scan_operation, retry_config)
     
     # Convert items to DynamoDBRecord objects
-    records = []
     for item in items:
         record = DynamoDBRecord(
-            pk=item['pk'],
-            sk=item['sk'],
+            pk=None,  # Not used in new schema
+            sk=None,  # Not used in new schema
             date=item['date'],
             service=item['service'],
             blended_cost=float(item['blendedCost']),
@@ -282,37 +241,7 @@ def _query_partition(
             timestamp=item['timestamp'],
             ttl=item.get('ttl')
         )
-        records.append(record)
+        results.append(record)
     
-    return records
+    return results
 
-
-def _generate_year_months(start: str, end: str) -> List[str]:
-    """
-    Generate a list of year-month strings between start and end.
-    
-    Args:
-        start: Start year-month in YYYY-MM format
-        end: End year-month in YYYY-MM format
-        
-    Returns:
-        List of year-month strings in YYYY-MM format
-    """
-    result = []
-    
-    start_year, start_month = map(int, start.split('-'))
-    end_year, end_month = map(int, end.split('-'))
-    
-    current_year = start_year
-    current_month = start_month
-    
-    while (current_year < end_year) or (current_year == end_year and current_month <= end_month):
-        result.append(f"{current_year:04d}-{current_month:02d}")
-        
-        # Increment month
-        current_month += 1
-        if current_month > 12:
-            current_month = 1
-            current_year += 1
-    
-    return result

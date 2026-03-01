@@ -166,6 +166,36 @@ class CostGuardStack(Stack):
             ),
         )
 
+        # Phase 4: Advisor cache
+        advisor_cache_table = dynamodb.Table(
+            self, "AdvisorCacheTable",
+            table_name="advisor-cache",
+            partition_key=dynamodb.Attribute(
+                name="query_hash",
+                type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+            time_to_live_attribute="ttl",
+        )
+
+        # Phase 4: Advisor conversation history
+        advisor_history_table = dynamodb.Table(
+            self, "AdvisorHistoryTable",
+            table_name="advisor-conversation-history",
+            partition_key=dynamodb.Attribute(
+                name="session_id",
+                type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="timestamp",
+                type=dynamodb.AttributeType.NUMBER
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+            time_to_live_attribute="ttl",
+        )
+
         # =====================================================================
         # SNS Topics (Phase 3)
         # =====================================================================
@@ -224,8 +254,15 @@ class CostGuardStack(Stack):
 
         lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
+            actions=["pricing:GetProducts"],
+            resources=["*"],
+        ))
+
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
             actions=["bedrock:InvokeModel"],
             resources=[
+                f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0",
                 f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
             ],
         ))
@@ -312,6 +349,8 @@ class CostGuardStack(Stack):
         resource_inventory_table.grant_read_write_data(lambda_role)
         prevention_audit_table.grant_read_write_data(lambda_role)
         approval_requests_table.grant_read_write_data(lambda_role)
+        advisor_cache_table.grant_read_write_data(lambda_role)
+        advisor_history_table.grant_read_write_data(lambda_role)
 
         # Grant SNS publish permissions
         warnings_topic.grant_publish(lambda_role)
@@ -436,6 +475,19 @@ class CostGuardStack(Stack):
 
         prevention_history = prevention_resource.add_resource("history")
         prevention_history.add_method("GET", lambda_integration)
+
+        # Phase 4 endpoints
+        advisor_resource = api_resource.add_resource("advisor")
+
+        advisor_query = advisor_resource.add_resource("query")
+        advisor_query.add_method("POST", lambda_integration)
+
+        advisor_history = advisor_resource.add_resource("history")
+        advisor_history.add_method("GET", lambda_integration)
+        advisor_history.add_method("DELETE", lambda_integration)
+
+        advisor_suggestions = advisor_resource.add_resource("suggestions")
+        advisor_suggestions.add_method("GET", lambda_integration)
 
         # =====================================================================
         # EventBridge Schedule (Phase 3)
