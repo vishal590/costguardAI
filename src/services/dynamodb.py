@@ -11,6 +11,41 @@ from ..utils.error_handler import with_retry
 from ..utils.helpers import calculate_ttl, normalize_service_name
 
 
+def _generate_year_months(start_year_month: str, end_year_month: str) -> List[str]:
+    """
+    Generate a list of year-month strings between start and end (inclusive).
+    
+    Args:
+        start_year_month: Start year-month in YYYY-MM format
+        end_year_month: End year-month in YYYY-MM format
+        
+    Returns:
+        List of year-month strings in YYYY-MM format
+        
+    Example:
+        _generate_year_months('2024-11', '2025-02') -> ['2024-11', '2024-12', '2025-01', '2025-02']
+    """
+    result = []
+    
+    # Parse start and end dates
+    start_year, start_month = map(int, start_year_month.split('-'))
+    end_year, end_month = map(int, end_year_month.split('-'))
+    
+    current_year = start_year
+    current_month = start_month
+    
+    while (current_year < end_year) or (current_year == end_year and current_month <= end_month):
+        result.append(f"{current_year:04d}-{current_month:02d}")
+        
+        # Move to next month
+        current_month += 1
+        if current_month > 12:
+            current_month = 1
+            current_year += 1
+    
+    return result
+
+
 def get_dynamodb_client():
     """
     Get DynamoDB client instance.

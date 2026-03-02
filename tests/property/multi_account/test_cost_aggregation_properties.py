@@ -362,3 +362,140 @@ def test_property_non_negative_costs(account_ids, costs):
     
     for service, cost in result.costs_by_service.items():
         assert cost >= 0, f"Service {service} has negative cost: {cost}"
+
+
+@given(
+    org_id=st.text(min_size=5, max_size=20),
+    account_ids=st.lists(account_id_strategy, min_size=1, max_size=10, unique=True),
+    costs=st.lists(cost_strategy, min_size=1, max_size=10),
+    start_date=st.dates(min_value=datetime(2020, 1, 1).date(), max_value=datetime(2024, 12, 31).date()),
+    end_date=st.dates(min_value=datetime(2020, 1, 1).date(), max_value=datetime(2024, 12, 31).date())
+)
+@settings(max_examples=100, deadline=None)
+def test_property_18_cost_aggregation_completeness(org_id, account_ids, costs, start_date, end_date):
+    """
+    Property 18: Cost Aggregation Completeness
+    
+    For any cost aggregation operation, the aggregated costs should include total_cost, 
+    costs_by_service, costs_by_account, costs_by_day, period_start, period_end, and a 
+    timestamp indicating when aggregation was performed.
+    
+    Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7
+    
+    Feature: phase-5-handlers, Property 18: Cost Aggregation Completeness
+    """
+    # Ensure end_date is after start_date
+    if end_date <= start_date:
+        start_date, end_date = end_date, start_date
+        if end_date <= start_date:
+            end_date = start_date.replace(day=min(28, start_date.day + 1))
+    
+    # Ensure matching sizes
+    if len(costs) < len(account_ids):
+        costs = costs + [Decimal('0')] * (len(account_ids) - len(costs))
+    costs = costs[:len(account_ids)]
+    
+    # Given: Mock repository with cost data
+    mock_cost_repo = Mock()
+    mock_account_repo = Mock()
+    mock_org_repo = Mock()
+    
+    # Create cost data for each account with service and daily breakdowns
+    cost_data_list = []
+    for i, cost in enumerate(costs):
+        # Split cost across services
+        ec2_cost = cost * Decimal('0.6')
+        s3_cost = cost * Decimal('0.4')
+        
+        # Split cost across days (simplified - just use start and end dates)
+        daily_cost = cost / 2
+        
+        cost_data_list.append({
+            'costs_by_service': {
+                'EC2': float(ec2_cost),
+                'S3': float(s3_cost)
+            },
+            'costs_by_day': {
+                start_date.strftime('%Y-%m-%d'): float(daily_cost),
+                end_date.strftime('%Y-%m-%d'): float(daily_cost)
+            }
+        })
+    
+    mock_cost_repo.get_cost_data.side_effect = cost_data_list
+    
+    engine = CostAggregationEngine(
+        cost_repository=mock_cost_repo,
+        account_repository=mock_account_repo,
+        org_repository=mock_org_repo
+    )
+    
+    # When: Aggregating organization costs
+    before_aggregation = datetime.now()
+    result = engine.aggregate_organization_costs(
+        org_id=org_id,
+        account_ids=account_ids,
+        start_date=start_date.strftime('%Y-%m-%d'),
+        end_date=end_date.strftime('%Y-%m-%d'),
+        use_cache=False
+    )
+    after_aggregation = datetime.now()
+    
+    # Property: Should include total_cost
+    assert hasattr(result, 'total_cost'), "Should include total_cost"
+    assert isinstance(result.total_cost, (Decimal, float, int)), "total_cost should be numeric"
+    assert result.total_cost >= 0, "total_cost should be non-negative"
+    
+    # Property: Should include costs_by_service
+    assert hasattr(result, 'costs_by_service'), "Should include costs_by_service"
+    assert isinstance(result.costs_by_service, dict), "costs_by_service should be a dictionary"
+    
+    # Property: Should include costs_by_account
+    assert hasattr(result, 'costs_by_account'), "Should include costs_by_account"
+    assert isinstance(result.costs_by_account, dict), "costs_by_account should be a dictionary"
+    assert len(result.costs_by_account) == len(account_ids), \
+        "costs_by_account should include all accounts"
+    
+    # Property: Should include costs_by_day
+    assert hasattr(result, 'costs_by_day'), "Should include costs_by_day"
+    assert isinstance(result.costs_by_day, dict), "costs_by_day should be a dictionary"
+    
+    # Property: Should include period_start and period_end
+    assert hasattr(result, 'period_start'), "Should include period_start"
+    assert hasattr(result, 'period_end'), "Should include period_end"
+    assert result.period_start == start_date.strftime('%Y-%m-%d'), \
+        "period_start should match input start_date"
+    assert result.period_end == end_date.strftime('%Y-%m-%d'), \
+        "period_end should match input end_date"
+    
+    # Property: Should include timestamp indicating when aggregation was performed
+    assert hasattr(result, 'aggregation_timestamp'), "Should include aggregation_timestamp"
+    assert isinstance(result.aggregation_timestamp, (datetime, str)), \
+        "aggregation_timestamp should be datetime or string"
+    
+    # If timestamp is datetime, verify it's within reasonable bounds
+    if isinstance(result.aggregation_timestamp, datetime):
+        assert before_aggregation <= result.aggregation_timestamp <= after_aggregation, \
+            "aggregation_timestamp should be within aggregation time window"
+    
+    # Property: All account IDs should be represented in costs_by_account
+    for account_id in account_ids:
+        assert account_id in result.costs_by_account, \
+            f"Account {account_id} should be in costs_by_account"
+        assert result.costs_by_account[account_id] >= 0, \
+            f"Account {account_id} cost should be non-negative"
+    
+    # Property: Sum of costs_by_account should equal total_cost
+    account_sum = sum(result.costs_by_account.values())
+    assert abs(account_sum - result.total_cost) < Decimal('0.01'), \
+        f"Sum of costs_by_account ({account_sum}) should equal total_cost ({result.total_cost})"
+    
+    # Property: Sum of costs_by_service should equal total_cost
+    service_sum = sum(result.costs_by_service.values())
+    assert abs(service_sum - result.total_cost) < Decimal('0.01'), \
+        f"Sum of costs_by_service ({service_sum}) should equal total_cost ({result.total_cost})"
+    
+    # Property: Sum of costs_by_day should equal total_cost
+    if result.costs_by_day:
+        daily_sum = sum(result.costs_by_day.values())
+        assert abs(daily_sum - result.total_cost) < Decimal('0.01'), \
+            f"Sum of costs_by_day ({daily_sum}) should equal total_cost ({result.total_cost})"

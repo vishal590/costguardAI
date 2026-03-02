@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\services\dynamodb.py
+# hypothesis_version: 6.151.9
+
+[1.0, 8.0, 365, ' AND ', '#dt', '#dt <= :end_date', '#dt >= :start_date', '+00:00', '-', ':end_date', ':service', ':start_date', 'FilterExpression', 'Items', 'Limit', 'Z', 'blendedCost', 'costguard-cost-data', 'currency', 'date', 'date_service', 'dynamodb', 'service', 'service = :service', 'timestamp', 'ttl', 'unblendedCost', 'unit']
