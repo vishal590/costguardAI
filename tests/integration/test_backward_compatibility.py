@@ -27,27 +27,24 @@ def dynamodb_table_with_data():
     with mock_aws():
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
         
-        # Create cost data table
+        # Create cost data table with Phase 1 schema (date_service as partition key)
         table = dynamodb.create_table(
             TableName="costguard-cost-data",
             KeySchema=[
-                {"AttributeName": "pk", "KeyType": "HASH"},
-                {"AttributeName": "sk", "KeyType": "RANGE"},
+                {"AttributeName": "date_service", "KeyType": "HASH"},
             ],
             AttributeDefinitions=[
-                {"AttributeName": "pk", "AttributeType": "S"},
-                {"AttributeName": "sk", "AttributeType": "S"},
+                {"AttributeName": "date_service", "AttributeType": "S"},
             ],
             BillingMode="PAY_PER_REQUEST",
         )
         
         table.meta.client.get_waiter("table_exists").wait(TableName="costguard-cost-data")
         
-        # Insert test data
+        # Insert test data using Phase 1 schema
         test_data = [
             {
-                "pk": "COST#2025-01",
-                "sk": "SERVICE#amazon-elastic-compute-cloud-compute",
+                "date_service": "2025-01-01#Amazon Elastic Compute Cloud - Compute",
                 "date": "2025-01-01",
                 "service": "Amazon Elastic Compute Cloud - Compute",
                 "blendedCost": Decimal("123.45"),
@@ -57,8 +54,7 @@ def dynamodb_table_with_data():
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
             {
-                "pk": "COST#2025-01",
-                "sk": "SERVICE#amazon-simple-storage-service",
+                "date_service": "2025-01-01#Amazon Simple Storage Service",
                 "date": "2025-01-01",
                 "service": "Amazon Simple Storage Service",
                 "blendedCost": Decimal("45.67"),
