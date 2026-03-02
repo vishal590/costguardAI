@@ -24,15 +24,16 @@ logger = logging.getLogger(__name__)
 class OrganizationRepository:
     """Repository for organizations table"""
 
-    def __init__(self, dynamodb_client=None):
+    def __init__(self, dynamodb_client=None, table_name=None):
         """
         Initialize the Organization Repository
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
+            table_name: Optional table name (defaults to 'organizations')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = 'organizations'
+        self.table_name = table_name or 'organizations'
 
     def save(self, organization: Organization, ttl: int) -> None:
         """
@@ -93,15 +94,16 @@ class OrganizationRepository:
 class AccountRepository:
     """Repository for accounts table"""
 
-    def __init__(self, dynamodb_client=None):
+    def __init__(self, dynamodb_client=None, table_name=None):
         """
         Initialize the Account Repository
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
+            table_name: Optional table name (defaults to 'accounts')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = 'accounts'
+        self.table_name = table_name or 'accounts'
 
     def save(self, account: Account, org_id: str) -> None:
         """
@@ -204,15 +206,16 @@ class AccountRepository:
 class MultiAccountCostRepository:
     """Repository for multi_account_costs table"""
 
-    def __init__(self, dynamodb_client=None):
+    def __init__(self, dynamodb_client=None, table_name=None):
         """
         Initialize the Multi-Account Cost Repository
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
+            table_name: Optional table name (defaults to 'multi_account_costs')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = 'multi_account_costs'
+        self.table_name = table_name or 'multi_account_costs'
 
     def save(self, cost_data: AccountCostData) -> None:
         """
@@ -300,6 +303,19 @@ class MultiAccountCostRepository:
         except ClientError as e:
             logger.error(f"Failed to get cost data: {e}")
             raise
+    
+    def get_cost_data(self, account_id: str, date: str) -> Optional[AccountCostData]:
+        """
+        Alias for get() method for backward compatibility.
+        
+        Args:
+            account_id: Account ID
+            date: Date in YYYY-MM-DD format
+            
+        Returns:
+            AccountCostData if found, None otherwise
+        """
+        return self.get(account_id, date)
 
     def list_by_date(self, date: str) -> List[AccountCostData]:
         """
@@ -357,15 +373,16 @@ class MultiAccountCostRepository:
 class AllocationRuleRepository:
     """Repository for allocation_rules table"""
 
-    def __init__(self, dynamodb_client=None):
+    def __init__(self, dynamodb_client=None, table_name=None):
         """
         Initialize the Allocation Rule Repository
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
+            table_name: Optional table name (defaults to 'allocation_rules')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = 'allocation_rules'
+        self.table_name = table_name or 'allocation_rules'
 
     def save(self, rule: AllocationRule, org_id: str) -> None:
         """
@@ -448,15 +465,16 @@ class AllocationRuleRepository:
 class BudgetRepository:
     """Repository for budgets table"""
 
-    def __init__(self, dynamodb_client=None):
+    def __init__(self, dynamodb_client=None, table_name=None):
         """
         Initialize the Budget Repository
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
+            table_name: Optional table name (defaults to 'budgets')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = 'budgets'
+        self.table_name = table_name or 'budgets'
 
     def save(self, budget_id: str, entity_id: str, entity_type: str, 
              budget_amount: Decimal, period: str) -> None:

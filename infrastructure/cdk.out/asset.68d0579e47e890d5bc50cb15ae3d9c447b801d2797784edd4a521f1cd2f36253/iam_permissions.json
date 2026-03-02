@@ -1,0 +1,237 @@
+{
+  "roleName": "CostGuardLambdaExecutionRole",
+  "description": "IAM role for CostGuard Lambda function with Phase 3 automated prevention permissions",
+  "policies": [
+    {
+      "name": "BudgetsAPIAccess",
+      "description": "Access to AWS Budgets API for monitoring budget thresholds",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "budgets:ViewBudget",
+            "budgets:DescribeBudget"
+          ],
+          "resources": ["*"],
+          "requirements": ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"]
+        }
+      ]
+    },
+    {
+      "name": "ResourceDiscoveryAccess",
+      "description": "Read-only access to discover resources across 20+ AWS services",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
+            "ec2:DescribeNatGateways",
+            "ec2:DescribeSnapshots",
+            "rds:DescribeDBInstances",
+            "rds:DescribeDBClusters",
+            "lambda:ListFunctions",
+            "lambda:GetFunction",
+            "s3:ListAllMyBuckets",
+            "s3:GetBucketLocation",
+            "s3:GetBucketTagging",
+            "dynamodb:ListTables",
+            "dynamodb:DescribeTable",
+            "elasticache:DescribeCacheClusters",
+            "elasticache:DescribeReplicationGroups",
+            "sns:ListTopics",
+            "sns:GetTopicAttributes",
+            "sqs:ListQueues",
+            "sqs:GetQueueAttributes",
+            "elasticloadbalancing:DescribeLoadBalancers",
+            "elasticloadbalancing:DescribeTargetGroups",
+            "redshift:DescribeClusters",
+            "es:ListDomainNames",
+            "es:DescribeElasticsearchDomain",
+            "kinesis:ListStreams",
+            "kinesis:DescribeStream",
+            "ecs:ListClusters",
+            "ecs:DescribeClusters",
+            "eks:ListClusters",
+            "eks:DescribeCluster",
+            "cloudfront:ListDistributions",
+            "apigateway:GET"
+          ],
+          "resources": ["*"],
+          "requirements": ["2.1", "2.2", "2.3"]
+        }
+      ]
+    },
+    {
+      "name": "CloudWatchMetricsAccess",
+      "description": "Access to CloudWatch metrics for idle detection",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "cloudwatch:GetMetricStatistics",
+            "cloudwatch:GetMetricData",
+            "cloudwatch:ListMetrics"
+          ],
+          "resources": ["*"],
+          "requirements": ["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8"]
+        }
+      ]
+    },
+    {
+      "name": "ResourceManagementAccess",
+      "description": "Permissions to execute prevention actions on idle resources",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "ec2:StopInstances",
+            "ec2:CreateSnapshot",
+            "ec2:DeleteVolume",
+            "ec2:DeleteNatGateway",
+            "rds:StopDBInstance",
+            "rds:StopDBCluster",
+            "lambda:PutFunctionConcurrency",
+            "dynamodb:UpdateTable"
+          ],
+          "resources": ["*"],
+          "conditions": {
+            "StringNotEquals": {
+              "aws:ResourceTag/Environment": "production",
+              "aws:ResourceTag/CostGuard": "protected"
+            }
+          },
+          "requirements": ["5.1", "5.2", "5.3", "5.4", "5.5", "5.6"]
+        }
+      ]
+    },
+    {
+      "name": "RollbackAccess",
+      "description": "Permissions to rollback prevention actions",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "ec2:StartInstances",
+            "ec2:CreateVolume",
+            "rds:StartDBInstance",
+            "rds:StartDBCluster",
+            "lambda:DeleteFunctionConcurrency"
+          ],
+          "resources": ["*"],
+          "requirements": ["9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7"]
+        }
+      ]
+    },
+    {
+      "name": "SNSPublishAccess",
+      "description": "Permissions to publish notifications to SNS topics",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "sns:Publish"
+          ],
+          "resources": [
+            "arn:aws:sns:*:*:costguard-prevention-warnings",
+            "arn:aws:sns:*:*:costguard-prevention-actions",
+            "arn:aws:sns:*:*:costguard-prevention-errors"
+          ],
+          "requirements": ["8.1", "8.2", "8.3", "8.4", "8.5", "8.6"]
+        }
+      ]
+    },
+    {
+      "name": "DynamoDBAccess",
+      "description": "Full access to CostGuard DynamoDB tables",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan"
+          ],
+          "resources": [
+            "arn:aws:dynamodb:*:*:table/costguard-*",
+            "arn:aws:dynamodb:*:*:table/costguard-*/index/*"
+          ],
+          "requirements": ["All DynamoDB requirements"]
+        }
+      ]
+    },
+    {
+      "name": "CostExplorerAccess",
+      "description": "Access to Cost Explorer for historical cost data (Phase 1)",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "ce:GetCostAndUsage",
+            "ce:GetCostForecast"
+          ],
+          "resources": ["*"],
+          "requirements": ["Phase 1 requirements"]
+        }
+      ]
+    },
+    {
+      "name": "BedrockAccess",
+      "description": "Access to Amazon Bedrock for AI forecasting (Phase 2)",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "bedrock:InvokeModel"
+          ],
+          "resources": [
+            "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+          ],
+          "requirements": ["Phase 2 requirements"]
+        }
+      ]
+    },
+    {
+      "name": "CloudWatchLogsAccess",
+      "description": "Permissions to write logs to CloudWatch",
+      "statements": [
+        {
+          "effect": "Allow",
+          "actions": [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "resources": ["arn:aws:logs:*:*:*"],
+          "requirements": ["All phases"]
+        }
+      ]
+    }
+  ],
+  "trustRelationship": {
+    "version": "2012-10-17",
+    "statement": [
+      {
+        "effect": "Allow",
+        "principal": {
+          "service": [
+            "lambda.amazonaws.com",
+            "events.amazonaws.com"
+          ]
+        },
+        "action": "sts:AssumeRole"
+      }
+    ]
+  },
+  "notes": [
+    "All resource management actions include conditions to prevent modification of production or protected resources",
+    "Budgets API access is read-only (ViewBudget, DescribeBudget)",
+    "Resource discovery uses only read/describe actions",
+    "SNS publish is restricted to CostGuard-specific topics",
+    "DynamoDB access is scoped to costguard-* tables only",
+    "EventBridge is included in trust relationship to allow scheduled invocations"
+  ]
+}

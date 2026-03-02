@@ -29,6 +29,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_logs as logs,
     aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,
     CfnOutput,
 )
 from constructs import Construct
@@ -234,6 +235,23 @@ class MultiAccountStack(Stack):
         allocation_rules_table.grant_read_write_data(multi_account_lambda_role)
         budgets_table.grant_read_write_data(multi_account_lambda_role)
 
+        # Add DynamoDB permissions for API authentication tables
+        # These tables are created separately by setup_api_auth.py
+        multi_account_lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+            ],
+            resources=[
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-api-keys",
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-rate-limits",
+            ],
+        ))
+
         # =====================================================================
         # Lambda Functions
         # =====================================================================
@@ -244,7 +262,27 @@ class MultiAccountStack(Stack):
             function_name="CostGuard-MultiAccountCostCollector",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.multi_account_cost_collector_handler.lambda_handler",
-            code=lambda_.Code.from_asset("../"),
+            code=lambda_.Code.from_asset(
+                "..",  # Parent directory contains src/
+                exclude=[
+                    "cdk.out/*",
+                    "infrastructure/cdk.out/*",
+                    "infrastructure/*",
+                    ".git/*",
+                    ".hypothesis/*",
+                    ".kiro/*",
+                    "tests/*",
+                    "docs/*",
+                    "scripts/*",
+                    "*.md",
+                    ".coverage",
+                    ".pytest_cache/*",
+                    "__pycache__/*",
+                    "*.pyc",
+                    ".venv/*",
+                    "venv/*",
+                ]
+            ),
             role=multi_account_lambda_role,
             timeout=Duration.minutes(15),
             memory_size=1024,  # Higher memory for parallel processing
@@ -267,8 +305,28 @@ class MultiAccountStack(Stack):
             self, "MultiAccountAPIHandler",
             function_name="CostGuard-MultiAccountAPIHandler",
             runtime=lambda_.Runtime.PYTHON_3_11,
-            handler="src.multi_account_api_handler.lambda_handler",
-            code=lambda_.Code.from_asset("../"),
+            handler="src.multi_account_api_handler.handler",
+            code=lambda_.Code.from_asset(
+                "..",  # Parent directory contains src/
+                exclude=[
+                    "cdk.out/*",
+                    "infrastructure/cdk.out/*",
+                    "infrastructure/*",
+                    ".git/*",
+                    ".hypothesis/*",
+                    ".kiro/*",
+                    "tests/*",
+                    "docs/*",
+                    "scripts/*",
+                    "*.md",
+                    ".coverage",
+                    ".pytest_cache/*",
+                    "__pycache__/*",
+                    "*.pyc",
+                    ".venv/*",
+                    "venv/*",
+                ]
+            ),
             role=multi_account_lambda_role,
             timeout=Duration.minutes(5),
             memory_size=512,
@@ -290,8 +348,28 @@ class MultiAccountStack(Stack):
             self, "MultiAccountHandler",
             function_name="CostGuard-MultiAccountHandler",
             runtime=lambda_.Runtime.PYTHON_3_11,
-            handler="src.multi_account_handler.lambda_handler",
-            code=lambda_.Code.from_asset("../"),
+            handler="src.multi_account_handler.handler",
+            code=lambda_.Code.from_asset(
+                "..",  # Parent directory contains src/
+                exclude=[
+                    "cdk.out/*",
+                    "infrastructure/cdk.out/*",
+                    "infrastructure/*",
+                    ".git/*",
+                    ".hypothesis/*",
+                    ".kiro/*",
+                    "tests/*",
+                    "docs/*",
+                    "scripts/*",
+                    "*.md",
+                    ".coverage",
+                    ".pytest_cache/*",
+                    "__pycache__/*",
+                    "*.pyc",
+                    ".venv/*",
+                    "venv/*",
+                ]
+            ),
             role=multi_account_lambda_role,
             timeout=Duration.minutes(10),
             memory_size=1024,
@@ -518,19 +596,19 @@ class MultiAccountStack(Stack):
 
         # Subscribe alarms to SNS topic
         cost_collection_failure_alarm.add_alarm_action(
-            cloudwatch.SnsAction(multi_account_notifications_topic)
+            cloudwatch_actions.SnsAction(multi_account_notifications_topic)
         )
         api_response_time_alarm.add_alarm_action(
-            cloudwatch.SnsAction(multi_account_notifications_topic)
+            cloudwatch_actions.SnsAction(multi_account_notifications_topic)
         )
         lambda_errors_alarm.add_alarm_action(
-            cloudwatch.SnsAction(multi_account_notifications_topic)
+            cloudwatch_actions.SnsAction(multi_account_notifications_topic)
         )
         dynamodb_throttle_alarm.add_alarm_action(
-            cloudwatch.SnsAction(multi_account_notifications_topic)
+            cloudwatch_actions.SnsAction(multi_account_notifications_topic)
         )
         lambda_errors_alarm.add_alarm_action(
-            cloudwatch.SnsAction(multi_account_notifications_topic)
+            cloudwatch_actions.SnsAction(multi_account_notifications_topic)
         )
 
         # Grant SNS publish permissions to Lambda functions

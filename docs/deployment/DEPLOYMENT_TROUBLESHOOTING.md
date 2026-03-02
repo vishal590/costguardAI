@@ -1,7 +1,37 @@
 # CostGuard Deployment Troubleshooting Guide
 
-**Last Updated:** February 27, 2026  
+**Last Updated:** March 2, 2026  
 **Purpose:** Document all deployment issues encountered and their solutions for future reference
+
+**Tags:** `deployment` `troubleshooting` `cdk` `cloudformation` `aws` `errors` `fixes` `phase-1` `phase-2` `phase-3` `phase-4` `phase-5`
+
+**Related Documents:**
+- [CDK Quick Reference](./CDK_QUICK_REFERENCE.md) - Fast solutions
+- [Phase 5 Success Report](../PHASE5_DEPLOYMENT_SUCCESS.md) - Latest deployment
+- [Phase 5 Troubleshooting](../PHASE5_DEPLOYMENT_TROUBLESHOOTING.md) - Phase 5 specific
+- [CDK Output Directory Fix](../CDK_OUTPUT_DIRECTORY_FIX.md) - Output configuration
+- [Project Status](../PROJECT_STATUS.md) - Overall project status
+
+**Keywords for Search:** CDK deployment errors, CloudFormation stack failures, Lambda errors, DynamoDB issues, Python import errors, recursive symlink, bootstrap required, IAM permissions, API Gateway 500 errors, process locks, output directory issues
+
+---
+
+## Quick Issue Finder
+
+**Search by Error Message:**
+- `AttributeError: module 'aws_cdk.aws_cloudwatch' has no attribute 'SnsAction'` → [Issue 4: Python Import Error](#issue-4-python-import-error---snsaction-phase-5-deployment)
+- `path too long` / `recursive symlink` → [Issue 1: CDK Recursive Symlink](#1-cdk-recursive-symlink-issue)
+- `'NoneType' object has no attribute 'protected_tags'` → [Issue 2: SafetyGuard Config Error](#issue-2-safetyguard-config-initialization-error)
+- `The provided key element does not match the schema` → [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
+- `SSM parameter /cdk-bootstrap/hnb659fds/version not found` → [Issue 2: CDK Bootstrap Required](#2-cdk-bootstrap-required)
+- `Another CLI (PID=XXXX) is currently synthing to cdk.out` → [Issue 7: CDK Lock File Issues](#7-cdk-lock-file-issues)
+
+**Search by Symptom:**
+- CDK deployment fails with Python error → [Issue 4: Python Import Error](#issue-4-python-import-error---snsaction-phase-5-deployment)
+- Can't delete cdk.out folder → [Issue 1: Recursive Symlink](#1-cdk-recursive-symlink-issue)
+- Lambda function crashes on startup → [Issue 2: SafetyGuard Config](#issue-2-safetyguard-config-initialization-error)
+- API returns 500 error → [Issue 4: Lambda Runtime Errors](#4-lambda-runtime-errors)
+- Cost data won't save to DynamoDB → [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
 
 ---
 
@@ -14,10 +44,24 @@
 5. [IAM User vs Root User](#5-iam-user-vs-root-user)
 6. [AWS Region Selection](#6-aws-region-selection)
 7. [CDK Lock File Issues](#7-cdk-lock-file-issues)
+8. [CDK Deployment Directory](#8-cdk-deployment-directory-phase-5)
+9. [Issue 2: SafetyGuard Config Initialization Error](#issue-2-safetyguard-config-initialization-error)
+10. [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
+11. [Issue 4: Python Import Error - SnsAction](#issue-4-python-import-error---snsaction-phase-5-deployment)
 
 ---
 
 ## 1. CDK Recursive Symlink Issue
+
+**Status for Phase 5:** ⚠️ PREVENTED - NOT ENCOUNTERED  
+**Phases Affected:** Phase 1-4 (historical)  
+**Severity:** High (if encountered)  
+**Tags:** `recursive-symlink` `cdk-asset-bundling` `lambda` `path-too-long` `windows`
+
+**Related Issues:** [Issue 8: CDK Deployment Directory](#8-cdk-deployment-directory-phase-5)  
+**Related Docs:** [CDK Output Directory Fix](../CDK_OUTPUT_DIRECTORY_FIX.md)
+
+**Important Note:** This issue was documented from earlier Phase 1-4 deployments. For Phase 5 deployment (March 2, 2026), we added exclusions preventatively but **never actually encountered** this issue. The real blocker was a Python import error (see Issue 4 below).
 
 ### Problem
 
@@ -91,6 +135,13 @@ Always exclude non-essential directories when bundling Lambda assets. Only inclu
 
 ## 2. CDK Bootstrap Required
 
+**Phases Affected:** All phases  
+**Severity:** Blocker (first deployment only)  
+**Tags:** `cdk-bootstrap` `ssm-parameter` `first-time-setup` `prerequisites`
+
+**Related Issues:** None  
+**Related Docs:** [CDK Quick Reference](./CDK_QUICK_REFERENCE.md)
+
 ### Problem
 
 **Symptom:**
@@ -127,6 +178,13 @@ Always bootstrap before first CDK deployment in a new account/region.
 ---
 
 ## 3. PowerShell curl Alias Issue
+
+**Phases Affected:** All phases (testing)  
+**Severity:** Low (workaround available)  
+**Tags:** `powershell` `curl` `invoke-webrequest` `api-testing` `windows`
+
+**Related Issues:** None  
+**Related Docs:** [Phase 4 Endpoint Test Report](../PHASE4_ENDPOINT_TEST_REPORT.md)
 
 ### Problem
 
@@ -166,6 +224,13 @@ Use `Invoke-WebRequest` or `Invoke-RestMethod` in PowerShell scripts instead of 
 ---
 
 ## 4. Lambda Runtime Errors
+
+**Phases Affected:** All phases  
+**Severity:** Medium (runtime errors)  
+**Tags:** `lambda` `runtime-errors` `500-error` `api-gateway` `cloudwatch-logs` `debugging`
+
+**Related Issues:** [Issue 2: SafetyGuard Config](#issue-2-safetyguard-config-initialization-error), [Issue 3: DynamoDB Schema](#issue-3-dynamodb-schema-mismatch-for-cost-data)  
+**Related Docs:** [Cost Monitoring Guide](../user-guide/COST_MONITORING_GUIDE.md)
 
 ### Problem
 
@@ -221,6 +286,13 @@ Invoke-WebRequest -Uri "https://YOUR-API-URL/prod/api/fetch" `
 
 ## 5. IAM User vs Root User
 
+**Phases Affected:** All phases  
+**Severity:** Critical (security best practice)  
+**Tags:** `iam` `security` `authentication` `aws-cli` `best-practices`
+
+**Related Issues:** None  
+**Related Docs:** [Project Status](../PROJECT_STATUS.md)
+
 ### Problem
 
 **Confusion:**
@@ -270,6 +342,13 @@ Always create dedicated IAM users for deployments. Never share root credentials.
 
 ## 6. AWS Region Selection
 
+**Phases Affected:** All phases  
+**Severity:** Low (cost optimization)  
+**Tags:** `aws-regions` `cost-optimization` `us-east-1` `latency` `free-tier`
+
+**Related Issues:** None  
+**Related Docs:** [Innovation Strategy](../INNOVATION-STRATEGY.md)
+
 ### Problem
 
 **Question:**
@@ -309,6 +388,13 @@ Choose region based on:
 ---
 
 ## 7. CDK Lock File Issues
+
+**Phases Affected:** All phases  
+**Severity:** Medium (blocks deployment)  
+**Tags:** `cdk-lock` `process-lock` `node-process` `vscode` `windows`
+
+**Related Issues:** [Issue 1: Recursive Symlink](#1-cdk-recursive-symlink-issue)  
+**Related Docs:** [CDK Quick Reference](./CDK_QUICK_REFERENCE.md)
 
 ### Problem
 
@@ -354,6 +440,60 @@ cdk synth
 - Close VS Code before running CDK commands in external terminal
 - Don't run multiple CDK commands simultaneously
 - Use `--output` flag to specify different output directories for parallel operations
+
+---
+
+## 8. CDK Deployment Directory (Phase 5)
+
+**Phases Affected:** Phase 5 (multi-account)  
+**Severity:** Medium (best practice)  
+**Tags:** `cdk-output` `working-directory` `infrastructure-folder` `cdk.json` `phase-5`
+
+**Related Issues:** [Issue 1: Recursive Symlink](#1-cdk-recursive-symlink-issue)  
+**Related Docs:** [CDK Output Directory Fix](../CDK_OUTPUT_DIRECTORY_FIX.md), [Phase 5 Success](../PHASE5_DEPLOYMENT_SUCCESS.md)
+
+### Problem
+
+**Symptom:**
+- `cdk.out` folder created in root directory instead of `infrastructure/`
+- Python import errors during deployment
+- Deployment fails with module not found errors
+
+**Root Cause:**
+Running CDK commands from the wrong directory. CDK uses the current working directory to resolve paths and create output folders.
+
+### Solution
+
+**Always run CDK commands from the `infrastructure/` directory:**
+
+```powershell
+# CORRECT: Run from infrastructure directory
+cd infrastructure
+cdk deploy CostGuardMultiAccountStack --require-approval never
+
+# WRONG: Running from root with --app flag
+cd .
+cdk deploy CostGuardMultiAccountStack --app "python infrastructure/app.py"  # ❌ Creates cdk.out in root
+```
+
+**Why this matters:**
+1. `cdk.json` is in `infrastructure/` directory
+2. `cdk.json` specifies `"output": "cdk.out"` (relative path)
+3. CDK creates output relative to where `cdk.json` is located
+4. Running from root creates `./cdk.out` instead of `infrastructure/cdk.out`
+
+**Verification:**
+```powershell
+# After deployment, check output location
+Test-Path infrastructure/cdk.out  # Should return: True
+Test-Path cdk.out                 # Should return: False
+```
+
+### Prevention
+
+- Always `cd infrastructure` before running CDK commands
+- Use the cleanup script if `cdk.out` is created in wrong location: `.\cleanup_cdk_out.ps1`
+- Create a deployment script that automatically changes to the correct directory
 
 ---
 
@@ -479,7 +619,13 @@ If you encounter issues not covered in this guide:
 
 ## Issue 2: SafetyGuard Config Initialization Error
 
-**Date Fixed:** February 28, 2026
+**Date Fixed:** February 28, 2026  
+**Phases Affected:** Phase 1-4  
+**Severity:** High (runtime blocker)  
+**Tags:** `safetyguard` `python-error` `attributeerror` `lambda-crash` `phase-3`
+
+**Related Issues:** [Issue 4: Lambda Runtime Errors](#4-lambda-runtime-errors)  
+**Related Docs:** [Phase 3 Prevention System](../PROJECT_STATUS.md)
 
 **Symptom:**
 - Lambda function crashes with error: `AttributeError: 'NoneType' object has no attribute 'protected_tags'`
@@ -537,7 +683,13 @@ cdk deploy --require-approval never
 
 ## Issue 3: DynamoDB Schema Mismatch for Cost Data
 
-**Date Fixed:** February 28, 2026
+**Date Fixed:** February 28, 2026  
+**Phases Affected:** Phase 1  
+**Severity:** High (data storage blocker)  
+**Tags:** `dynamodb` `schema-mismatch` `validationexception` `partition-key` `phase-1`
+
+**Related Issues:** [Issue 4: Lambda Runtime Errors](#4-lambda-runtime-errors)  
+**Related Docs:** [Cost Monitoring Guide](../user-guide/COST_MONITORING_GUIDE.md)
 
 **Symptom:**
 - `/api/fetch` endpoint fails with ValidationException
@@ -628,3 +780,142 @@ The query logic in `query_cost_data()` still uses the old `COST#YYYY-MM` format 
 - Initial deployment: February 27, 2026
 - SafetyGuard fix: February 28, 2026 6:50 PM
 - DynamoDB fix: February 28, 2026 6:57 PM
+
+---
+
+## Issue 4: Python Import Error - SnsAction (Phase 5 Deployment)
+
+**Date Fixed:** March 2, 2026  
+**Phases Affected:** Phase 5 (multi-account)  
+**Severity:** Critical (deployment blocker)  
+**Tags:** `python-import` `aws-cdk` `cloudwatch-actions` `snsaction` `phase-5` `actual-blocker`
+
+**Related Issues:** None (this was the actual Phase 5 blocker)  
+**Related Docs:** [Phase 5 Success Report](../PHASE5_DEPLOYMENT_SUCCESS.md), [Phase 5 Troubleshooting](../PHASE5_DEPLOYMENT_TROUBLESHOOTING.md)
+
+**Symptom:**
+- CDK deployment fails with Python AttributeError
+- Error: `AttributeError: module 'aws_cdk.aws_cloudwatch' has no attribute 'SnsAction'`
+- Occurs during CloudFormation stack synthesis
+
+**Error in Terminal:**
+```
+Traceback (most recent call last):
+  File "G:\projects\aws-ideas\infrastructure\app.py", line 28, in <module>
+    multi_account_stack = MultiAccountStack(...)
+  File "G:\projects\aws-ideas\infrastructure\multi_account_stack.py", line 581, in __init__
+    cloudwatch.SnsAction(multi_account_notifications_topic)
+    ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'aws_cdk.aws_cloudwatch' has no attribute 'SnsAction'
+```
+
+**Root Cause:**
+The `SnsAction` class is located in the `aws_cloudwatch_actions` module, not `aws_cloudwatch`. The code was trying to use `cloudwatch.SnsAction()` which doesn't exist.
+
+**Correct Module Structure:**
+```python
+# WRONG:
+from aws_cdk import aws_cloudwatch as cloudwatch
+cloudwatch.SnsAction(topic)  # ❌ SnsAction not in this module
+
+# CORRECT:
+from aws_cdk import aws_cloudwatch_actions as cloudwatch_actions
+cloudwatch_actions.SnsAction(topic)  # ✅ Correct module
+```
+
+**Solution:**
+Updated `infrastructure/multi_account_stack.py`:
+
+**Step 1: Add the correct import**
+```python
+from aws_cdk import (
+    Stack,
+    Duration,
+    RemovalPolicy,
+    aws_dynamodb as dynamodb,
+    aws_lambda as lambda_,
+    aws_apigateway as apigateway,
+    aws_sns as sns,
+    aws_events as events,
+    aws_events_targets as targets,
+    aws_iam as iam,
+    aws_logs as logs,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,  # ← Added this
+    CfnOutput,
+)
+```
+
+**Step 2: Update all SnsAction references (5 occurrences)**
+```python
+# Before (BROKEN):
+cost_collection_failure_alarm.add_alarm_action(
+    cloudwatch.SnsAction(multi_account_notifications_topic)  # ❌
+)
+
+# After (FIXED):
+cost_collection_failure_alarm.add_alarm_action(
+    cloudwatch_actions.SnsAction(multi_account_notifications_topic)  # ✅
+)
+```
+
+**Files Modified:**
+- `infrastructure/multi_account_stack.py` (lines 19 and 582-596)
+
+**Verification:**
+```powershell
+# From infrastructure directory
+cd infrastructure
+cdk deploy CostGuardMultiAccountStack --require-approval never
+
+# Expected: Successful deployment
+# ✅ CostGuardMultiAccountStack deployed successfully
+```
+
+**Deployment Result:**
+```
+✅ CostGuardMultiAccountStack
+
+✨ Deployment time: 158.34s
+
+Outputs:
+CostGuardMultiAccountStack.MultiAccountAPIEndpoint = https://7s4ff2lzc6.execute-api.us-east-1.amazonaws.com/prod/
+CostGuardMultiAccountStack.CostCollectorFunctionName = CostGuard-MultiAccountCostCollector
+CostGuardMultiAccountStack.APIHandlerFunctionName = CostGuard-MultiAccountAPIHandler
+CostGuardMultiAccountStack.MainHandlerFunctionName = CostGuard-MultiAccountHandler
+...
+```
+
+**Prevention:**
+- Always check AWS CDK documentation for correct module imports
+- Common mistake: Assuming all CloudWatch-related classes are in `aws_cloudwatch`
+- Reality: Actions are in separate `aws_cloudwatch_actions` module
+
+**Related AWS CDK Modules:**
+```python
+aws_cloudwatch           # Alarms, Metrics, Dashboards
+aws_cloudwatch_actions   # Alarm actions (SNS, Lambda, etc.)
+aws_cloudwatch_logs      # Log groups, Log streams
+```
+
+---
+
+## Summary of All Fixes
+
+| Issue | Status | Files Modified | Deployment Required | Phase 5 Impact |
+|-------|--------|----------------|---------------------|----------------|
+| Recursive Symlink Loop | ✅ Prevented | `infrastructure/cdk_stack.py`, `infrastructure/multi_account_stack.py` | Yes | Not encountered |
+| SafetyGuard Config Error | ✅ Fixed | `src/services/safety_guard.py` | Yes | N/A (Phase 1-4) |
+| DynamoDB Schema Mismatch | ✅ Fixed | `src/services/dynamodb.py` | Yes | N/A (Phase 1-4) |
+| Python Import Error (SnsAction) | ✅ Fixed | `infrastructure/multi_account_stack.py` | Yes | **ACTUAL BLOCKER** |
+
+**Phase 5 Deployment Summary:**
+- **Only real issue:** Python import error (`SnsAction` in wrong module)
+- **Preventative measures:** Added exclusions (good practice, but not needed for this deployment)
+- **Best practice:** Running from `infrastructure/` directory
+
+**Total Deployments:** 4
+- Initial deployment: February 27, 2026 (Phase 1-4)
+- SafetyGuard fix: February 28, 2026 6:50 PM (Phase 1-4)
+- DynamoDB fix: February 28, 2026 6:57 PM (Phase 1-4)
+- Phase 5 Multi-Account: March 2, 2026 10:08 AM ✅

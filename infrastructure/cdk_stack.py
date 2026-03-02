@@ -364,12 +364,14 @@ class CostGuardStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.lambda_handler.handler",
             code=lambda_.Code.from_asset(
-                "../",
+                ".",
                 exclude=[
-                    "infrastructure/*",
                     "cdk.out/*",
+                    "infrastructure/cdk.out/*",
+                    "infrastructure/*",
                     ".git/*",
                     ".hypothesis/*",
+                    ".kiro/*",
                     "tests/*",
                     "docs/*",
                     "scripts/*",

@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/fa3fb711bd9dd22dd1921cb9d59a29397613daeb060b6185fe16774d787cb11a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/fd35dfab279518dc5404aba7dc61e88e041e532013a777656d4d72f53a658bab.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -850,6 +850,785 @@
         ]
       },
       "displayName": "CostGuardStack"
+    },
+    "CostGuardMultiAccountStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "CostGuardMultiAccountStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "CostGuardMultiAccountStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "CostGuardMultiAccountStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/d20003f3a6df2ed3c189fc192607bfbac5947f986b80540204f8e584f323cb8a.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "CostGuardMultiAccountStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "CostGuardStack",
+        "CostGuardMultiAccountStack.assets"
+      ],
+      "metadata": {
+        "/CostGuardMultiAccountStack/OrganizationsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "OrganizationsTable01047E98"
+            }
+          }
+        ],
+        "/CostGuardMultiAccountStack/OrganizationsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OrganizationsTable01047E98"
+          }
+        ],
+        "/CostGuardMultiAccountStack/AccountsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AccountsTable81C15AE5"
+            }
+          }
+        ],
+        "/CostGuardMultiAccountStack/AccountsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AccountsTable81C15AE5"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountCostsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "MultiAccountCostsTable85410C39"
+            }
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountCostsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountCostsTable85410C39"
+          }
+        ],
+        "/CostGuardMultiAccountStack/AllocationRulesTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AllocationRulesTable28A650FD"
+            }
+          }
+        ],
+        "/CostGuardMultiAccountStack/AllocationRulesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AllocationRulesTable28A650FD"
+          }
+        ],
+        "/CostGuardMultiAccountStack/BudgetsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "BudgetsTable6D971670"
+            }
+          }
+        ],
+        "/CostGuardMultiAccountStack/BudgetsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BudgetsTable6D971670"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountLambdaRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountLambdaRole71806EE0"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountLambdaRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountLambdaRoleDefaultPolicy6EA8187A"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountCostCollector/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountCostCollector65899F33"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountCostCollector/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountCostCollectorLogRetention21F070CB"
+          }
+        ],
+        "/CostGuardMultiAccountStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+          }
+        ],
+        "/CostGuardMultiAccountStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB"
+          }
+        ],
+        "/CostGuardMultiAccountStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPIHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIHandler7A8623B6"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPIHandler/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIHandlerLogRetention20C95D0D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountHandlerAEDB4FC3"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountHandler/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountHandlerLogRetentionB9C131E0"
+          }
+        ],
+        "/CostGuardMultiAccountStack/CostCollectorLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostCollectorLogGroup47DBD2D2"
+          }
+        ],
+        "/CostGuardMultiAccountStack/APIHandlerLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APIHandlerLogGroup3F88483B"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MainHandlerLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MainHandlerLogGroupB76BF53F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPI97983974"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPICloudWatchRole5F508A33"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIAccountD10D2144"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIDeploymentE6250013d6a9097a7d20da0dc7e363a8e571a953"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIDeploymentStageprodE743CB70"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIEndpoint2AF5DD7E"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIOPTIONS70109E1A"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiEE851437"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiOPTIONS1031D0C0"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizations17499CAF"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsOPTIONS5BB9C70C"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.organizations": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiorganizations2AD4F4C5"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.organizations": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiorganizations51142522"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsGET72B39E39"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgid639F2DC2"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidOPTIONS3782CF49"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/accounts/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidaccounts2D2428AC"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/accounts/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidaccountsOPTIONSD893F741"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/accounts/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.organizations.{org_id}.accounts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidaccountsGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiorganizationsorgidaccounts7637933B"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/accounts/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.organizations.{org_id}.accounts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidaccountsGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiorganizationsorgidaccounts3C0C9655"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/organizations/{org_id}/accounts/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiorganizationsorgidaccountsGET62983C9B"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicosts2F04444F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsOPTIONS2AC9D397"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/consolidated/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsconsolidated8F59CC45"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/consolidated/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsconsolidatedOPTIONS5A9C539B"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/consolidated/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.consolidated": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsconsolidatedGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsconsolidated3EE3DCEA"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/consolidated/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.consolidated": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsconsolidatedGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsconsolidated0F9F3352"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/consolidated/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsconsolidatedGET6447AE0F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/by-account/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsbyaccountC4EB459D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/by-account/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsbyaccountOPTIONS241B99F8"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/by-account/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.by-account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsbyaccountGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsbyaccount44A74DA1"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/by-account/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.by-account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsbyaccountGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsbyaccount59C88F75"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/by-account/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsbyaccountGET7210B0C3"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccount8C4BE2E5"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountOPTIONSBE488B11"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/{account_id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountaccountid40555CEF"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/{account_id}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountaccountidOPTIONSE0BC46BA"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/{account_id}/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.account.{account_id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountaccountidGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsaccountaccountid1D318430"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/{account_id}/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.costs.account.{account_id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountaccountidGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapicostsaccountaccountid0B95C689"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/costs/account/{account_id}/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapicostsaccountaccountidGET447F7C16"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocation914FD356"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationOPTIONS205E87C1"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/by-tag/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationbytag59173759"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/by-tag/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationbytagOPTIONS9449B326"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/by-tag/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.allocation.by-tag": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationbytagGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiallocationbytagA4C4843F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/by-tag/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.allocation.by-tag": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationbytagGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiallocationbytag31C5C035"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/by-tag/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationbytagGETBF776AF7"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/unallocated/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationunallocated86C7AF7D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/unallocated/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationunallocatedOPTIONS97AFEE0D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/unallocated/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.allocation.unallocated": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationunallocatedGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiallocationunallocatedE95C9DD8"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/unallocated/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.allocation.unallocated": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationunallocatedGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapiallocationunallocatedEC43DFCA"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/unallocated/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationunallocatedGET8AE34FBE"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/rules/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationrulesB4C9F332"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/rules/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationrulesOPTIONSAB82078C"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/rules/POST/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.allocation.rules": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationrulesPOSTApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapiallocationrulesDB05A5FD"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/rules/POST/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.allocation.rules": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationrulesPOSTApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapiallocationrules799A27D7"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/allocation/rules/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapiallocationrulesPOST3FD4E2BA"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgets65FE8E9D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsOPTIONSECFC3B10"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/hierarchy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetshierarchy5B084B2C"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/hierarchy/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetshierarchyOPTIONS4806DBB4"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/hierarchy/GET/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.budgets.hierarchy": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetshierarchyGETApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapibudgetshierarchy2B5641D8"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/hierarchy/GET/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.GET..api.budgets.hierarchy": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetshierarchyGETApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01GETapibudgetshierarchyF5C70115"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/hierarchy/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetshierarchyGET7A2F276A"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/organization/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsorganizationB89BAD65"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/organization/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsorganizationOPTIONS73DD178F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/organization/POST/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.budgets.organization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsorganizationPOSTApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapibudgetsorganizationA4505426"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/organization/POST/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.budgets.organization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsorganizationPOSTApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapibudgetsorganization9E3F872F"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/organization/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsorganizationPOSTE8FF346C"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsouB2BEB6C5"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsouOPTIONS709FB7F6"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/{ou_id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsououid9980FBE0"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/{ou_id}/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsououidOPTIONS0AE84392"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/{ou_id}/POST/ApiPermission.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.budgets.ou.{ou_id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsououidPOSTApiPermissionCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapibudgetsououid4102EAFF"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/{ou_id}/POST/ApiPermission.Test.CostGuardMultiAccountStackMultiAccountAPIA77A8E01.POST..api.budgets.ou.{ou_id}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsououidPOSTApiPermissionTestCostGuardMultiAccountStackMultiAccountAPIA77A8E01POSTapibudgetsououid2FAAC689"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPI/Default/api/budgets/ou/{ou_id}/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIapibudgetsououidPOST826494A1"
+          }
+        ],
+        "/CostGuardMultiAccountStack/DailyCostCollectionRule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DailyCostCollectionRuleA3E5A9C6"
+          }
+        ],
+        "/CostGuardMultiAccountStack/DailyCostCollectionRule/AllowEventRuleCostGuardMultiAccountStackMultiAccountCostCollector58FED4C0": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DailyCostCollectionRuleAllowEventRuleCostGuardMultiAccountStackMultiAccountCostCollector58FED4C0BE6E8A12"
+          }
+        ],
+        "/CostGuardMultiAccountStack/OrganizationDiscoveryRule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OrganizationDiscoveryRule1DE94D01"
+          }
+        ],
+        "/CostGuardMultiAccountStack/OrganizationDiscoveryRule/AllowEventRuleCostGuardMultiAccountStackMultiAccountHandler0CBACE05": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OrganizationDiscoveryRuleAllowEventRuleCostGuardMultiAccountStackMultiAccountHandler0CBACE05ACE7F010"
+          }
+        ],
+        "/CostGuardMultiAccountStack/CostCollectionFailureAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostCollectionFailureAlarm33A6CFEC"
+          }
+        ],
+        "/CostGuardMultiAccountStack/APIResponseTimeAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APIResponseTimeAlarmF714E79E"
+          }
+        ],
+        "/CostGuardMultiAccountStack/LambdaErrorsAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorsAlarm8ED74A7D"
+          }
+        ],
+        "/CostGuardMultiAccountStack/DynamoDBThrottleAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DynamoDBThrottleAlarmF21EBBE2"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountNotificationsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountNotificationsTopic3DE075DC"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountAPIEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountAPIEndpoint"
+          }
+        ],
+        "/CostGuardMultiAccountStack/CostCollectorFunctionName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CostCollectorFunctionName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/APIHandlerFunctionName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APIHandlerFunctionName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MainHandlerFunctionName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MainHandlerFunctionName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/NotificationsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "NotificationsTopicArn"
+          }
+        ],
+        "/CostGuardMultiAccountStack/OrganizationsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OrganizationsTableName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/AccountsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AccountsTableName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/MultiAccountCostsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultiAccountCostsTableName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/AllocationRulesTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AllocationRulesTableName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/BudgetsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BudgetsTableName"
+          }
+        ],
+        "/CostGuardMultiAccountStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/CostGuardMultiAccountStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/CostGuardMultiAccountStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "CostGuardMultiAccountStack"
     },
     "Tree": {
       "type": "cdk:tree",

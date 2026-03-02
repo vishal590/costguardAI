@@ -617,7 +617,7 @@
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
      },
-     "S3Key": "f66af75b014ec35bc7060854090ff1ea187b7c6741baaef4d25bdc6bf3e56d35.zip"
+     "S3Key": "68d0579e47e890d5bc50cb15ae3d9c447b801d2797784edd4a521f1cd2f36253.zip"
     },
     "Environment": {
      "Variables": {
@@ -680,7 +680,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardLambda/Resource",
-    "aws:asset:path": "asset.f66af75b014ec35bc7060854090ff1ea187b7c6741baaef4d25bdc6bf3e56d35",
+    "aws:asset:path": "asset.68d0579e47e890d5bc50cb15ae3d9c447b801d2797784edd4a521f1cd2f36253",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }

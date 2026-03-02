@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CostGuard Multi-Account Cross-Account Role for Member Accounts (Phase 5)'
+
+Parameters:
+  ManagementAccountId:
+    Type: String
+    Description: 'AWS Account ID of the CostGuard management account'
+    AllowedPattern: '^\d{12}$'
+    ConstraintDescription: 'Must be a valid 12-digit AWS account ID'
+  
+  ExternalId:
+    Type: String
+    Description: 'External ID for secure role assumption (provided by CostGuard)'
+    MinLength: 8
+    MaxLength: 64
+    AllowedPattern: '^[a-zA-Z0-9+=,.@:\/-]*$'
+    ConstraintDescription: 'Must be between 8-64 characters'
+
+Resources:
+  CostGuardCrossAccountRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'CostGuardCrossAccountRole'
+      Description: 'Allows CostGuard Multi-Account system to collect cost data and metadata from this member account'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${ManagementAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      MaxSessionDuration: 3600  # 1 hour
+      Policies:
+        - PolicyName: 'CostGuardMultiAccountAccess'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Cost Explorer permissions
+              - Sid: 'CostExplorerReadAccess'
+                Effect: Allow
+                Action:
+                  - 'ce:GetCostAndUsage'
+                  - 'ce:GetCostForecast'
+                  - 'ce:GetUsageForecast'
+                  - 'ce:GetTags'
+                  - 'ce:GetCostCategories'
+                  - 'ce:ListCostCategoryDefinitions'
+                Resource: '*'
+              
+              # CloudWatch permissions for metrics
+              - Sid: 'CloudWatchReadAccess'
+                Effect: Allow
+                Action:
+                  - 'cloudwatch:GetMetricStatistics'
+                  - 'cloudwatch:GetMetricData'
+                  - 'cloudwatch:ListMetrics'
+                Resource: '*'
+              
+              # Resource tagging permissions for cost allocation
+              - Sid: 'ResourceTaggingReadAccess'
+                Effect: Allow
+                Action:
+                  - 'tag:GetResources'
+                  - 'tag:GetTagKeys'
+                  - 'tag:GetTagValues'
+                  - 'resource-groups:GetGroupQuery'
+                  - 'resource-groups:GetGroup'
+                Resource: '*'
+              
+              # Basic resource discovery for cost allocation
+              - Sid: 'ResourceDiscoveryReadAccess'
+                Effect: Allow
+                Action:
+                  - 'ec2:DescribeInstances'
+                  - 'ec2:DescribeVolumes'
+                  - 'ec2:DescribeSnapshots'
+                  - 'rds:DescribeDBInstances'
+                  - 'rds:DescribeDBClusters'
+                  - 'lambda:ListFunctions'
+                  - 's3:ListAllMyBuckets'
+                  - 's3:GetBucketTagging'
+                  - 'dynamodb:ListTables'
+                  - 'dynamodb:DescribeTable'
+                Resource: '*'
+              
+              # Account information
+              - Sid: 'AccountInfoAccess'
+                Effect: Allow
+                Action:
+                  - 'sts:GetCallerIdentity'
+                  - 'iam:GetAccountSummary'
+                Resource: '*'
+      
+      Tags:
+        - Key: 'Purpose'
+          Value: 'CostGuard Multi-Account Cost Management'
+        - Key: 'Phase'
+          Value: 'Phase5'
+        - Key: 'ManagedBy'
+          Value: 'CloudFormation'
+        - Key: 'CostGuard'
+          Value: 'CrossAccountRole'
+
+Outputs:
+  RoleArn:
+    Description: 'ARN of the CostGuard cross-account role'
+    Value: !GetAtt CostGuardCrossAccountRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CostGuardCrossAccountRoleArn'
+  
+  RoleName:
+    Description: 'Name of the CostGuard cross-account role'
+    Value: !Ref CostGuardCrossAccountRole
+    Export:
+      Name: !Sub '${AWS::StackName}-CostGuardCrossAccountRoleName'
+  
+  ExternalId:
+    Description: 'External ID used for role assumption'
+    Value: !Ref ExternalId
+    Export:
+      Name: !Sub '${AWS::StackName}-ExternalId'
+  
+  AccountId:
+    Description: 'AWS Account ID where this role is deployed'
+    Value: !Ref 'AWS::AccountId'
+    Export:
+      Name: !Sub '${AWS::StackName}-AccountId'

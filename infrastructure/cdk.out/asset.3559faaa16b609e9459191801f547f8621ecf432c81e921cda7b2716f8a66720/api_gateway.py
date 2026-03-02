@@ -1,0 +1,146 @@
+"""
+API Gateway Definition for Cost Data Pipeline
+
+This module defines the API Gateway infrastructure using AWS CDK (Python).
+The API Gateway exposes REST endpoints for fetching, querying, estimating, and forecasting cost data.
+
+Phase 1 Requirements:
+- 6.1: POST /api/cost-data/fetch endpoint
+- 6.2: GET /api/cost-data endpoint
+- 6.3: API key authentication
+
+Phase 1.5 Requirements:
+- 4.1: GET /api/cost-estimation/current endpoint
+- 4.3: GET /api/cost-estimation/service/{service} endpoint
+- 5.5: Reuse existing API key authentication
+
+Phase 2 Requirements:
+- 5.1: GET /api/cost-forecast endpoint
+- 5.2: GET /api/cost-forecast/service/{service} endpoint
+- 5.8: Reuse existing API key authentication
+"""
+
+from aws_cdk import (
+    aws_apigateway as apigateway,
+    aws_lambda as lambda_,
+)
+from constructs import Construct
+
+
+class CostDataAPI(Construct):
+    """API Gateway for cost data pipeline"""
+
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        lambda_function: lambda_.Function,
+        **kwargs,
+    ) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        # Create REST API
+        self.api = apigateway.RestApi(
+            self,
+            "CostDataAPI",
+            rest_api_name="costguard-cost-data-api",
+            description="API for AWS Cost Data Pipeline",
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                throttling_rate_limit=10,  # Requests per second
+                throttling_burst_limit=20,  # Burst capacity
+            ),
+        )
+
+        # Create API key
+        self.api_key = self.api.add_api_key(
+            "CostDataAPIKey",
+            api_key_name="costguard-api-key",
+        )
+
+        # Create usage plan
+        usage_plan = self.api.add_usage_plan(
+            "CostDataUsagePlan",
+            name="costguard-usage-plan",
+            throttle=apigateway.ThrottleSettings(
+                rate_limit=10,  # Requests per second
+                burst_limit=20,  # Burst capacity
+            ),
+            quota=apigateway.QuotaSettings(
+                limit=10000,  # Requests per month
+                period=apigateway.Period.MONTH,
+            ),
+        )
+
+        # Associate API key with usage plan
+        usage_plan.add_api_key(self.api_key)
+        usage_plan.add_api_stage(stage=self.api.deployment_stage)
+
+        # Create Lambda integration
+        lambda_integration = apigateway.LambdaIntegration(
+            lambda_function,
+            proxy=True,
+            allow_test_invoke=True,
+        )
+
+        # Create /api resource
+        api_resource = self.api.root.add_resource("api")
+
+        # Create /api/cost-data resource
+        cost_data_resource = api_resource.add_resource("cost-data")
+
+        # Add GET /api/cost-data endpoint (query cost data)
+        cost_data_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Create /api/cost-data/fetch resource
+        fetch_resource = cost_data_resource.add_resource("fetch")
+
+        # Add POST /api/cost-data/fetch endpoint (fetch and store cost data)
+        fetch_resource.add_method(
+            "POST",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Phase 1.5: Create /api/cost-estimation resource
+        cost_estimation_resource = api_resource.add_resource("cost-estimation")
+
+        # Add GET /api/cost-estimation/current endpoint (estimate current costs for all services)
+        current_resource = cost_estimation_resource.add_resource("current")
+        current_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Add GET /api/cost-estimation/service/{service} endpoint (estimate costs for specific service)
+        service_resource = cost_estimation_resource.add_resource("service")
+        service_name_resource = service_resource.add_resource("{service}")
+        service_name_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Phase 2: Create /api/cost-forecast resource
+        cost_forecast_resource = api_resource.add_resource("cost-forecast")
+
+        # Add GET /api/cost-forecast endpoint (forecast total costs)
+        cost_forecast_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )
+
+        # Add GET /api/cost-forecast/service/{service} endpoint (forecast costs for specific service)
+        forecast_service_resource = cost_forecast_resource.add_resource("service")
+        forecast_service_name_resource = forecast_service_resource.add_resource("{service}")
+        forecast_service_name_resource.add_method(
+            "GET",
+            lambda_integration,
+            api_key_required=True,
+        )

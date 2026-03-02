@@ -8,6 +8,7 @@ import logging
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime, UTC
+from decimal import Decimal
 
 from .services.multi_account.organization_discovery import OrganizationDiscoveryService
 from .services.multi_account.cost_aggregation_engine import CostAggregationEngine
@@ -596,13 +597,10 @@ def create_error_response(
 def _get_organization_service() -> OrganizationDiscoveryService:
     """Initialize and return OrganizationDiscoveryService."""
     dynamodb_client = get_dynamodb_client()
-    org_repo = OrganizationRepository(dynamodb_client, 'costguard-organizations')
-    account_repo = AccountRepository(dynamodb_client, 'costguard-accounts')
     
     return OrganizationDiscoveryService(
-        organizations_client=None,  # Will be initialized internally
-        org_repo=org_repo,
-        account_repo=account_repo
+        dynamodb_client=dynamodb_client,
+        organizations_client=None  # Will be initialized internally
     )
 
 
@@ -611,10 +609,12 @@ def _get_cost_aggregation_engine() -> CostAggregationEngine:
     dynamodb_client = get_dynamodb_client()
     cost_repo = MultiAccountCostRepository(dynamodb_client, 'costguard-multi-account-costs')
     account_repo = AccountRepository(dynamodb_client, 'costguard-accounts')
+    org_repo = OrganizationRepository(dynamodb_client, 'costguard-organizations')
     
     return CostAggregationEngine(
-        cost_repo=cost_repo,
-        account_repo=account_repo
+        cost_repository=cost_repo,
+        account_repository=account_repo,
+        org_repository=org_repo
     )
 
 
@@ -622,16 +622,24 @@ def _get_per_account_cost_service() -> PerAccountCostService:
     """Initialize and return PerAccountCostService."""
     dynamodb_client = get_dynamodb_client()
     cost_repo = MultiAccountCostRepository(dynamodb_client, 'costguard-multi-account-costs')
+    account_repo = AccountRepository(dynamodb_client, 'costguard-accounts')
     
-    return PerAccountCostService(cost_repo=cost_repo)
+    return PerAccountCostService(
+        cost_repository=cost_repo,
+        account_repository=account_repo
+    )
 
 
 def _get_cost_allocation_engine() -> CostAllocationEngine:
     """Initialize and return CostAllocationEngine."""
     dynamodb_client = get_dynamodb_client()
     cost_repo = MultiAccountCostRepository(dynamodb_client, 'costguard-multi-account-costs')
+    rule_repo = AllocationRuleRepository(dynamodb_client, 'costguard-allocation-rules')
     
-    return CostAllocationEngine(cost_repo=cost_repo)
+    return CostAllocationEngine(
+        cost_repository=cost_repo,
+        rule_repository=rule_repo
+    )
 
 
 def _get_allocation_rules_engine() -> AllocationRulesEngine:
@@ -639,19 +647,20 @@ def _get_allocation_rules_engine() -> AllocationRulesEngine:
     dynamodb_client = get_dynamodb_client()
     rule_repo = AllocationRuleRepository(dynamodb_client, 'costguard-allocation-rules')
     
-    return AllocationRulesEngine(rule_repo=rule_repo)
+    return AllocationRulesEngine(rule_repository=rule_repo)
 
 
 def _get_organization_budget_service() -> OrganizationBudgetService:
     """Initialize and return OrganizationBudgetService."""
     dynamodb_client = get_dynamodb_client()
     budget_repo = BudgetRepository(dynamodb_client, 'costguard-budgets')
+    account_repo = AccountRepository(dynamodb_client, 'costguard-accounts')
     cost_repo = MultiAccountCostRepository(dynamodb_client, 'costguard-multi-account-costs')
     
     return OrganizationBudgetService(
-        budgets_client=None,  # Will be initialized internally
-        budget_repo=budget_repo,
-        cost_repo=cost_repo
+        budget_repository=budget_repo,
+        account_repository=account_repo,
+        cost_repository=cost_repo
     )
 
 
@@ -760,9 +769,26 @@ def handle_unallocated_costs(event: Dict[str, Any]) -> Dict[str, Any]:
         
         # Initialize services
         allocation_engine = _get_cost_allocation_engine()
+        org_service = _get_organization_service()
+        
+        # Get organization to get account IDs
+        organization = org_service.discover_organization()
+        accounts = org_service.get_all_accounts(organization.id)
+        
+        # Calculate unallocated costs for all accounts
+        # For now, use first account as example (should aggregate across all accounts)
+        account_id = accounts[0].id if accounts else None
+        
+        if not account_id:
+            return create_error_response(
+                404,
+                'NO_ACCOUNTS',
+                'No accounts found in organization'
+            )
         
         # Get unallocated costs
         unallocated_costs = allocation_engine.calculate_unallocated_costs(
+            account_id=account_id,
             start_date=start_date,
             end_date=end_date
         )
@@ -935,13 +961,24 @@ def handle_budget_hierarchy(event: Dict[str, Any]) -> Dict[str, Any]:
     Requirements: 16.9
     """
     try:
-        logger.info("Getting budget hierarchy")
+        # Parse query parameters
+        query_params = event.get('queryStringParameters') or {}
+        date = query_params.get('date', datetime.now(UTC).strftime('%Y-%m-%d'))
+        
+        logger.info(f"Getting budget hierarchy for date: {date}")
         
         # Initialize services
         budget_service = _get_organization_budget_service()
+        org_service = _get_organization_service()
+        
+        # Get organization ID
+        organization = org_service.discover_organization()
         
         # Get budget hierarchy
-        hierarchy = budget_service.get_budget_hierarchy()
+        hierarchy = budget_service.get_budget_hierarchy(
+            org_id=organization.id,
+            date=date
+        )
         
         # Format response
         response_data = {
@@ -1062,26 +1099,29 @@ def handle_create_organization_budget(event: Dict[str, Any]) -> Dict[str, Any]:
         
         # Initialize services
         budget_service = _get_organization_budget_service()
+        org_service = _get_organization_service()
+        
+        # Get organization ID
+        organization = org_service.discover_organization()
         
         # Create organization budget
-        budget = budget_service.create_organization_budget(
-            budget_name=budget_name,
-            budget_limit=budget_limit,
-            time_unit=time_unit,
-            currency=currency
+        budget_id = budget_service.create_organization_budget(
+            org_id=organization.id,
+            budget_amount=Decimal(str(budget_limit)),
+            period=time_unit
         )
         
         # Format response
         response_data = {
             'success': True,
             'budget': {
-                'budget_id': budget.budget_id,
-                'budget_name': budget.budget_name,
-                'budget_limit': float(budget.budget_limit),
-                'time_unit': budget.time_unit,
-                'currency': budget.currency,
-                'created_at': budget.created_at.isoformat(),
-                'is_active': budget.is_active
+                'budget_id': budget_id,
+                'budget_name': budget_name,
+                'budget_limit': float(budget_limit),
+                'time_unit': time_unit,
+                'currency': currency,
+                'created_at': datetime.now(UTC).isoformat(),
+                'is_active': True
             },
             'message': 'Organization budget created successfully'
         }
@@ -1179,31 +1219,29 @@ def handle_create_ou_budget(event: Dict[str, Any]) -> Dict[str, Any]:
         budget_service = _get_organization_budget_service()
         
         # Create OU budget
-        budget = budget_service.create_ou_budget(
+        budget_id = budget_service.create_ou_budget(
             ou_id=ou_id,
-            budget_name=budget_name,
-            budget_limit=budget_limit,
-            time_unit=time_unit,
-            currency=currency
+            budget_amount=Decimal(str(budget_limit)),
+            period=time_unit
         )
         
         # Format response
         response_data = {
             'success': True,
             'budget': {
-                'budget_id': budget.budget_id,
-                'budget_name': budget.budget_name,
-                'ou_id': budget.ou_id,
-                'budget_limit': float(budget.budget_limit),
-                'time_unit': budget.time_unit,
-                'currency': budget.currency,
-                'created_at': budget.created_at.isoformat(),
-                'is_active': budget.is_active
+                'budget_id': budget_id,
+                'budget_name': budget_name,
+                'ou_id': ou_id,
+                'budget_limit': float(budget_limit),
+                'time_unit': time_unit,
+                'currency': currency,
+                'created_at': datetime.now(UTC).isoformat(),
+                'is_active': True
             },
             'message': f'OU budget created successfully for {ou_id}'
         }
         
-        logger.info(f"Created OU budget: {budget.budget_id}")
+        logger.info(f"Created OU budget: {budget_id}")
         
         return {
             'statusCode': 201,

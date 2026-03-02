@@ -1,0 +1,76 @@
+{
+  "functionName": "CostGuardLambda",
+  "description": "Environment variables for CostGuard Lambda function (Phases 1, 1.5, 2, and 3)",
+  "environment": {
+    "variables": {
+      "COST_DATA_TABLE": "costguard-cost-data",
+      "FORECAST_CACHE_TABLE": "costguard-forecast-cache",
+      "PREVENTION_CONFIG_TABLE": "costguard-prevention-config",
+      "RESOURCE_INVENTORY_TABLE": "costguard-resource-inventory",
+      "PREVENTION_AUDIT_TABLE": "costguard-prevention-audit",
+      "APPROVAL_REQUESTS_TABLE": "costguard-approval-requests",
+      "PREVENTION_ENABLED": "false",
+      "DRY_RUN_MODE": "true",
+      "APPROVAL_REQUIRED": "true",
+      "APPROVAL_TIMEOUT_MINUTES": "30",
+      "BUDGET_POLL_INTERVAL_MINUTES": "5",
+      "RESOURCE_REFRESH_INTERVAL_MINUTES": "15",
+      "WARNING_THRESHOLD_PERCENT": "80",
+      "ACTION_THRESHOLD_PERCENT": "90",
+      "SNS_TOPIC_WARNINGS": "arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:costguard-prevention-warnings",
+      "SNS_TOPIC_ACTIONS": "arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:costguard-prevention-actions",
+      "SNS_TOPIC_ERRORS": "arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:costguard-prevention-errors",
+      "AWS_REGION": "${AWS_REGION}",
+      "LOG_LEVEL": "INFO",
+      "BEDROCK_MODEL_ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+      "FORECAST_CACHE_TTL_HOURS": "24",
+      "ROLLBACK_WINDOW_HOURS": "24"
+    }
+  },
+  "configuration": {
+    "timeout": 900,
+    "memorySize": 512,
+    "runtime": "python3.11",
+    "handler": "src.lambda_handler.handler",
+    "description": "CostGuard - AWS Cost Management and Automated Prevention System"
+  },
+  "variableDescriptions": {
+    "COST_DATA_TABLE": "DynamoDB table for storing historical cost data (Phase 1)",
+    "FORECAST_CACHE_TABLE": "DynamoDB table for caching AI-generated forecasts (Phase 2)",
+    "PREVENTION_CONFIG_TABLE": "DynamoDB table for prevention system configuration (Phase 3)",
+    "RESOURCE_INVENTORY_TABLE": "DynamoDB table for discovered resource inventory (Phase 3)",
+    "PREVENTION_AUDIT_TABLE": "DynamoDB table for audit log of prevention actions (Phase 3)",
+    "APPROVAL_REQUESTS_TABLE": "DynamoDB table for approval request tracking (Phase 3)",
+    "PREVENTION_ENABLED": "Master switch to enable/disable prevention system (default: false for safety)",
+    "DRY_RUN_MODE": "When true, log actions without executing them (default: true for safety)",
+    "APPROVAL_REQUIRED": "When true, require approval before executing actions (default: true for safety)",
+    "APPROVAL_TIMEOUT_MINUTES": "Minutes to wait for approval before timing out (default: 30)",
+    "BUDGET_POLL_INTERVAL_MINUTES": "How often to poll budgets via EventBridge (default: 5)",
+    "RESOURCE_REFRESH_INTERVAL_MINUTES": "How often to refresh resource inventory (default: 15)",
+    "WARNING_THRESHOLD_PERCENT": "Budget utilization % to trigger warnings (default: 80)",
+    "ACTION_THRESHOLD_PERCENT": "Budget utilization % to trigger prevention actions (default: 90)",
+    "SNS_TOPIC_WARNINGS": "SNS topic ARN for warning notifications",
+    "SNS_TOPIC_ACTIONS": "SNS topic ARN for action notifications",
+    "SNS_TOPIC_ERRORS": "SNS topic ARN for error notifications",
+    "AWS_REGION": "AWS region for service calls",
+    "LOG_LEVEL": "Logging level (DEBUG, INFO, WARNING, ERROR)",
+    "BEDROCK_MODEL_ID": "Amazon Bedrock model ID for AI forecasting (Phase 2)",
+    "FORECAST_CACHE_TTL_HOURS": "Hours to cache forecast results (default: 24)",
+    "ROLLBACK_WINDOW_HOURS": "Hours within which actions can be rolled back (default: 24)"
+  },
+  "safetyDefaults": {
+    "PREVENTION_ENABLED": "false",
+    "DRY_RUN_MODE": "true",
+    "APPROVAL_REQUIRED": "true"
+  },
+  "requirements": ["11.7"],
+  "notes": [
+    "PREVENTION_ENABLED defaults to false - must be explicitly enabled after validation",
+    "DRY_RUN_MODE defaults to true - monitor dry run reports before disabling",
+    "APPROVAL_REQUIRED defaults to true - gradually disable after confidence is built",
+    "All safety defaults follow the 'Safety First Approach' from the implementation plan",
+    "SNS topic ARNs use placeholders that will be replaced during deployment",
+    "Lambda timeout is 15 minutes (900 seconds) to allow for long-running prevention workflows",
+    "Memory is 512 MB to handle resource discovery across 20+ services"
+  ]
+}
