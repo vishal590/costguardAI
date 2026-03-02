@@ -527,20 +527,32 @@ def test_create_allocation_rule_success():
     with patch('src.multi_account_api_handler.authenticate_and_authorize') as mock_auth:
         mock_auth.return_value = (True, None, {'user_id': 'test-user'})
         
-        with patch('src.multi_account_api_handler._get_allocation_rules_engine') as mock_rules:
-            mock_engine = Mock()
-            mock_rule = Mock()
-            mock_rule.rule_id = 'rule-123'
-            mock_rule.name = 'Test Rule'
-            mock_engine.create_rule.return_value = mock_rule
-            mock_rules.return_value = mock_engine
+        with patch('src.multi_account_api_handler._get_organization_service') as mock_org_svc:
+            mock_org = Mock()
+            mock_org.id = 'o-test123456'
+            mock_service = Mock()
+            mock_service.discover_organization.return_value = mock_org
+            mock_org_svc.return_value = mock_service
             
-            with patch('src.multi_account_api_handler.get_metrics_service'):
-                response = handler(event, {})
+            with patch('src.multi_account_api_handler._get_allocation_rules_engine') as mock_rules:
+                mock_engine = Mock()
+                mock_rule = Mock()
+                mock_rule.rule_id = 'rule-123'
+                mock_rule.name = 'Test Rule'
+                mock_rule.rule_type = 'TAG_BASED'
+                mock_rule.conditions = {'tag_key': 'Team'}
+                mock_rule.allocation_target = 'TeamA'
+                mock_rule.priority = 100
+                mock_engine.create_rule.return_value = mock_rule
+                mock_rules.return_value = mock_engine
+                
+                with patch('src.multi_account_api_handler.get_metrics_service'):
+                    response = handler(event, {})
     
-    assert response['statusCode'] == 200
+    assert response['statusCode'] == 201
     body = json.loads(response['body'])
     assert body['success'] is True
+    assert body['rule']['rule_id'] == 'rule-123'
 
 
 def test_create_allocation_rule_invalid_type():
@@ -561,13 +573,20 @@ def test_create_allocation_rule_invalid_type():
     with patch('src.multi_account_api_handler.authenticate_and_authorize') as mock_auth:
         mock_auth.return_value = (True, None, {'user_id': 'test-user'})
         
-        with patch('src.multi_account_api_handler._get_allocation_rules_engine') as mock_rules:
-            mock_engine = Mock()
-            mock_engine.create_rule.side_effect = ValueError("Invalid rule type")
-            mock_rules.return_value = mock_engine
+        with patch('src.multi_account_api_handler._get_organization_service') as mock_org_svc:
+            mock_org = Mock()
+            mock_org.id = 'o-test123456'
+            mock_service = Mock()
+            mock_service.discover_organization.return_value = mock_org
+            mock_org_svc.return_value = mock_service
             
-            with patch('src.multi_account_api_handler.get_metrics_service'):
-                response = handler(event, {})
+            with patch('src.multi_account_api_handler._get_allocation_rules_engine') as mock_rules:
+                mock_engine = Mock()
+                mock_engine.create_rule.side_effect = ValueError("Invalid rule type")
+                mock_rules.return_value = mock_engine
+                
+                with patch('src.multi_account_api_handler.get_metrics_service'):
+                    response = handler(event, {})
     
     assert response['statusCode'] == 500  # Caught as internal error
 
@@ -596,9 +615,8 @@ def test_budget_hierarchy_success(mock_organization):
             with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
                 mock_service = Mock()
                 mock_hierarchy = Mock()
-                mock_hierarchy.organization_budgets = []
+                mock_hierarchy.organization_budget = None
                 mock_hierarchy.ou_budgets = []
-                mock_hierarchy.account_budgets = []
                 mock_service.get_budget_hierarchy.return_value = mock_hierarchy
                 mock_budget.return_value = mock_service
                 
@@ -608,6 +626,7 @@ def test_budget_hierarchy_success(mock_organization):
     assert response['statusCode'] == 200
     body = json.loads(response['body'])
     assert body['success'] is True
+    assert 'budget_hierarchy' in body
 
 
 # ============================================================================
@@ -621,9 +640,10 @@ def test_create_organization_budget_success(mock_organization):
         'path': '/api/budgets/organization',
         'headers': {'X-Api-Key': 'valid-key'},
         'body': json.dumps({
-            'budget_amount': 10000.00,
-            'time_period': 'MONTHLY',
-            'alert_threshold': 80
+            'budget_name': 'Organization Budget',
+            'budget_limit': 10000.00,
+            'time_unit': 'MONTHLY',
+            'currency': 'USD'
         }),
         'queryStringParameters': {}
     }
@@ -638,17 +658,16 @@ def test_create_organization_budget_success(mock_organization):
             
             with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
                 mock_service = Mock()
-                mock_created_budget = Mock()
-                mock_created_budget.budget_id = 'budget-123'
-                mock_service.create_organization_budget.return_value = mock_created_budget
+                mock_service.create_organization_budget.return_value = 'budget-123'
                 mock_budget.return_value = mock_service
                 
                 with patch('src.multi_account_api_handler.get_metrics_service'):
                     response = handler(event, {})
     
-    assert response['statusCode'] == 200
+    assert response['statusCode'] == 201
     body = json.loads(response['body'])
     assert body['success'] is True
+    assert body['budget']['budget_id'] == 'budget-123'
 
 
 def test_create_organization_budget_invalid_amount():
@@ -658,8 +677,9 @@ def test_create_organization_budget_invalid_amount():
         'path': '/api/budgets/organization',
         'headers': {'X-Api-Key': 'valid-key'},
         'body': json.dumps({
-            'budget_amount': -1000.00,  # Negative amount
-            'time_period': 'MONTHLY'
+            'budget_name': 'Test Budget',
+            'budget_limit': -1000.00,  # Negative amount
+            'time_unit': 'MONTHLY'
         }),
         'queryStringParameters': {}
     }
@@ -668,10 +688,19 @@ def test_create_organization_budget_invalid_amount():
         mock_auth.return_value = (True, None, {'user_id': 'test-user'})
         
         with patch('src.multi_account_api_handler._get_organization_service') as mock_org_svc:
-            mock_org_svc.side_effect = ValueError("Budget amount must be positive")
+            mock_org = Mock()
+            mock_org.id = 'o-test123456'
+            mock_service = Mock()
+            mock_service.discover_organization.return_value = mock_org
+            mock_org_svc.return_value = mock_service
             
-            with patch('src.multi_account_api_handler.get_metrics_service'):
-                response = handler(event, {})
+            with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
+                mock_service = Mock()
+                mock_service.create_organization_budget.side_effect = ValueError("Budget amount must be positive")
+                mock_budget.return_value = mock_service
+                
+                with patch('src.multi_account_api_handler.get_metrics_service'):
+                    response = handler(event, {})
     
     assert response['statusCode'] == 500
 
@@ -687,8 +716,10 @@ def test_create_ou_budget_success(mock_organization):
         'path': '/api/budgets/ou/ou-test123',
         'headers': {'X-Api-Key': 'valid-key'},
         'body': json.dumps({
-            'budget_amount': 5000.00,
-            'time_period': 'QUARTERLY'
+            'budget_name': 'OU Budget',
+            'budget_limit': 5000.00,
+            'time_unit': 'QUARTERLY',
+            'currency': 'USD'
         }),
         'queryStringParameters': {}
     }
@@ -696,24 +727,18 @@ def test_create_ou_budget_success(mock_organization):
     with patch('src.multi_account_api_handler.authenticate_and_authorize') as mock_auth:
         mock_auth.return_value = (True, None, {'user_id': 'test-user'})
         
-        with patch('src.multi_account_api_handler._get_organization_service') as mock_org_svc:
+        with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
             mock_service = Mock()
-            mock_service.discover_organization.return_value = mock_organization
-            mock_org_svc.return_value = mock_service
+            mock_service.create_ou_budget.return_value = 'budget-ou-123'
+            mock_budget.return_value = mock_service
             
-            with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
-                mock_service = Mock()
-                mock_created_budget = Mock()
-                mock_created_budget.budget_id = 'budget-ou-123'
-                mock_service.create_ou_budget.return_value = mock_created_budget
-                mock_budget.return_value = mock_service
-                
-                with patch('src.multi_account_api_handler.get_metrics_service'):
-                    response = handler(event, {})
+            with patch('src.multi_account_api_handler.get_metrics_service'):
+                response = handler(event, {})
     
-    assert response['statusCode'] == 200
+    assert response['statusCode'] == 201
     body = json.loads(response['body'])
     assert body['success'] is True
+    assert body['budget']['budget_id'] == 'budget-ou-123'
 
 
 def test_create_ou_budget_invalid_period():
@@ -723,8 +748,9 @@ def test_create_ou_budget_invalid_period():
         'path': '/api/budgets/ou/ou-test123',
         'headers': {'X-Api-Key': 'valid-key'},
         'body': json.dumps({
-            'budget_amount': 5000.00,
-            'time_period': 'INVALID'  # Invalid period
+            'budget_name': 'Test Budget',
+            'budget_limit': 5000.00,
+            'time_unit': 'INVALID'  # Invalid period
         }),
         'queryStringParameters': {}
     }
@@ -732,8 +758,10 @@ def test_create_ou_budget_invalid_period():
     with patch('src.multi_account_api_handler.authenticate_and_authorize') as mock_auth:
         mock_auth.return_value = (True, None, {'user_id': 'test-user'})
         
-        with patch('src.multi_account_api_handler._get_organization_service') as mock_org_svc:
-            mock_org_svc.side_effect = ValueError("Invalid time period")
+        with patch('src.multi_account_api_handler._get_organization_budget_service') as mock_budget:
+            mock_service = Mock()
+            mock_service.create_ou_budget.side_effect = ValueError("Invalid time period")
+            mock_budget.return_value = mock_service
             
             with patch('src.multi_account_api_handler.get_metrics_service'):
                 response = handler(event, {})

@@ -1126,7 +1126,7 @@ def handle_create_organization_budget(event: Dict[str, Any]) -> Dict[str, Any]:
             'message': 'Organization budget created successfully'
         }
         
-        logger.info(f"Created organization budget: {budget.budget_id}")
+        logger.info(f"Created organization budget: {budget_id}")
         
         return {
             'statusCode': 201,
