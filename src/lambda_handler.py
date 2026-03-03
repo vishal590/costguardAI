@@ -122,6 +122,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_advisor_clear_history(event)
         elif http_method == 'GET' and path.endswith('/advisor/suggestions'):
             return handle_advisor_suggestions(event)
+        # Phase 6: AI/ML workload cost management endpoints
+        elif '/ai-ml/' in path:
+            # Delegate all AI/ML endpoints to the AI/ML handler
+            from .ai_ml_handler import handler as aiml_handler
+            return aiml_handler(event, context)
         else:
             return create_error_response(
                 400,

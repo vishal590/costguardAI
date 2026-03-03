@@ -123,6 +123,7 @@
 - **[PHASE4_STATUS.md](./PHASE4_STATUS.md)** - ⚡ **Phase 4 quick status reference**
 - **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - 📊 **Complete project status across all phases**
 - **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, 2, 3, and 4**
+- **[API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)** - ✅ **NEW: Phase 5 & 6 API examples (Multi-Account, GPU Costs)**
 - **[technical/development-notes.md](./technical/development-notes.md)** - ✅ **Development Progress - Phase 1, 1.5 & 2 Complete**
 - **[technical/architecture.md](./technical/architecture.md)** - CostGuard AI technical architecture (serverless, Lambda, Bedrock, DynamoDB)
 - **[technical/aws-services.md](./technical/aws-services.md)** - AWS services for CostGuard AI (Lambda, Bedrock, API Gateway, DynamoDB, SNS, S3)
@@ -236,7 +237,8 @@
 - **...stop idle GPUs** → [user-guide/phase6-user-guide.md](./user-guide/phase6-user-guide.md#gpu-prevention) 🎯 **Automated idle detection**
 - **...see complete project status** → [PROJECT_STATUS.md](./PROJECT_STATUS.md) 📊 **All phases**
 - **...see future roadmap** → [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) 🗺️ **Phase 7-8 post-hackathon**
-- **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1, 1.5, 2, 3 & 4 examples**
+- **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1-4 examples**
+- **...see Phase 5 & 6 API examples** → [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md) ✅ **NEW: Multi-Account & GPU Cost examples**
 - **...understand what makes us innovative** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **Deep technical innovations and future opportunities**
 - **...see what features to build next** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **10 prioritized innovation opportunities**
 - **...understand our differentiation** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **What makes CostGuard unique**
@@ -341,7 +343,8 @@ docs/
 │   ├── api-design.md        # API specifications
 │   └── database-design.md   # Database schema
 │
-├── API_EXAMPLES.md          # ✅ Complete API usage examples (Phase 1, 1.5 & 2)
+├── API_EXAMPLES.md          # ✅ Complete API usage examples (Phase 1-4)
+├── API_EXAMPLES_PHASE5_PHASE6.md  # ✅ NEW: Phase 5 & 6 API examples
 │
 └── resources/
     ├── research.md          # Research and references

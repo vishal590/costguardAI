@@ -1,6 +1,8 @@
 # API Examples
 
-This document provides comprehensive examples of API requests and responses for the Cost Data Pipeline (Phase 1), Near-Real-Time Cost Estimation (Phase 1.5), and AI-Powered Cost Forecasting (Phase 2).
+This document provides comprehensive examples of API requests and responses for CostGuard AI.
+
+**For Phase 5 & Phase 6 Examples:** See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
 
 ## Table of Contents
 
@@ -14,6 +16,10 @@ This document provides comprehensive examples of API requests and responses for 
 - [Phase 2: AI-Powered Cost Forecasting](#phase-2-ai-powered-cost-forecasting)
   - [GET /api/cost-forecast Examples](#get-apicost-forecast-examples)
   - [GET /api/cost-forecast/service/{service} Examples](#get-apicost-forecastserviceservice-examples)
+- [Phase 3: Automated Cost Prevention](#phase-3-automated-cost-prevention) - See main README
+- [Phase 4: AI Cost Advisor](#phase-4-ai-cost-advisor) - Included below
+- [Phase 5: Multi-Account Cost Management](#phase-5-multi-account-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
+- [Phase 6: AI/ML Workload Cost Management](#phase-6-aiml-workload-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
 - [Error Examples](#error-examples)
 
 ## Setup
@@ -3903,11 +3909,25 @@ print(f"Created rule: {rule['rule_id']}")
 
 ---
 
+## Phase 5 & Phase 6 Examples
+
+For comprehensive Phase 5 (Multi-Account Cost Management) and Phase 6 (AI/ML Workload Cost Management) API examples, see:
+
+**[API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)**
+
+This includes:
+- **Phase 5:** Organizations, accounts, multi-account costs, tag-based allocation, chargeback reports, hierarchical budgets
+- **Phase 6:** GPU costs, workload classification, cost-per-inference, spot recommendations, SageMaker/Bedrock tracking, multi-account GPU aggregation
+
+---
+
 ## Complete Documentation
 
 For complete API documentation including all endpoints, parameters, and response formats, see:
 
 - **Phase 5 Multi-Account API**: [API_DOCUMENTATION.md](./technical/phase5-multi-account/API_DOCUMENTATION.md)
 - **Phase 5 README**: [README.md](./technical/phase5-multi-account/README.md)
+- **Phase 6 API Documentation**: [phase6-api-documentation.md](./api/phase6-api-documentation.md)
+- **Phase 6 User Guide**: [PHASE6_AI_ML_USER_GUIDE.md](./user-guide/PHASE6_AI_ML_USER_GUIDE.md)
 - **Deployment Guide**: [DEPLOYMENT_SCRIPTS.md](../DEPLOYMENT_SCRIPTS.md)
 - **Cross-Account Setup**: [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)

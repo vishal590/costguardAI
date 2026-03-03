@@ -196,6 +196,8 @@ class CostGuardStack(Stack):
             time_to_live_attribute="ttl",
         )
 
+
+
         # =====================================================================
         # SNS Topics (Phase 3)
         # =====================================================================
@@ -370,6 +372,7 @@ class CostGuardStack(Stack):
                     "infrastructure/cdk.out/*",
                     "infrastructure/*",
                     ".git/*",
+                    ".github/*",
                     ".hypothesis/*",
                     ".kiro/*",
                     "tests/*",
@@ -377,11 +380,27 @@ class CostGuardStack(Stack):
                     "scripts/*",
                     "*.md",
                     ".coverage",
+                    ".coveragerc",
                     ".pytest_cache/*",
+                    ".ruff_cache/*",
                     "__pycache__/*",
                     "*.pyc",
+                    "*.pyo",
+                    "*.pyd",
                     ".venv/*",
                     "venv/*",
+                    "env/*",
+                    ".env/*",
+                    "*.egg-info/*",
+                    "dist/*",
+                    "build/*",
+                    ".mypy_cache/*",
+                    ".tox/*",
+                    "*.log",
+                    "*.txt",
+                    "*.ps1",
+                    "*.py[cod]",
+                    "*$py.class",
                 ]
             ),
             role=lambda_role,
@@ -427,8 +446,11 @@ class CostGuardStack(Stack):
             ),
         )
 
-        # Lambda integration
-        lambda_integration = apigateway.LambdaIntegration(costguard_lambda)
+        # Lambda integration (disable test invoke permissions to avoid policy size limit)
+        lambda_integration = apigateway.LambdaIntegration(
+            costguard_lambda,
+            allow_test_invoke=False  # Prevents creation of test invoke permissions
+        )
 
         # Create /api resource
         api_resource = api.root.add_resource("api")

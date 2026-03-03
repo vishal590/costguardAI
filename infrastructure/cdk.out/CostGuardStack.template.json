@@ -617,7 +617,7 @@
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
      },
-     "S3Key": "68d0579e47e890d5bc50cb15ae3d9c447b801d2797784edd4a521f1cd2f36253.zip"
+     "S3Key": "6ea95ec2bfb0344966fc97fd52b673a4b0047f08395a4b0188679646f15dfed0.zip"
     },
     "Environment": {
      "Variables": {
@@ -680,7 +680,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardLambda/Resource",
-    "aws:asset:path": "asset.68d0579e47e890d5bc50cb15ae3d9c447b801d2797784edd4a521f1cd2f36253",
+    "aws:asset:path": "asset.6ea95ec2bfb0344966fc97fd52b673a4b0047f08395a4b0188679646f15dfed0",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -1159,38 +1159,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch"
    }
   },
-  "CostGuardAPIapifetchPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapifetch04FB129F": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/POST/api/fetch"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch"
-   }
-  },
   "CostGuardAPIapifetchPOST4B87CCAA": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -1318,38 +1286,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data"
-   }
-  },
-  "CostGuardAPIapicostdataGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostdata19EBB3AB": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/cost-data"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data"
    }
   },
   "CostGuardAPIapicostdataGET062F201E": {
@@ -1539,38 +1475,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current"
    }
   },
-  "CostGuardAPIapicostestimationcurrentGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrentB6AB98A5": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/cost-estimation/current"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current"
-   }
-  },
   "CostGuardAPIapicostestimationcurrentGET226276CE": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -1758,38 +1662,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}"
    }
   },
-  "CostGuardAPIapicostestimationserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice7ECB24EE": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/cost-estimation/service/*"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}"
-   }
-  },
   "CostGuardAPIapicostestimationserviceserviceGET90A1097C": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -1917,38 +1789,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast"
-   }
-  },
-  "CostGuardAPIapicostforecastGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecast6D8FCF88": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/cost-forecast"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast"
    }
   },
   "CostGuardAPIapicostforecastGETB12C7D2D": {
@@ -2138,38 +1978,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}"
    }
   },
-  "CostGuardAPIapicostforecastserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice1A1BF3FD": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/cost-forecast/service/*"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}"
-   }
-  },
   "CostGuardAPIapicostforecastserviceserviceGET01D49C8F": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -2357,38 +2165,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status"
    }
   },
-  "CostGuardAPIapipreventionstatusGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionstatus59F0F5DD": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/prevention/status"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status"
-   }
-  },
   "CostGuardAPIapipreventionstatusGET11783E23": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -2516,38 +2292,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable"
-   }
-  },
-  "CostGuardAPIapipreventionenablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable84E4E76C": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/POST/api/prevention/enable"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable"
    }
   },
   "CostGuardAPIapipreventionenablePOST1B153C84": {
@@ -2679,38 +2423,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable"
    }
   },
-  "CostGuardAPIapipreventiondisablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableDBCFC116": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/POST/api/prevention/disable"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable"
-   }
-  },
   "CostGuardAPIapipreventiondisablePOST2D54B8B3": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -2838,38 +2550,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources"
-   }
-  },
-  "CostGuardAPIapipreventionresourcesGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesB96E04D6": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/prevention/resources"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources"
    }
   },
   "CostGuardAPIapipreventionresourcesGETDE25C3A5": {
@@ -3001,38 +2681,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback"
    }
   },
-  "CostGuardAPIapipreventionrollbackPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback6F7BC58D": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/POST/api/prevention/rollback"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback"
-   }
-  },
   "CostGuardAPIapipreventionrollbackPOST1DBB30D6": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -3160,38 +2808,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history"
-   }
-  },
-  "CostGuardAPIapipreventionhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionhistoryB1104849": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/prevention/history"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history"
    }
   },
   "CostGuardAPIapipreventionhistoryGETC0C349D9": {
@@ -3381,38 +2997,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/ApiPermission.CostGuardStackCostGuardAPI3984D00B.POST..api.advisor.query"
    }
   },
-  "CostGuardAPIapiadvisorqueryPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapiadvisorqueryA4267436": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/POST/api/advisor/query"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.advisor.query"
-   }
-  },
   "CostGuardAPIapiadvisorqueryPOSTFBAD1D6D": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -3542,38 +3126,6 @@
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.history"
    }
   },
-  "CostGuardAPIapiadvisorhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorhistoryC3F4C51C": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/advisor/history"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.history"
-   }
-  },
   "CostGuardAPIapiadvisorhistoryGET9C2FE638": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
@@ -3643,38 +3195,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/ApiPermission.CostGuardStackCostGuardAPI3984D00B.DELETE..api.advisor.history"
-   }
-  },
-  "CostGuardAPIapiadvisorhistoryDELETEApiPermissionTestCostGuardStackCostGuardAPI3984D00BDELETEapiadvisorhistoryD247C5B2": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/DELETE/api/advisor/history"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.DELETE..api.advisor.history"
    }
   },
   "CostGuardAPIapiadvisorhistoryDELETEA3826F67": {
@@ -3804,38 +3324,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/ApiPermission.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.suggestions"
-   }
-  },
-  "CostGuardAPIapiadvisorsuggestionsGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorsuggestionsC63D1AE8": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunction",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "CostGuardLambda74DDAE8D",
-      "Arn"
-     ]
-    },
-    "Principal": "apigateway.amazonaws.com",
-    "SourceArn": {
-     "Fn::Join": [
-      "",
-      [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
-       {
-        "Ref": "CostGuardAPI27F475EB"
-       },
-       "/test-invoke-stage/GET/api/advisor/suggestions"
-      ]
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.suggestions"
    }
   },
   "CostGuardAPIapiadvisorsuggestionsGETE9DBE598": {

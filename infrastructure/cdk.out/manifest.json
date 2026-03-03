@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/fd35dfab279518dc5404aba7dc61e88e041e532013a777656d4d72f53a658bab.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/fe37b3c2701eb47e4d5a368c99bc1ec213af876e1699430c72f3589d3f707b8e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -278,12 +278,6 @@
             "data": "CostGuardAPIapifetchPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapifetchC1B00831"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/fetch/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.fetch": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapifetchPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapifetch04FB129F"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/fetch/POST/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -306,12 +300,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapicostdataGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostdata8E0F5D01"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-data": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapicostdataGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostdata19EBB3AB"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/cost-data/GET/Resource": [
@@ -350,12 +338,6 @@
             "data": "CostGuardAPIapicostestimationcurrentGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrent9B45FFA2"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.current": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapicostestimationcurrentGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationcurrentB6AB98A5"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/current/GET/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -392,12 +374,6 @@
             "data": "CostGuardAPIapicostestimationserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice5F5E6909"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-estimation.service.{service}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapicostestimationserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostestimationserviceservice7ECB24EE"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/cost-estimation/service/{service}/GET/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -420,12 +396,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapicostforecastGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecast18243D5A"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapicostforecastGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecast6D8FCF88"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/GET/Resource": [
@@ -464,12 +434,6 @@
             "data": "CostGuardAPIapicostforecastserviceserviceGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice5858884D"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.cost-forecast.service.{service}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapicostforecastserviceserviceGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapicostforecastserviceservice1A1BF3FD"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/cost-forecast/service/{service}/GET/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -506,12 +470,6 @@
             "data": "CostGuardAPIapipreventionstatusGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionstatusAAAB53F8"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.status": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventionstatusGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionstatus59F0F5DD"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/status/GET/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -534,12 +492,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapipreventionenablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable7D483B07"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.enable": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventionenablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionenable84E4E76C"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/enable/POST/Resource": [
@@ -566,12 +518,6 @@
             "data": "CostGuardAPIapipreventiondisablePOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableA35C52E8"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.disable": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventiondisablePOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventiondisableDBCFC116"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/disable/POST/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -594,12 +540,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapipreventionresourcesGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesE0369A60"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.resources": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventionresourcesGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionresourcesB96E04D6"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/resources/GET/Resource": [
@@ -626,12 +566,6 @@
             "data": "CostGuardAPIapipreventionrollbackPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback567BDF2C"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.prevention.rollback": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventionrollbackPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapipreventionrollback6F7BC58D"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/rollback/POST/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -654,12 +588,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapipreventionhistoryGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapipreventionhistory7040B0AD"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.prevention.history": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapipreventionhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapipreventionhistoryB1104849"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/prevention/history/GET/Resource": [
@@ -698,12 +626,6 @@
             "data": "CostGuardAPIapiadvisorqueryPOSTApiPermissionCostGuardStackCostGuardAPI3984D00BPOSTapiadvisorqueryA70C71B5"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.POST..api.advisor.query": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapiadvisorqueryPOSTApiPermissionTestCostGuardStackCostGuardAPI3984D00BPOSTapiadvisorqueryA4267436"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/advisor/query/POST/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -728,12 +650,6 @@
             "data": "CostGuardAPIapiadvisorhistoryGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapiadvisorhistory0608CE3D"
           }
         ],
-        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.history": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapiadvisorhistoryGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorhistoryC3F4C51C"
-          }
-        ],
         "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/GET/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -744,12 +660,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapiadvisorhistoryDELETEApiPermissionCostGuardStackCostGuardAPI3984D00BDELETEapiadvisorhistory99DD1970"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.DELETE..api.advisor.history": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapiadvisorhistoryDELETEApiPermissionTestCostGuardStackCostGuardAPI3984D00BDELETEapiadvisorhistoryD247C5B2"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/advisor/history/DELETE/Resource": [
@@ -774,12 +684,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "CostGuardAPIapiadvisorsuggestionsGETApiPermissionCostGuardStackCostGuardAPI3984D00BGETapiadvisorsuggestionsF1BDFA4A"
-          }
-        ],
-        "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/ApiPermission.Test.CostGuardStackCostGuardAPI3984D00B.GET..api.advisor.suggestions": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CostGuardAPIapiadvisorsuggestionsGETApiPermissionTestCostGuardStackCostGuardAPI3984D00BGETapiadvisorsuggestionsC63D1AE8"
           }
         ],
         "/CostGuardStack/CostGuardAPI/Default/api/advisor/suggestions/GET/Resource": [
@@ -868,7 +772,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/d20003f3a6df2ed3c189fc192607bfbac5947f986b80540204f8e584f323cb8a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/0285e751595870838ddd0650c563d3290bfce5753b8d71e04fa7d66fca4ea320.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1629,6 +1533,872 @@
         ]
       },
       "displayName": "CostGuardMultiAccountStack"
+    },
+    "CostGuardAIMLStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "CostGuardAIMLStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "CostGuardAIMLStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "CostGuardAIMLStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/9a7a15c3718441708a402127b20ed10530b36a2c6d464852baba2021e7f4acd1.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "CostGuardAIMLStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "CostGuardStack",
+        "CostGuardMultiAccountStack",
+        "CostGuardAIMLStack.assets"
+      ],
+      "metadata": {
+        "/CostGuardAIMLStack/GPUCostsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "GPUCostsTableF20924AD"
+            }
+          }
+        ],
+        "/CostGuardAIMLStack/GPUCostsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GPUCostsTableF20924AD"
+          }
+        ],
+        "/CostGuardAIMLStack/WorkloadClassificationsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "WorkloadClassificationsTable776C2852"
+            }
+          }
+        ],
+        "/CostGuardAIMLStack/WorkloadClassificationsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WorkloadClassificationsTable776C2852"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLCacheTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "AIMLCacheTable8CA08917"
+            }
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLCacheTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLCacheTable8CA08917"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLLambdaRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLLambdaRole585C2897"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLLambdaRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLLambdaRoleDefaultPolicyFFD518A5"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLHandler2DEC9A71"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLHandler/LogRetention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLHandlerLogRetention69D50B66"
+          }
+        ],
+        "/CostGuardAIMLStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB"
+          }
+        ],
+        "/CostGuardAIMLStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB"
+          }
+        ],
+        "/CostGuardAIMLStack/LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLLogGroup03A86400"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPI61043940"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPICloudWatchRole587A9116"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIAccountA05257F9"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIDeployment62AAF04B2fe20c65b6588cc89d0718f1e73e1206"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIDeploymentStageprodBF1D9E9F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIEndpointC5F2324B"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIOPTIONS60F9C667"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapi0932C67C"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiOPTIONSBFCC5E33"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlB43E8436"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlOPTIONS198E945D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-costs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsA422D133"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-costs/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsOPTIONS02FF8B4F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-costs/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpucosts0C02BA36"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-costs/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpucostsB719B096"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-costs/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsGETD758400E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-utilization/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuutilization7607657D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-utilization/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuutilizationOPTIONSC37FC3C5"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-utilization/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-utilization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuutilizationGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpuutilization2E6124DA"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-utilization/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-utilization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuutilizationGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpuutilizationF995E3F7"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-utilization/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuutilizationGET68FF3859"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/idle-gpus/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlidlegpus2E8930D4"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/idle-gpus/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlidlegpusOPTIONSC674CB21"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/idle-gpus/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.idle-gpus": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlidlegpusGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlidlegpus5B294B6E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/idle-gpus/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.idle-gpus": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlidlegpusGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlidlegpus7460D4DB"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/idle-gpus/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlidlegpusGET20028DA2"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-prevention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpuprevention3023B0C2"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-prevention/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpupreventionOPTIONS98834061"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-prevention/POST/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.POST..api.ai-ml.gpu-prevention": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpupreventionPOSTApiPermissionCostGuardAIMLStackAIMLAPI6EC20334POSTapiaimlgpuprevention0998909D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-prevention/POST/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.POST..api.ai-ml.gpu-prevention": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpupreventionPOSTApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334POSTapiaimlgpuprevention37E98C9B"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-prevention/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpupreventionPOST4DBC13E9"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-cost-savings/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsavings67914455"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-cost-savings/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsavingsOPTIONS3CF659AE"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-cost-savings/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-cost-savings": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsavingsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpucostsavingsE3BCEF41"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-cost-savings/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.gpu-cost-savings": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsavingsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlgpucostsavingsD9CA4634"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/gpu-cost-savings/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlgpucostsavingsGET3630FD60"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassification09647ACE"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationOPTIONS551E4FD0"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.workload-classification": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlworkloadclassificationA18772FC"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.workload-classification": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlworkloadclassification688DB12F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationGET41611E2A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/POST/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.POST..api.ai-ml.workload-classification": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationPOSTApiPermissionCostGuardAIMLStackAIMLAPI6EC20334POSTapiaimlworkloadclassificationA4819E27"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/POST/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.POST..api.ai-ml.workload-classification": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationPOSTApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334POSTapiaimlworkloadclassificationA0AEA066"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/workload-classification/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlworkloadclassificationPOST9A90250E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-inference/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostperinferenceF5DE235D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-inference/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostperinferenceOPTIONS71E91838"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-inference/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.cost-per-inference": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostperinferenceGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlcostperinference9BFE72F2"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-inference/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.cost-per-inference": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostperinferenceGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlcostperinference0689FA7A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-inference/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostperinferenceGET4D4824A6"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/inference-trends/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlinferencetrends1F01A62E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/inference-trends/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlinferencetrendsOPTIONS88E33130"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/inference-trends/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.inference-trends": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlinferencetrendsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlinferencetrends5D06F2DE"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/inference-trends/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.inference-trends": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlinferencetrendsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlinferencetrends2D162666"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/inference-trends/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlinferencetrendsGET7719BE6A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-training/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostpertrainingDFBB1AB5"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-training/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostpertrainingOPTIONSA86D7A08"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-training/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.cost-per-training": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostpertrainingGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlcostpertraining6CF9F21D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-training/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.cost-per-training": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostpertrainingGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlcostpertrainingBB74EE4D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/cost-per-training/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlcostpertrainingGET12B453AD"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/training-comparison/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimltrainingcomparison00CC42FC"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/training-comparison/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimltrainingcomparisonOPTIONS928B02E1"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/training-comparison/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.training-comparison": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimltrainingcomparisonGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimltrainingcomparisonCE34F160"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/training-comparison/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.training-comparison": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimltrainingcomparisonGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimltrainingcomparisonAC4AA493"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/training-comparison/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimltrainingcomparisonGET7B6C6EBA"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-recommendations/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotrecommendationsF2E0AF9E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-recommendations/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotrecommendationsOPTIONS7F19D99B"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-recommendations/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.spot-recommendations": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotrecommendationsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlspotrecommendationsCB7D1F24"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-recommendations/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.spot-recommendations": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotrecommendationsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlspotrecommendationsF031BF2A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-recommendations/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotrecommendationsGET0BA5D039"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-savings/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotsavings70EF8F9F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-savings/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotsavingsOPTIONS1EB9C9DA"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-savings/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.spot-savings": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotsavingsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlspotsavings4C7BD98B"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-savings/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.spot-savings": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotsavingsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlspotsavings4B970FB0"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/spot-savings/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlspotsavingsGETA38570E3"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-costs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakercostsFF956914"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-costs/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakercostsOPTIONSBDA17A9D"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-costs/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.sagemaker-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakercostsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlsagemakercosts09917FED"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-costs/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.sagemaker-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakercostsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlsagemakercosts906C89C3"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-costs/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakercostsGETCE1BE78A"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-idle-endpoints/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakeridleendpointsB54E68CC"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-idle-endpoints/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakeridleendpointsOPTIONS3A7F8323"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-idle-endpoints/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.sagemaker-idle-endpoints": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakeridleendpointsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlsagemakeridleendpoints1ACF36B1"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-idle-endpoints/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.sagemaker-idle-endpoints": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakeridleendpointsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlsagemakeridleendpointsD9F77B98"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/sagemaker-idle-endpoints/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlsagemakeridleendpointsGET8087DA85"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-costs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcosts78637AE4"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-costs/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostsOPTIONSB687989B"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-costs/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.bedrock-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlbedrockcostsEB0196F4"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-costs/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.bedrock-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlbedrockcostsD18DB33F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-costs/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostsGETD8A66B9F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-cost-per-invocation/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostperinvocationD363A21F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-cost-per-invocation/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostperinvocationOPTIONS23695299"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-cost-per-invocation/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.bedrock-cost-per-invocation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostperinvocationGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlbedrockcostperinvocation2AC8DDEF"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-cost-per-invocation/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.bedrock-cost-per-invocation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostperinvocationGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlbedrockcostperinvocation6D637BE5"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/bedrock-cost-per-invocation/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlbedrockcostperinvocationGET7444FA3C"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccount62D604B8"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountOPTIONSA8D9573C"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-costs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpucosts2A1B5702"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-costs/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpucostsOPTIONS5653D1FA"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-costs/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.gpu-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpucostsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccountgpucosts167D534F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-costs/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.gpu-costs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpucostsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccountgpucosts169E1235"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-costs/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpucostsGET382D4B71"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-utilization/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpuutilizationEFB21603"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-utilization/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpuutilizationOPTIONS71443507"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-utilization/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.gpu-utilization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpuutilizationGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccountgpuutilizationB4505544"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-utilization/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.gpu-utilization": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpuutilizationGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccountgpuutilization1CB5976E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/gpu-utilization/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccountgpuutilizationGETEDE1F894"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/top-gpu-accounts/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccounttopgpuaccounts0D659026"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/top-gpu-accounts/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccounttopgpuaccountsOPTIONSE1C26743"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/top-gpu-accounts/GET/ApiPermission.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.top-gpu-accounts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccounttopgpuaccountsGETApiPermissionCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccounttopgpuaccountsD205707F"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/top-gpu-accounts/GET/ApiPermission.Test.CostGuardAIMLStackAIMLAPI6EC20334.GET..api.ai-ml.multi-account.top-gpu-accounts": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccounttopgpuaccountsGETApiPermissionTestCostGuardAIMLStackAIMLAPI6EC20334GETapiaimlmultiaccounttopgpuaccounts53598F43"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPI/Default/api/ai-ml/multi-account/top-gpu-accounts/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIapiaimlmultiaccounttopgpuaccountsGETD3C82909"
+          }
+        ],
+        "/CostGuardAIMLStack/LambdaErrorsAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaErrorsAlarm8ED74A7D"
+          }
+        ],
+        "/CostGuardAIMLStack/APIResponseTimeAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "APIResponseTimeAlarmF714E79E"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLNotificationsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLNotificationsTopic97AE8EFF"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLAPIEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLAPIEndpoint"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLHandlerFunctionName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLHandlerFunctionName"
+          }
+        ],
+        "/CostGuardAIMLStack/NotificationsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "NotificationsTopicArn"
+          }
+        ],
+        "/CostGuardAIMLStack/GPUCostsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GPUCostsTableName"
+          }
+        ],
+        "/CostGuardAIMLStack/WorkloadClassificationsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WorkloadClassificationsTableName"
+          }
+        ],
+        "/CostGuardAIMLStack/AIMLCacheTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AIMLCacheTableName"
+          }
+        ],
+        "/CostGuardAIMLStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/CostGuardAIMLStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/CostGuardAIMLStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "CostGuardAIMLStack"
     },
     "Tree": {
       "type": "cdk:tree",
