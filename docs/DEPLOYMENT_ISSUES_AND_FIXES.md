@@ -579,3 +579,84 @@ aws logs tail /aws/lambda/<FunctionName> --follow
 **Last Updated:** March 3, 2026  
 **Version:** 1.0  
 **Maintainer:** CostGuard Development Team
+
+
+---
+
+## Issue 7: CDK Asset Path Including Sibling Projects (March 4, 2026)
+
+**Severity:** HIGH  
+**Status:** ✅ RESOLVED  
+**Affected:** Phase 6 AIML Stack
+
+### Symptom
+
+- `cdk.out/` directory contained folders from sibling projects (`ai_good`, `algolia`)
+- Large deployment package size (~500MB+)
+- Unrelated project files appearing in CDK asset staging
+- File tree showing modified files from other projects outside aws-ideas
+
+### Root Cause
+
+In `infrastructure/aiml_stack.py` line 287, the Lambda asset path was incorrectly set to `".."`:
+
+```python
+code=lambda_.Code.from_asset(
+    "..",  # WRONG - Points to parent directory G:\projects\
+    exclude=[...]
+)
+```
+
+This caused CDK to go UP one level from `infrastructure/` to the parent `projects/` directory, bundling ALL sibling projects.
+
+**Directory Structure:**
+```
+G:\projects\
+├── ai_good/          ← Incorrectly included
+├── algolia/          ← Incorrectly included
+└── aws-ideas/        ← Current project
+    └── infrastructure/
+        └── aiml_stack.py (using ".." went to G:\projects\)
+```
+
+### Solution
+
+**Step 1: Fix the asset path**
+
+Changed from `".."` to `"."` in `infrastructure/aiml_stack.py`:
+
+```python
+# CORRECT
+code=lambda_.Code.from_asset(
+    ".",  # Points to aws-ideas project root
+    exclude=[...]
+)
+```
+
+**Step 2: Clean up contaminated cdk.out**
+
+```powershell
+Remove-Item -Recurse -Force cdk.out
+```
+
+### Prevention
+
+1. **Always use `"."` for project root** in CDK asset paths
+2. **Verify `cdk.out/` after synthesis** - should only contain project files
+3. **Check deployment package size** - should be <50MB for Lambda
+4. **Review CDK asset paths** before deployment
+
+### Verification
+
+After fix:
+- ✅ Deployment package: ~10MB (only aws-ideas project)
+- ✅ No sibling project directories in `cdk.out/`
+- ✅ Build time: <1 minute
+
+### Related Documentation
+
+- [CDK_ASSET_PATH_BUG_FIX.md](./CDK_ASSET_PATH_BUG_FIX.md) - Detailed analysis and prevention guidelines
+- `infrastructure/aiml_stack.py` - Fixed file (line 287)
+- `.cdkignore` - Exclude patterns for CDK assets
+
+---

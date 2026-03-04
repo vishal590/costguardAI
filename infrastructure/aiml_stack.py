@@ -232,7 +232,7 @@ class AIMLStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.ai_ml_handler.handler",
             code=lambda_.Code.from_asset(
-                "..",  # Parent directory contains src/
+                ".",  # Current directory (aws-ideas project root)
                 exclude=[
                     "cdk.out",
                     "infrastructure",
