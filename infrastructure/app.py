@@ -12,6 +12,7 @@ import aws_cdk as cdk
 from cdk_stack import CostGuardStack
 from multi_account_stack import MultiAccountStack
 from aiml_stack import AIMLStack
+from autonomous_stack import AutonomousStack
 
 
 app = cdk.App()
@@ -46,9 +47,20 @@ aiml_stack = AIMLStack(
     ),
 )
 
+# Deploy Autonomous Action Loops infrastructure (extends Phase 6)
+autonomous_stack = AutonomousStack(
+    app, "CostGuardAutonomousStack",
+    description="CostGuard - Autonomous Action Loops for AI Cost Optimization (Phase 6 Extension)",
+    env=cdk.Environment(
+        account=app.node.try_get_context("account"),
+        region=app.node.try_get_context("region") or "us-east-1",
+    ),
+)
+
 # Add dependencies to ensure proper deployment order
 multi_account_stack.add_dependency(costguard_stack)
 aiml_stack.add_dependency(costguard_stack)  # Phase 6 depends on Phase 1-4
 aiml_stack.add_dependency(multi_account_stack)  # Phase 6 uses multi-account tables
+autonomous_stack.add_dependency(aiml_stack)  # Autonomous loops depend on Phase 6
 
 app.synth()

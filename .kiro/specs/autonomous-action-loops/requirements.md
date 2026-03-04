@@ -145,7 +145,7 @@ The feature adds four autonomous capabilities: Intelligent GPU Scheduling, Dynam
 1. THE Action_Loop SHALL limit Lambda function executions to stay within 1 million free requests per month
 2. THE Action_Loop SHALL limit DynamoDB read/write operations to stay within 25 GB free storage
 3. THE Action_Loop SHALL limit CloudWatch Events to stay within free tier limits
-4. THE Action_Loop SHALL limit Step Functions executions to stay within 4,000 free state transitions per month
+4. THE Action_Loop SHALL use EventBridge Rules with Lambda targets instead of Step Functions to stay within Free Tier
 5. WHEN estimated monthly cost approaches $5, THE Action_Loop SHALL reduce polling frequency to conserve budget
 6. THE Action_Loop SHALL track cumulative monthly AWS service costs across all components
 7. WHEN monthly costs exceed $4.50, THE Action_Loop SHALL send budget alert via SNS
@@ -196,7 +196,7 @@ The feature adds four autonomous capabilities: Intelligent GPU Scheduling, Dynam
 3. IF a training job cannot be resumed after spot interruption, THEN THE Spot_Manager SHALL log the failure and notify administrators
 4. WHEN DynamoDB operations fail, THE Action_Loop SHALL queue operations for retry and continue processing other actions
 5. WHEN confidence score calculation fails due to insufficient data, THE Action_Loop SHALL use conservative default confidence of 0.5
-6. IF Step Functions execution fails, THEN THE Action_Loop SHALL log the failure state and enable manual retry
+6. IF EventBridge event delivery fails, THEN THE Action_Loop SHALL log the failure state and retry with exponential backoff
 7. THE Action_Loop SHALL implement circuit breaker pattern for external service calls
 8. WHEN circuit breaker opens due to repeated failures, THE Action_Loop SHALL alert administrators and disable affected action type
 9. THE Action_Loop SHALL validate all input data and reject malformed requests with descriptive error messages
@@ -216,7 +216,7 @@ The feature adds four autonomous capabilities: Intelligent GPU Scheduling, Dynam
 6. THE Action_Loop SHALL use DynamoDB batch operations to minimize API calls and reduce costs
 7. THE Action_Loop SHALL implement caching for frequently accessed data with 5-minute TTL
 8. WHEN polling for spot interruption warnings, THE Spot_Manager SHALL use efficient CloudWatch Events subscriptions instead of polling APIs
-9. THE Action_Loop SHALL use Step Functions for long-running workflows to avoid Lambda timeout limits
+9. THE Action_Loop SHALL use EventBridge with Lambda for orchestration to stay within Free Tier limits and avoid Step Functions costs
 10. FOR ALL batch operations, processing items individually then combining results SHALL produce equivalent output to batch processing (metamorphic property)
 
 ### Requirement 12: Security and Access Control
