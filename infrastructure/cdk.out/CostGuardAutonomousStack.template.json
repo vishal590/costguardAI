@@ -1,0 +1,394 @@
+{
+ "Description": "CostGuard - Autonomous Action Loops for AI Cost Optimization (Phase 6 Extension)",
+ "Resources": {
+  "ActionHistoryTable2F645C36": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "action_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "timestamp",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "action_type",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "status",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "action-type-index",
+      "KeySchema": [
+       {
+        "AttributeName": "action_type",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "status-index",
+      "KeySchema": [
+       {
+        "AttributeName": "status",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "action_id",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "timestamp",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "costguard-action-history",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/ActionHistoryTable/Resource"
+   }
+  },
+  "TrainingCheckpointsTableEA5E2920": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "checkpoint_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "created_at",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "training_job_id",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "training-job-index",
+      "KeySchema": [
+       {
+        "AttributeName": "training_job_id",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "created_at",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "checkpoint_id",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "created_at",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "costguard-training-checkpoints",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/TrainingCheckpointsTable/Resource"
+   }
+  },
+  "MigrationRollbacksTable263234E2": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "rollback_id",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "created_at",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "rollback_id",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "created_at",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "costguard-migration-rollbacks",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/MigrationRollbacksTable/Resource"
+   }
+  },
+  "AutonomousEventBus96E456B6": {
+   "Type": "AWS::Events::EventBus",
+   "Properties": {
+    "Name": "costguard-autonomous-events"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/AutonomousEventBus/Resource"
+   }
+  },
+  "AutonomousEventArchiveBD2CE06C": {
+   "Type": "AWS::Events::Archive",
+   "Properties": {
+    "ArchiveName": "costguard-autonomous-events-archive",
+    "Description": "Archive of autonomous action events for debugging",
+    "EventPattern": {
+     "source": [
+      "costguard.autonomous"
+     ]
+    },
+    "RetentionDays": 7,
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "AutonomousEventBus96E456B6",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/AutonomousEventArchive/Archive"
+   }
+  },
+  "CheckpointsBucket7603A684": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": {
+     "Fn::Join": [
+      "",
+      [
+       "costguard-training-checkpoints-",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       "-us-east-1"
+      ]
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "ExpirationInDays": 7,
+       "Id": "DeleteOldCheckpoints",
+       "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 1
+       },
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/CheckpointsBucket/Resource"
+   }
+  },
+  "ApprovalsTopic037B20FB": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "CostGuard Autonomous Action Approvals",
+    "TopicName": "costguard-autonomous-approvals"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/ApprovalsTopic/Resource"
+   }
+  },
+  "AlertsTopic3414BE91": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "CostGuard Autonomous Action Alerts",
+    "TopicName": "costguard-autonomous-alerts"
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/AlertsTopic/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2MTQ6CMBCFz8J+GEHiAcS41iB7U0oNFWgJ00JI07ubFnX1vry/I+ZZhlnCVkp526eDbNA9DOM9sJWert0UG3XboKtZMwi4vFQED2IRyhC6a9DSUoj+fJ55J5dY/6IHKtCVlvfCBHsnD6QIXa0nyeN3AO+hEqTtzOPBzZrJxs3P9XDfTKfVocC8wFPyJinT2SojR4HVrh+1EN112QAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "CostGuardAutonomousStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ActionHistoryTableName": {
+   "Description": "Action History DynamoDB table name",
+   "Value": {
+    "Ref": "ActionHistoryTable2F645C36"
+   }
+  },
+  "TrainingCheckpointsTableName": {
+   "Description": "Training Checkpoints DynamoDB table name",
+   "Value": {
+    "Ref": "TrainingCheckpointsTableEA5E2920"
+   }
+  },
+  "MigrationRollbacksTableName": {
+   "Description": "Migration Rollbacks DynamoDB table name",
+   "Value": {
+    "Ref": "MigrationRollbacksTable263234E2"
+   }
+  },
+  "AutonomousEventBusName": {
+   "Description": "Autonomous Event Bus name",
+   "Value": {
+    "Ref": "AutonomousEventBus96E456B6"
+   }
+  },
+  "AutonomousEventBusArn": {
+   "Description": "Autonomous Event Bus ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "AutonomousEventBus96E456B6",
+     "Arn"
+    ]
+   }
+  },
+  "CheckpointsBucketName": {
+   "Description": "Training Checkpoints S3 bucket name",
+   "Value": {
+    "Ref": "CheckpointsBucket7603A684"
+   }
+  },
+  "CheckpointsBucketArn": {
+   "Description": "Training Checkpoints S3 bucket ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "CheckpointsBucket7603A684",
+     "Arn"
+    ]
+   }
+  },
+  "ApprovalsTopicArn": {
+   "Description": "SNS topic for approval requests",
+   "Value": {
+    "Ref": "ApprovalsTopic037B20FB"
+   }
+  },
+  "AlertsTopicArn": {
+   "Description": "SNS topic for error alerts",
+   "Value": {
+    "Ref": "AlertsTopic3414BE91"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

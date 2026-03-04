@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/fe37b3c2701eb47e4d5a368c99bc1ec213af876e1699430c72f3589d3f707b8e.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/eb8ebab1398ae932031ec8a3e00a7066a44fdc05aa12b1e3d5e0068b202d47b3.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -772,7 +772,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/0285e751595870838ddd0650c563d3290bfce5753b8d71e04fa7d66fca4ea320.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/ff0aa4da742bc996bc9cf95641cf00d8f1b6cb1f488c0630664f26752203aa01.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -1551,7 +1551,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/9a7a15c3718441708a402127b20ed10530b36a2c6d464852baba2021e7f4acd1.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/5ef13bc9920bc177f207909f0330aece5f6782ba0dda87c2dbd33add1da12355.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -2399,6 +2399,187 @@
         ]
       },
       "displayName": "CostGuardAIMLStack"
+    },
+    "CostGuardAutonomousStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "CostGuardAutonomousStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "CostGuardAutonomousStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "CostGuardAutonomousStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/0349c7a94df81c9bb9485223f2fc8f55a3bff51743746d16d53b24bcff1b8061.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "CostGuardAutonomousStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "CostGuardAIMLStack",
+        "CostGuardAutonomousStack.assets"
+      ],
+      "metadata": {
+        "/CostGuardAutonomousStack/ActionHistoryTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ActionHistoryTable2F645C36"
+            }
+          }
+        ],
+        "/CostGuardAutonomousStack/ActionHistoryTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ActionHistoryTable2F645C36"
+          }
+        ],
+        "/CostGuardAutonomousStack/TrainingCheckpointsTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "TrainingCheckpointsTableEA5E2920"
+            }
+          }
+        ],
+        "/CostGuardAutonomousStack/TrainingCheckpointsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrainingCheckpointsTableEA5E2920"
+          }
+        ],
+        "/CostGuardAutonomousStack/MigrationRollbacksTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "MigrationRollbacksTable263234E2"
+            }
+          }
+        ],
+        "/CostGuardAutonomousStack/MigrationRollbacksTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MigrationRollbacksTable263234E2"
+          }
+        ],
+        "/CostGuardAutonomousStack/AutonomousEventBus/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutonomousEventBus96E456B6"
+          }
+        ],
+        "/CostGuardAutonomousStack/AutonomousEventArchive/Archive": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutonomousEventArchiveBD2CE06C"
+          }
+        ],
+        "/CostGuardAutonomousStack/CheckpointsBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckpointsBucket7603A684"
+          }
+        ],
+        "/CostGuardAutonomousStack/ApprovalsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalsTopic037B20FB"
+          }
+        ],
+        "/CostGuardAutonomousStack/AlertsTopic/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AlertsTopic3414BE91"
+          }
+        ],
+        "/CostGuardAutonomousStack/ActionHistoryTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ActionHistoryTableName"
+          }
+        ],
+        "/CostGuardAutonomousStack/TrainingCheckpointsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TrainingCheckpointsTableName"
+          }
+        ],
+        "/CostGuardAutonomousStack/MigrationRollbacksTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MigrationRollbacksTableName"
+          }
+        ],
+        "/CostGuardAutonomousStack/AutonomousEventBusName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutonomousEventBusName"
+          }
+        ],
+        "/CostGuardAutonomousStack/AutonomousEventBusArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AutonomousEventBusArn"
+          }
+        ],
+        "/CostGuardAutonomousStack/CheckpointsBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckpointsBucketName"
+          }
+        ],
+        "/CostGuardAutonomousStack/CheckpointsBucketArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckpointsBucketArn"
+          }
+        ],
+        "/CostGuardAutonomousStack/ApprovalsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApprovalsTopicArn"
+          }
+        ],
+        "/CostGuardAutonomousStack/AlertsTopicArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AlertsTopicArn"
+          }
+        ],
+        "/CostGuardAutonomousStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/CostGuardAutonomousStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/CostGuardAutonomousStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "CostGuardAutonomousStack"
     },
     "Tree": {
       "type": "cdk:tree",

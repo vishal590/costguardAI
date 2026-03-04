@@ -908,7 +908,7 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
                       },
-                      "s3Key": "6ea95ec2bfb0344966fc97fd52b673a4b0047f08395a4b0188679646f15dfed0.zip"
+                      "s3Key": "85ab3f54299f684e5f5b9acdbee979096995fa0245336beb5d59ebbbc106dc1b.zip"
                     },
                     "environment": {
                       "variables": {
@@ -5488,7 +5488,7 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
                       },
-                      "s3Key": "4af59231ed9ad6b90c87ac76554e79046b1d0fbe7ccb9bd38741dbe62e377156.zip"
+                      "s3Key": "3c40b6a716fb15da0e0332d5b74952d35aecd5f7a0f9a2b7af1aee9ff27c6348.zip"
                     },
                     "environment": {
                       "variables": {
@@ -5746,7 +5746,7 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
                       },
-                      "s3Key": "4af59231ed9ad6b90c87ac76554e79046b1d0fbe7ccb9bd38741dbe62e377156.zip"
+                      "s3Key": "3c40b6a716fb15da0e0332d5b74952d35aecd5f7a0f9a2b7af1aee9ff27c6348.zip"
                     },
                     "environment": {
                       "variables": {
@@ -5860,7 +5860,7 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
                       },
-                      "s3Key": "4af59231ed9ad6b90c87ac76554e79046b1d0fbe7ccb9bd38741dbe62e377156.zip"
+                      "s3Key": "3c40b6a716fb15da0e0332d5b74952d35aecd5f7a0f9a2b7af1aee9ff27c6348.zip"
                     },
                     "environment": {
                       "variables": {
@@ -10254,7 +10254,7 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
                       },
-                      "s3Key": "e72a242ded525584fdd2089ce140227ba4bc92b9d85e6d179397ead45af889f8.zip"
+                      "s3Key": "85ab3f54299f684e5f5b9acdbee979096995fa0245336beb5d59ebbbc106dc1b.zip"
                     },
                     "environment": {
                       "variables": {
@@ -15433,6 +15433,542 @@
           "CheckBootstrapVersion": {
             "id": "CheckBootstrapVersion",
             "path": "CostGuardAIMLStack/CheckBootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnRule",
+              "version": "2.100.0"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.100.0"
+        }
+      },
+      "CostGuardAutonomousStack": {
+        "id": "CostGuardAutonomousStack",
+        "path": "CostGuardAutonomousStack",
+        "children": {
+          "ActionHistoryTable": {
+            "id": "ActionHistoryTable",
+            "path": "CostGuardAutonomousStack/ActionHistoryTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/ActionHistoryTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "action_id",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "timestamp",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "action_type",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "status",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "globalSecondaryIndexes": [
+                      {
+                        "indexName": "action-type-index",
+                        "keySchema": [
+                          {
+                            "attributeName": "action_type",
+                            "keyType": "HASH"
+                          },
+                          {
+                            "attributeName": "timestamp",
+                            "keyType": "RANGE"
+                          }
+                        ],
+                        "projection": {
+                          "projectionType": "ALL"
+                        }
+                      },
+                      {
+                        "indexName": "status-index",
+                        "keySchema": [
+                          {
+                            "attributeName": "status",
+                            "keyType": "HASH"
+                          },
+                          {
+                            "attributeName": "timestamp",
+                            "keyType": "RANGE"
+                          }
+                        ],
+                        "projection": {
+                          "projectionType": "ALL"
+                        }
+                      }
+                    ],
+                    "keySchema": [
+                      {
+                        "attributeName": "action_id",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "timestamp",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "pointInTimeRecoverySpecification": {
+                      "pointInTimeRecoveryEnabled": false
+                    },
+                    "tableName": "costguard-action-history",
+                    "timeToLiveSpecification": {
+                      "attributeName": "ttl",
+                      "enabled": true
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "CostGuardAutonomousStack/ActionHistoryTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "TrainingCheckpointsTable": {
+            "id": "TrainingCheckpointsTable",
+            "path": "CostGuardAutonomousStack/TrainingCheckpointsTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/TrainingCheckpointsTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "checkpoint_id",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "created_at",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "training_job_id",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "globalSecondaryIndexes": [
+                      {
+                        "indexName": "training-job-index",
+                        "keySchema": [
+                          {
+                            "attributeName": "training_job_id",
+                            "keyType": "HASH"
+                          },
+                          {
+                            "attributeName": "created_at",
+                            "keyType": "RANGE"
+                          }
+                        ],
+                        "projection": {
+                          "projectionType": "ALL"
+                        }
+                      }
+                    ],
+                    "keySchema": [
+                      {
+                        "attributeName": "checkpoint_id",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "created_at",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "pointInTimeRecoverySpecification": {
+                      "pointInTimeRecoveryEnabled": false
+                    },
+                    "tableName": "costguard-training-checkpoints",
+                    "timeToLiveSpecification": {
+                      "attributeName": "ttl",
+                      "enabled": true
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "CostGuardAutonomousStack/TrainingCheckpointsTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "MigrationRollbacksTable": {
+            "id": "MigrationRollbacksTable",
+            "path": "CostGuardAutonomousStack/MigrationRollbacksTable",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/MigrationRollbacksTable/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "rollback_id",
+                        "attributeType": "S"
+                      },
+                      {
+                        "attributeName": "created_at",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "keySchema": [
+                      {
+                        "attributeName": "rollback_id",
+                        "keyType": "HASH"
+                      },
+                      {
+                        "attributeName": "created_at",
+                        "keyType": "RANGE"
+                      }
+                    ],
+                    "pointInTimeRecoverySpecification": {
+                      "pointInTimeRecoveryEnabled": false
+                    },
+                    "tableName": "costguard-migration-rollbacks",
+                    "timeToLiveSpecification": {
+                      "attributeName": "ttl",
+                      "enabled": true
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.100.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "CostGuardAutonomousStack/MigrationRollbacksTable/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.100.0"
+            }
+          },
+          "AutonomousEventBus": {
+            "id": "AutonomousEventBus",
+            "path": "CostGuardAutonomousStack/AutonomousEventBus",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/AutonomousEventBus/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Events::EventBus",
+                  "aws:cdk:cloudformation:props": {
+                    "name": "costguard-autonomous-events"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_events.CfnEventBus",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_events.EventBus",
+              "version": "2.100.0"
+            }
+          },
+          "AutonomousEventArchive": {
+            "id": "AutonomousEventArchive",
+            "path": "CostGuardAutonomousStack/AutonomousEventArchive",
+            "children": {
+              "Archive": {
+                "id": "Archive",
+                "path": "CostGuardAutonomousStack/AutonomousEventArchive/Archive",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Events::Archive",
+                  "aws:cdk:cloudformation:props": {
+                    "archiveName": "costguard-autonomous-events-archive",
+                    "description": "Archive of autonomous action events for debugging",
+                    "eventPattern": {
+                      "source": [
+                        "costguard.autonomous"
+                      ]
+                    },
+                    "retentionDays": 7,
+                    "sourceArn": {
+                      "Fn::GetAtt": [
+                        "AutonomousEventBus96E456B6",
+                        "Arn"
+                      ]
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_events.CfnArchive",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_events.Archive",
+              "version": "2.100.0"
+            }
+          },
+          "CheckpointsBucket": {
+            "id": "CheckpointsBucket",
+            "path": "CostGuardAutonomousStack/CheckpointsBucket",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/CheckpointsBucket/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::S3::Bucket",
+                  "aws:cdk:cloudformation:props": {
+                    "bucketEncryption": {
+                      "serverSideEncryptionConfiguration": [
+                        {
+                          "serverSideEncryptionByDefault": {
+                            "sseAlgorithm": "AES256"
+                          }
+                        }
+                      ]
+                    },
+                    "bucketName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "costguard-training-checkpoints-",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          "-us-east-1"
+                        ]
+                      ]
+                    },
+                    "lifecycleConfiguration": {
+                      "rules": [
+                        {
+                          "expirationInDays": 7,
+                          "id": "DeleteOldCheckpoints",
+                          "noncurrentVersionExpiration": {
+                            "noncurrentDays": 1
+                          },
+                          "status": "Enabled"
+                        }
+                      ]
+                    },
+                    "publicAccessBlockConfiguration": {
+                      "blockPublicAcls": true,
+                      "blockPublicPolicy": true,
+                      "ignorePublicAcls": true,
+                      "restrictPublicBuckets": true
+                    },
+                    "versioningConfiguration": {
+                      "status": "Enabled"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3.CfnBucket",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_s3.Bucket",
+              "version": "2.100.0"
+            }
+          },
+          "ApprovalsTopic": {
+            "id": "ApprovalsTopic",
+            "path": "CostGuardAutonomousStack/ApprovalsTopic",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/ApprovalsTopic/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::SNS::Topic",
+                  "aws:cdk:cloudformation:props": {
+                    "displayName": "CostGuard Autonomous Action Approvals",
+                    "topicName": "costguard-autonomous-approvals"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_sns.CfnTopic",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_sns.Topic",
+              "version": "2.100.0"
+            }
+          },
+          "AlertsTopic": {
+            "id": "AlertsTopic",
+            "path": "CostGuardAutonomousStack/AlertsTopic",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CostGuardAutonomousStack/AlertsTopic/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::SNS::Topic",
+                  "aws:cdk:cloudformation:props": {
+                    "displayName": "CostGuard Autonomous Action Alerts",
+                    "topicName": "costguard-autonomous-alerts"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_sns.CfnTopic",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_sns.Topic",
+              "version": "2.100.0"
+            }
+          },
+          "ActionHistoryTableName": {
+            "id": "ActionHistoryTableName",
+            "path": "CostGuardAutonomousStack/ActionHistoryTableName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "TrainingCheckpointsTableName": {
+            "id": "TrainingCheckpointsTableName",
+            "path": "CostGuardAutonomousStack/TrainingCheckpointsTableName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "MigrationRollbacksTableName": {
+            "id": "MigrationRollbacksTableName",
+            "path": "CostGuardAutonomousStack/MigrationRollbacksTableName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "AutonomousEventBusName": {
+            "id": "AutonomousEventBusName",
+            "path": "CostGuardAutonomousStack/AutonomousEventBusName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "AutonomousEventBusArn": {
+            "id": "AutonomousEventBusArn",
+            "path": "CostGuardAutonomousStack/AutonomousEventBusArn",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "CheckpointsBucketName": {
+            "id": "CheckpointsBucketName",
+            "path": "CostGuardAutonomousStack/CheckpointsBucketName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "CheckpointsBucketArn": {
+            "id": "CheckpointsBucketArn",
+            "path": "CostGuardAutonomousStack/CheckpointsBucketArn",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "ApprovalsTopicArn": {
+            "id": "ApprovalsTopicArn",
+            "path": "CostGuardAutonomousStack/ApprovalsTopicArn",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "AlertsTopicArn": {
+            "id": "AlertsTopicArn",
+            "path": "CostGuardAutonomousStack/AlertsTopicArn",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.100.0"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "CostGuardAutonomousStack/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "CostGuardAutonomousStack/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.100.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.5.1"
+            }
+          },
+          "BootstrapVersion": {
+            "id": "BootstrapVersion",
+            "path": "CostGuardAutonomousStack/BootstrapVersion",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnParameter",
+              "version": "2.100.0"
+            }
+          },
+          "CheckBootstrapVersion": {
+            "id": "CheckBootstrapVersion",
+            "path": "CostGuardAutonomousStack/CheckBootstrapVersion",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnRule",
               "version": "2.100.0"

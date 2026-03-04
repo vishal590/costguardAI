@@ -1,0 +1,20 @@
+{
+  "version": "34.0.0",
+  "files": {
+    "0349c7a94df81c9bb9485223f2fc8f55a3bff51743746d16d53b24bcff1b8061": {
+      "source": {
+        "path": "CostGuardAutonomousStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "0349c7a94df81c9bb9485223f2fc8f55a3bff51743746d16d53b24bcff1b8061.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

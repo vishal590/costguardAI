@@ -337,7 +337,7 @@
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
      },
-     "S3Key": "e72a242ded525584fdd2089ce140227ba4bc92b9d85e6d179397ead45af889f8.zip"
+     "S3Key": "85ab3f54299f684e5f5b9acdbee979096995fa0245336beb5d59ebbbc106dc1b.zip"
     },
     "Environment": {
      "Variables": {
@@ -376,7 +376,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CostGuardAIMLStack/AIMLHandler/Resource",
-    "aws:asset:path": "asset.e72a242ded525584fdd2089ce140227ba4bc92b9d85e6d179397ead45af889f8",
+    "aws:asset:path": "asset.85ab3f54299f684e5f5b9acdbee979096995fa0245336beb5d59ebbbc106dc1b",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
