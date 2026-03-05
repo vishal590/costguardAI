@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\autonomous\utils\audit_logger.py
+# hypothesis_version: 6.151.9
+
+[100, ' AND #user = :user', '#ts', '#user', ':action_type', ':audit', ':end_date', ':start_date', ':user', 'ACTION_HISTORY_TABLE', 'FilterExpression', 'Items', 'Limit', 'action_id', 'action_type', 'actual_cost_impact', 'apiKeyId', 'audit', 'audit = :audit', 'authorizer', 'cost_impact', 'dynamodb', 'error', 'iam', 'identity', 'internal', 'logs_checked', 'outcome', 'parameters', 'performance_impact', 'requestContext', 'retention_ok', 'source', 'sourceIp', 'source_ip', 'status', 'system', 'timestamp', 'ttl', 'user', 'userArn', 'userId']

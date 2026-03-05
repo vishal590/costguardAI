@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\autonomous\gpu_scheduler.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.294, 0.3, 0.526, 0.85, 0.92, 1.0, 100, 200, '%Y%m%d_%H%M%S', '*', '0.8', '20', 'ACTION_HISTORY_TABLE', 'CONFIDENCE_THRESHOLD', 'Content-Type', 'DEMO_MODE', 'DRY_RUN_MODE', 'Detail', 'DetailType', 'EVENT_BUS_NAME', 'EventBusName', 'GPU_COSTS_TABLE', 'OptimizationWindow', 'PHASE6_API_ENDPOINT', 'Source', 'action_id', 'action_type', 'analysis_timestamp', 'application/json', 'avg_spot_price', 'body', 'completed', 'confidence_score', 'confidence_threshold', 'costguard-gpu-costs', 'days', 'dry_run', 'dry_run_mode', 'dynamodb', 'ec2', 'events', 'expected_cost_impact', 'false', 'g4dn.xlarge', 'headers', 'historical_pattern', 'instance_type', 'parameters', 'price_stability', 'recommendation_id', 'recommendations', 'region', 'schedule', 'spot_instance_type', 'status', 'statusCode', 'timestamp', 'true', 'ttl', 'us-east-1', 'window_end', 'window_start']

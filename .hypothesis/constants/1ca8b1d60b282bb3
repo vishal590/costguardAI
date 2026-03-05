@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\autonomous\utils\xray_tracing.py
+# hypothesis_version: 6.151.9
+
+['action_id', 'action_success', 'action_type', 'analysis_days', 'checkpoint_id', 'confidence_score', 'cost_impact', 'duration_ms', 'error', 'error_message', 'error_type', 'function', 'instance_id', 'instance_type', 'migration_mode', 'migration_success', 'record_count', 'status', 'success']

@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\autonomous\utils\cloudwatch_metrics.py
+# hypothesis_version: 6.151.9
+
+[100, 300, 'ActionSuccessRate', 'ActionType', 'ActiveActions', 'Average', 'BudgetUtilization', 'ConfidenceScore', 'CostGuard/AIML', 'Count', 'CumulativeSavings', 'DEMO_MODE', 'DemoMode', 'Dimensions', 'EndTime', 'Maximum', 'MetricName', 'Minimum', 'Name', 'Namespace', 'None', 'Percent', 'Period', 'StartTime', 'Statistics', 'Sum', 'Timestamp', 'Unit', 'Value', 'cloudwatch', 'false', 'true']

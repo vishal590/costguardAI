@@ -1,0 +1,4 @@
+# file: G:\projects\aws-ideas\src\autonomous\right_sizer.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.9, 0.95, 1.0, 100, 168, 200, '#status', '0', '0.15', '0.526', '0.60', '0.752', '1.0', '1.204', '2.176', '3.912', '4.352', '730', ':new_type', ':status', ':timestamp', 'ACTION_HISTORY_TABLE', 'DRY_RUN_MODE', 'EVENT_BUS_NAME', 'GPU_COSTS_TABLE', 'Item', 'Items', 'action-type-index', 'action_type', 'body', 'confidence_score', 'cost', 'cost_per_unit', 'costguard-gpu-costs', 'created', 'created_at', 'current_type', 'current_utilization', 'days', 'dynamodb', 'ec2', 'events', 'execution_time_hours', 'false', 'g4dn.12xlarge', 'g4dn.16xlarge', 'g4dn.2xlarge', 'g4dn.4xlarge', 'g4dn.8xlarge', 'g4dn.xlarge', 'i-example1', 'i-example2', 'inf', 'instance_id', 'instance_ids', 'migrated', 'recommendations', 'recommended_type', 'right_sizing', 'rollback_id', 'rolled_back', 'status', 'statusCode', 'success', 'true', 'ttl', '{}']
