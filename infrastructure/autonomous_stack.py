@@ -20,6 +20,8 @@ from aws_cdk import (
     RemovalPolicy,
     aws_dynamodb as dynamodb,
     aws_events as events,
+    aws_events_targets as targets,
+    aws_lambda as lambda_,
     aws_s3 as s3,
     aws_sns as sns,
     aws_iam as iam,
@@ -308,7 +310,7 @@ class AutonomousStack(Stack):
                     period=Duration.minutes(5),
                 ),
             ],
-            left_yaxis=cloudwatch.YAxisProps(
+            left_y_axis=cloudwatch.YAxisProps(
                 min=0,
                 max=100,
             ),
@@ -466,6 +468,475 @@ class AutonomousStack(Stack):
             description="CloudWatch Alarm for low confidence",
         )
 
+        # =====================================================================
+        # IAM Roles for Lambda Functions (Least-Privilege)
+        # =====================================================================
+
+        # GPU Scheduler Role
+        gpu_scheduler_role = iam.Role(
+            self, "GPUSchedulerRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="IAM role for GPU Scheduler Lambda with least-privilege permissions",
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # GPU Scheduler permissions
+        gpu_scheduler_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:Query", "dynamodb:GetItem"],
+            resources=[
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-gpu-costs",
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-gpu-costs/index/*",
+            ],
+        ))
+
+        gpu_scheduler_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:PutItem"],
+            resources=[action_history_table.table_arn],
+        ))
+
+        gpu_scheduler_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["events:PutEvents"],
+            resources=[autonomous_event_bus.event_bus_arn],
+        ))
+
+        gpu_scheduler_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["ec2:DescribeSpotPriceHistory"],
+            resources=["*"],
+        ))
+
+        # Spot Manager Role
+        spot_manager_role = iam.Role(
+            self, "SpotManagerRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="IAM role for Spot Manager Lambda with least-privilege permissions",
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # Spot Manager permissions
+        spot_manager_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"],
+            resources=[
+                action_history_table.table_arn,
+                training_checkpoints_table.table_arn,
+                f"{training_checkpoints_table.table_arn}/index/*",
+            ],
+        ))
+
+        spot_manager_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+            resources=[f"{checkpoints_bucket.bucket_arn}/*"],
+        ))
+
+        spot_manager_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["s3:ListBucket"],
+            resources=[checkpoints_bucket.bucket_arn],
+        ))
+
+        spot_manager_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "ec2:RunInstances",
+                "ec2:TerminateInstances",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+            ],
+            resources=["*"],
+            conditions={
+                "StringEquals": {
+                    "aws:RequestedRegion": ["us-east-1", "us-west-2"],
+                },
+            },
+        ))
+
+        spot_manager_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["events:PutEvents"],
+            resources=[autonomous_event_bus.event_bus_arn],
+        ))
+
+        # Right Sizer Role
+        right_sizer_role = iam.Role(
+            self, "RightSizerRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="IAM role for Right Sizer Lambda with least-privilege permissions",
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # Right Sizer permissions
+        right_sizer_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"],
+            resources=[
+                action_history_table.table_arn,
+                f"{action_history_table.table_arn}/index/*",
+                migration_rollbacks_table.table_arn,
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-gpu-costs",
+                f"arn:aws:dynamodb:{self.region}:{self.account}:table/costguard-workload-classifications",
+            ],
+        ))
+
+        right_sizer_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "ec2:RunInstances",
+                "ec2:TerminateInstances",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceTypes",
+                "ec2:ModifyInstanceAttribute",
+            ],
+            resources=["*"],
+        ))
+
+        right_sizer_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["events:PutEvents"],
+            resources=[autonomous_event_bus.event_bus_arn],
+        ))
+
+        # Learning Engine Role
+        learning_engine_role = iam.Role(
+            self, "LearningEngineRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="IAM role for Learning Engine Lambda with least-privilege permissions",
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # Learning Engine permissions
+        learning_engine_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Scan"],
+            resources=[
+                action_history_table.table_arn,
+                f"{action_history_table.table_arn}/index/*",
+            ],
+        ))
+
+        learning_engine_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["events:PutEvents"],
+            resources=[autonomous_event_bus.event_bus_arn],
+        ))
+
+        learning_engine_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["sns:Publish"],
+            resources=[alerts_topic.topic_arn],
+        ))
+
+        # Safety Guard Role
+        safety_guard_role = iam.Role(
+            self, "SafetyGuardRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="IAM role for Safety Guard Lambda with least-privilege permissions",
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # Safety Guard permissions
+        safety_guard_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"],
+            resources=[
+                action_history_table.table_arn,
+                f"{action_history_table.table_arn}/index/*",
+            ],
+        ))
+
+        safety_guard_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["sns:Publish"],
+            resources=[approvals_topic.topic_arn, alerts_topic.topic_arn],
+        ))
+
+        safety_guard_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["events:PutEvents"],
+            resources=[autonomous_event_bus.event_bus_arn],
+        ))
+
+        safety_guard_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["ce:GetCostAndUsage"],
+            resources=["*"],
+        ))
+
+        safety_guard_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["cloudwatch:GetMetricStatistics"],
+            resources=["*"],
+        ))
+
+        # =====================================================================
+        # Outputs for IAM Roles
+        # =====================================================================
+
+        CfnOutput(
+            self, "GPUSchedulerRoleArn",
+            value=gpu_scheduler_role.role_arn,
+            description="IAM role ARN for GPU Scheduler Lambda",
+        )
+
+        CfnOutput(
+            self, "SpotManagerRoleArn",
+            value=spot_manager_role.role_arn,
+            description="IAM role ARN for Spot Manager Lambda",
+        )
+
+        CfnOutput(
+            self, "RightSizerRoleArn",
+            value=right_sizer_role.role_arn,
+            description="IAM role ARN for Right Sizer Lambda",
+        )
+
+        CfnOutput(
+            self, "LearningEngineRoleArn",
+            value=learning_engine_role.role_arn,
+            description="IAM role ARN for Learning Engine Lambda",
+        )
+
+        CfnOutput(
+            self, "SafetyGuardRoleArn",
+            value=safety_guard_role.role_arn,
+            description="IAM role ARN for Safety Guard Lambda",
+        )
+
+        # =====================================================================
+        # Lambda Functions
+        # =====================================================================
+
+        # Common environment variables for all Lambda functions
+        common_env = {
+            "ACTION_HISTORY_TABLE": action_history_table.table_name,
+            "EVENT_BUS_NAME": autonomous_event_bus.event_bus_name,
+            "DRY_RUN_MODE": "false",
+            "DEMO_MODE": "false",
+        }
+
+        # GPU Scheduler Lambda
+        gpu_scheduler_lambda = lambda_.Function(
+            self, "GPUSchedulerFunction",
+            function_name="CostGuard-GPU-Scheduler",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.gpu_scheduler.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=gpu_scheduler_role,
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            environment={
+                **common_env,
+                "GPU_COSTS_TABLE": "costguard-gpu-costs",
+                "CONFIDENCE_THRESHOLD": "0.8",
+                "MIN_COST_SAVINGS_PERCENT": "20",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Analyzes GPU cost patterns and schedules training jobs during optimization windows",
+        )
+
+        # Spot Manager Lambda
+        spot_manager_lambda = lambda_.Function(
+            self, "SpotManagerFunction",
+            function_name="CostGuard-Spot-Manager",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.spot_manager.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=spot_manager_role,
+            timeout=Duration.minutes(15),
+            memory_size=1024,
+            environment={
+                **common_env,
+                "CHECKPOINT_BUCKET": checkpoints_bucket.bucket_name,
+                "TRAINING_CHECKPOINTS_TABLE": training_checkpoints_table.table_name,
+                "SPOT_TIMEOUT_SECONDS": "300",
+                "CHECKPOINT_TIMEOUT_SECONDS": "30",
+                "APPROVAL_REQUIRED_FOR_ONDEMAND": "true",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Handles spot instance interruptions with automatic checkpoint save/restore",
+        )
+
+        # Right Sizer Lambda
+        right_sizer_lambda = lambda_.Function(
+            self, "RightSizerFunction",
+            function_name="CostGuard-Right-Sizer",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.right_sizer.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=right_sizer_role,
+            timeout=Duration.minutes(10),
+            memory_size=512,
+            environment={
+                **common_env,
+                "GPU_COSTS_TABLE": "costguard-gpu-costs",
+                "MIGRATION_ROLLBACKS_TABLE": migration_rollbacks_table.table_name,
+                "UTILIZATION_THRESHOLD": "0.60",
+                "DEGRADATION_THRESHOLD": "0.15",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Analyzes GPU utilization and recommends right-sizing opportunities",
+        )
+
+        # Learning Engine Lambda
+        learning_engine_lambda = lambda_.Function(
+            self, "LearningEngineFunction",
+            function_name="CostGuard-Learning-Engine",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.learning_engine.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=learning_engine_role,
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            environment={
+                **common_env,
+                "MIN_ACTIONS_FOR_LEARNING": "30",
+                "SUCCESS_RATE_THRESHOLD": "0.7",
+                "LEARNING_MODE_ENABLED": "true",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Tracks action outcomes and improves recommendations over time",
+        )
+
+        # Safety Guard Lambda
+        safety_guard_lambda = lambda_.Function(
+            self, "SafetyGuardFunction",
+            function_name="CostGuard-Safety-Guard",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.safety_guard.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=safety_guard_role,
+            timeout=Duration.minutes(15),
+            memory_size=256,
+            environment={
+                **common_env,
+                "APPROVAL_SNS_TOPIC": approvals_topic.topic_arn,
+                "APPROVAL_TIMEOUT_MINUTES": "15",
+                "FREE_TIER_BUDGET_LIMIT": "5.0",
+                "APPROVAL_REQUIRED_ACTIONS": "migration,ondemand_fallback",
+                "APPROVAL_SECRET_KEY": "change-this-in-production",
+            },
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Validates and controls autonomous actions to prevent costly mistakes",
+        )
+
+        # =====================================================================
+        # EventBridge Rules for Lambda Triggers
+        # =====================================================================
+
+        # GPU Scheduler - Hourly scheduled trigger
+        gpu_scheduler_rule = events.Rule(
+            self, "GPUSchedulerRule",
+            rule_name="costguard-gpu-scheduler-hourly",
+            schedule=events.Schedule.rate(Duration.hours(1)),
+            description="Trigger GPU Scheduler hourly to analyze cost patterns",
+        )
+        gpu_scheduler_rule.add_target(targets.LambdaFunction(gpu_scheduler_lambda))
+
+        # Right Sizer - Daily scheduled trigger (2 AM UTC)
+        right_sizer_rule = events.Rule(
+            self, "RightSizerRule",
+            rule_name="costguard-right-sizer-daily",
+            schedule=events.Schedule.cron(hour="2", minute="0"),
+            description="Trigger Right Sizer daily at 2 AM UTC",
+        )
+        right_sizer_rule.add_target(targets.LambdaFunction(right_sizer_lambda))
+
+        # Learning Engine - Daily scheduled trigger (3 AM UTC)
+        learning_engine_schedule_rule = events.Rule(
+            self, "LearningEngineScheduleRule",
+            rule_name="costguard-learning-engine-daily",
+            schedule=events.Schedule.cron(hour="3", minute="0"),
+            description="Trigger Learning Engine daily at 3 AM UTC for batch analysis",
+        )
+        learning_engine_schedule_rule.add_target(targets.LambdaFunction(learning_engine_lambda))
+
+        # Learning Engine - Event-driven trigger (ActionCompleted events)
+        learning_engine_event_rule = events.Rule(
+            self, "LearningEngineEventRule",
+            rule_name="costguard-learning-engine-action-completed",
+            event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(
+                source=["costguard.autonomous"],
+                detail_type=["ActionCompleted"],
+            ),
+            description="Trigger Learning Engine on ActionCompleted events",
+        )
+        learning_engine_event_rule.add_target(targets.LambdaFunction(learning_engine_lambda))
+
+        # Safety Guard - Event-driven trigger (ActionRequest events)
+        safety_guard_rule = events.Rule(
+            self, "SafetyGuardRule",
+            rule_name="costguard-safety-guard-action-request",
+            event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(
+                source=["costguard.autonomous"],
+                detail_type=["ActionRequest"],
+            ),
+            description="Trigger Safety Guard on ActionRequest events",
+        )
+        safety_guard_rule.add_target(targets.LambdaFunction(safety_guard_lambda))
+
+        # Spot Manager - Event-driven trigger (SpotInterruptionDetected events)
+        spot_manager_rule = events.Rule(
+            self, "SpotManagerRule",
+            rule_name="costguard-spot-manager-interruption",
+            event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(
+                source=["costguard.autonomous"],
+                detail_type=["SpotInterruptionDetected"],
+            ),
+            description="Trigger Spot Manager on spot interruption warnings",
+        )
+        spot_manager_rule.add_target(targets.LambdaFunction(spot_manager_lambda))
+
+        # =====================================================================
+        # Lambda Function Outputs
+        # =====================================================================
+
+        CfnOutput(
+            self, "GPUSchedulerFunctionArn",
+            value=gpu_scheduler_lambda.function_arn,
+            description="GPU Scheduler Lambda function ARN",
+        )
+
+        CfnOutput(
+            self, "SpotManagerFunctionArn",
+            value=spot_manager_lambda.function_arn,
+            description="Spot Manager Lambda function ARN",
+        )
+
+        CfnOutput(
+            self, "RightSizerFunctionArn",
+            value=right_sizer_lambda.function_arn,
+            description="Right Sizer Lambda function ARN",
+        )
+
+        CfnOutput(
+            self, "LearningEngineFunctionArn",
+            value=learning_engine_lambda.function_arn,
+            description="Learning Engine Lambda function ARN",
+        )
+
+        CfnOutput(
+            self, "SafetyGuardFunctionArn",
+            value=safety_guard_lambda.function_arn,
+            description="Safety Guard Lambda function ARN",
+        )
+
         # Store references for use by Lambda functions in subsequent tasks
         self.action_history_table = action_history_table
         self.training_checkpoints_table = training_checkpoints_table
@@ -475,3 +946,13 @@ class AutonomousStack(Stack):
         self.approvals_topic = approvals_topic
         self.alerts_topic = alerts_topic
         self.dashboard = dashboard
+        self.gpu_scheduler_role = gpu_scheduler_role
+        self.spot_manager_role = spot_manager_role
+        self.right_sizer_role = right_sizer_role
+        self.learning_engine_role = learning_engine_role
+        self.safety_guard_role = safety_guard_role
+        self.gpu_scheduler_lambda = gpu_scheduler_lambda
+        self.spot_manager_lambda = spot_manager_lambda
+        self.right_sizer_lambda = right_sizer_lambda
+        self.learning_engine_lambda = learning_engine_lambda
+        self.safety_guard_lambda = safety_guard_lambda

@@ -26,6 +26,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+from autonomous.utils.audit_logger import log_action, get_current_user, get_source_ip
 
 
 # Environment variables
@@ -93,12 +94,13 @@ class ValidationResult:
         self.reason = reason
 
 
-def execute_dry_run(action: ActionRequest) -> None:
+def execute_dry_run(action: ActionRequest, event: Dict[str, Any] = None) -> None:
     """
     Execute action in dry-run mode (log without executing).
     
     Args:
         action: Action request to dry-run
+        event: Lambda event for audit logging
     """
     try:
         print(f"[DRY-RUN] Action: {action.action_type}")
@@ -123,6 +125,16 @@ def execute_dry_run(action: ActionRequest) -> None:
         }
         
         action_history_table.put_item(Item=item)
+        
+        # Create audit log
+        log_action(
+            action_id=action.action_id,
+            action_type=action.action_type,
+            parameters=action.parameters,
+            outcome="dry_run",
+            event=event,
+            cost_impact=action.expected_cost_impact,
+        )
         
         print(f"[DRY-RUN] Logged action to history: {action.action_id}")
         
@@ -586,7 +598,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if dry_run:
                 # Execute in dry-run mode
-                execute_dry_run(action)
+                execute_dry_run(action, event)
                 
                 return {
                     "statusCode": 200,
@@ -602,6 +614,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if not validation.valid:
                 print(f"Action validation failed: {validation.reason}")
+                
+                # Log rejection
+                log_action(
+                    action_id=action.action_id,
+                    action_type=action.action_type,
+                    parameters=action.parameters,
+                    outcome="rejected",
+                    event=event,
+                )
                 
                 # Publish rejection event
                 publish_approval_decision(action, False)
@@ -629,6 +650,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Create rollback capability
                 rollback_id = create_rollback_capability(action)
                 
+                # Log approval request
+                log_action(
+                    action_id=action.action_id,
+                    action_type=action.action_type,
+                    parameters=action.parameters,
+                    outcome="pending_approval",
+                    event=event,
+                )
+                
                 return {
                     "statusCode": 202,
                     "body": json.dumps({
@@ -645,6 +675,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Create rollback capability
                 rollback_id = create_rollback_capability(action)
+                
+                # Log approval
+                log_action(
+                    action_id=action.action_id,
+                    action_type=action.action_type,
+                    parameters=action.parameters,
+                    outcome="approved",
+                    event=event,
+                )
                 
                 # Publish approval event
                 publish_approval_decision(action, True)
@@ -671,6 +710,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Execute rollback
             success = execute_rollback(action_id)
+            
+            # Log rollback
+            log_action(
+                action_id=action_id,
+                action_type="rollback",
+                parameters={"original_action_id": action_id},
+                outcome="rolled_back" if success else "rollback_failed",
+                event=event,
+            )
             
             return {
                 "statusCode": 200 if success else 500,
