@@ -37,6 +37,7 @@ class TimeManager:
     """
     
     # Compression factors
+    COMPRESSION_FACTOR = 2016  # Backward compatibility - same as ANALYSIS_COMPRESSION
     ANALYSIS_COMPRESSION = 2016  # 7 days (10,080 min) → 5 min
     POLLING_COMPRESSION = 6      # 60s → 10s
     DAILY_COMPRESSION = 720      # 24 hours (1,440 min) → 2 min
@@ -44,7 +45,7 @@ class TimeManager:
     @classmethod
     def is_demo_mode(cls) -> bool:
         """Check if demo mode is enabled."""
-        return DEMO_MODE
+        return os.environ.get('DEMO_MODE', 'false').lower() == 'true'
     
     @classmethod
     def get_analysis_window(cls, days: int) -> timedelta:
@@ -63,7 +64,7 @@ class TimeManager:
             >>> TimeManager.get_analysis_window(7)  # Normal mode
             timedelta(days=7)
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress time window for demo
             minutes = (days * 24 * 60) / cls.ANALYSIS_COMPRESSION
             return timedelta(minutes=minutes)
@@ -86,7 +87,7 @@ class TimeManager:
             >>> TimeManager.get_polling_interval(60)  # Normal mode
             60
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress polling interval (60s → 10s)
             return max(1, seconds // cls.POLLING_COMPRESSION)
         return seconds
@@ -105,7 +106,7 @@ class TimeManager:
             >>> TimeManager.get_daily_task_interval()  # Normal mode
             timedelta(days=1)
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress daily tasks (24 hours → 2 minutes)
             minutes = (24 * 60) / cls.DAILY_COMPRESSION
             return timedelta(minutes=minutes)
@@ -128,7 +129,7 @@ class TimeManager:
             >>> TimeManager.get_checkpoint_interval(5)  # Normal mode
             5
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress checkpoint interval (5 min → 30 sec)
             return max(1, (minutes * 60) // 10) // 60  # Convert to minutes
         return minutes
@@ -150,7 +151,7 @@ class TimeManager:
             >>> TimeManager.get_approval_timeout(15)  # Normal mode
             15
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress approval timeout (15 min → 2 min)
             return max(1, minutes // 8)
         return minutes
@@ -172,7 +173,7 @@ class TimeManager:
             >>> TimeManager.get_rollback_timeout(5)  # Normal mode
             5
         """
-        if DEMO_MODE:
+        if cls.is_demo_mode():
             # Compress rollback timeout (5 min → 30 sec)
             return max(1, (minutes * 60) // 10) // 60  # Convert to minutes
         return minutes

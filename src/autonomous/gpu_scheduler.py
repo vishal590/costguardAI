@@ -24,6 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from autonomous.utils.time_manager import TimeManager
+
 
 # Environment variables
 GPU_COSTS_TABLE = os.environ.get("GPU_COSTS_TABLE", "costguard-gpu-costs")
@@ -43,34 +45,6 @@ ec2_client = boto3.client("ec2")
 # Tables
 gpu_costs_table = dynamodb.Table(GPU_COSTS_TABLE)
 action_history_table = dynamodb.Table(ACTION_HISTORY_TABLE)
-
-
-class TimeManager:
-    """
-    Manages time compression for demo mode.
-    
-    In demo mode, compresses 7-day analysis windows to 5-minute windows
-    using a 2,016x time compression factor.
-    """
-    
-    COMPRESSION_FACTOR = 2016  # 7 days (10,080 min) → 5 min
-    
-    @classmethod
-    def get_analysis_window(cls, days: int) -> timedelta:
-        """Get analysis window duration with demo mode compression."""
-        if DEMO_MODE:
-            # Compress time window for demo
-            minutes = (days * 24 * 60) / cls.COMPRESSION_FACTOR
-            return timedelta(minutes=minutes)
-        return timedelta(days=days)
-    
-    @classmethod
-    def get_polling_interval(cls, seconds: int) -> int:
-        """Get polling interval with demo mode compression."""
-        if DEMO_MODE:
-            # 60s → 10s in demo mode
-            return max(1, seconds // 6)
-        return seconds
 
 
 class OptimizationWindow:
@@ -349,6 +323,9 @@ def publish_recommendation_event(recommendation: ScheduleRecommendation) -> None
     Args:
         recommendation: Recommendation to publish
     """
+    # Check DRY_RUN_MODE at runtime, not at module import time
+    dry_run = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
+    
     event_detail = recommendation.to_dict()
     
     event = {
@@ -358,7 +335,7 @@ def publish_recommendation_event(recommendation: ScheduleRecommendation) -> None
         "EventBusName": EVENT_BUS_NAME,
     }
     
-    if not DRY_RUN_MODE:
+    if not dry_run:
         events_client.put_events(Entries=[event])
         print(f"Published ScheduleRecommendation event: {recommendation.recommendation_id}")
     else:
