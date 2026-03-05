@@ -25,6 +25,8 @@ from typing import Any, Dict, List, Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+
 
 # Environment variables
 ACTION_HISTORY_TABLE = os.environ.get("ACTION_HISTORY_TABLE", "costguard-action-history")
@@ -558,6 +560,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         print(f"Safety Guard invoked with event: {json.dumps(event, default=str)}")
         
+        # Get metrics publisher
+        metrics = get_metrics_publisher()
+        
         # Determine event type
         detail_type = event.get("detail-type", "")
         
@@ -609,6 +614,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         "reason": validation.reason,
                     }),
                 }
+            
+            # Check budget utilization and publish metric
+            budget_ok = check_budget_limit()
+            # Estimate budget utilization (simplified)
+            budget_utilization = 50.0 if budget_ok else 95.0
+            metrics.publish_budget_utilization(budget_utilization)
             
             # Check if approval required
             if action.approval_required or action.action_type in APPROVAL_REQUIRED_ACTIONS:

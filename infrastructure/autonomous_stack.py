@@ -23,6 +23,8 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_sns as sns,
     aws_iam as iam,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cw_actions,
     CfnOutput,
 )
 from constructs import Construct
@@ -201,6 +203,188 @@ class AutonomousStack(Stack):
         )
 
         # =====================================================================
+        # CloudWatch Dashboards
+        # =====================================================================
+
+        # Create main autonomous actions dashboard
+        dashboard = cloudwatch.Dashboard(
+            self, "AutonomousDashboard",
+            dashboard_name="CostGuard-Autonomous-Actions",
+        )
+
+        # Metric namespace
+        metric_namespace = "CostGuard/AIML"
+
+        # Action Success Rate widget
+        success_rate_widget = cloudwatch.GraphWidget(
+            title="Action Success Rates",
+            left=[
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="ActionSuccessRate",
+                    dimensions_map={"ActionType": "schedule"},
+                    statistic="Average",
+                    label="GPU Scheduling",
+                    period=Duration.minutes(5),
+                ),
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="ActionSuccessRate",
+                    dimensions_map={"ActionType": "spot_migration"},
+                    statistic="Average",
+                    label="Spot Migration",
+                    period=Duration.minutes(5),
+                ),
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="ActionSuccessRate",
+                    dimensions_map={"ActionType": "right_sizing"},
+                    statistic="Average",
+                    label="Right Sizing",
+                    period=Duration.minutes(5),
+                ),
+            ],
+            width=12,
+            height=6,
+        )
+
+        # Confidence Score widget
+        confidence_widget = cloudwatch.GraphWidget(
+            title="Average Confidence Score",
+            left=[
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="ConfidenceScore",
+                    statistic="Average",
+                    label="Confidence",
+                    period=Duration.minutes(5),
+                ),
+            ],
+            width=12,
+            height=6,
+        )
+
+        # Cumulative Savings widget
+        savings_widget = cloudwatch.GraphWidget(
+            title="Cumulative Cost Savings",
+            left=[
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="CumulativeSavings",
+                    statistic="Maximum",
+                    label="Total Savings ($)",
+                    period=Duration.hours(1),
+                ),
+            ],
+            width=12,
+            height=6,
+        )
+
+        # Active Actions widget
+        active_actions_widget = cloudwatch.SingleValueWidget(
+            title="Active Actions",
+            metrics=[
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="ActiveActions",
+                    statistic="Sum",
+                    label="In Progress",
+                    period=Duration.minutes(5),
+                ),
+            ],
+            width=6,
+            height=6,
+        )
+
+        # Budget Utilization widget
+        budget_widget = cloudwatch.GaugeWidget(
+            title="Free Tier Budget Utilization",
+            metrics=[
+                cloudwatch.Metric(
+                    namespace=metric_namespace,
+                    metric_name="BudgetUtilization",
+                    statistic="Average",
+                    label="Budget %",
+                    period=Duration.minutes(5),
+                ),
+            ],
+            left_yaxis=cloudwatch.YAxisProps(
+                min=0,
+                max=100,
+            ),
+            width=6,
+            height=6,
+        )
+
+        # Add widgets to dashboard
+        dashboard.add_widgets(success_rate_widget, confidence_widget)
+        dashboard.add_widgets(savings_widget, active_actions_widget, budget_widget)
+
+        # =====================================================================
+        # CloudWatch Alarms
+        # =====================================================================
+
+        # Alarm for low success rate (<70%)
+        low_success_alarm = cloudwatch.Alarm(
+            self, "LowSuccessRateAlarm",
+            alarm_name="CostGuard-Autonomous-LowSuccessRate",
+            alarm_description="Triggered when action success rate falls below 70%",
+            metric=cloudwatch.Metric(
+                namespace=metric_namespace,
+                metric_name="ActionSuccessRate",
+                statistic="Average",
+                period=Duration.minutes(15),
+            ),
+            threshold=70,
+            evaluation_periods=2,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+
+        # Add SNS action to alarm
+        low_success_alarm.add_alarm_action(cw_actions.SnsAction(alerts_topic))
+
+        # Alarm for budget exceeded (>90%)
+        budget_alarm = cloudwatch.Alarm(
+            self, "BudgetExceededAlarm",
+            alarm_name="CostGuard-Autonomous-BudgetExceeded",
+            alarm_description="Triggered when Free Tier budget utilization exceeds 90%",
+            metric=cloudwatch.Metric(
+                namespace=metric_namespace,
+                metric_name="BudgetUtilization",
+                statistic="Average",
+                period=Duration.minutes(5),
+            ),
+            threshold=90,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+
+        # Add SNS action to alarm
+        budget_alarm.add_alarm_action(cw_actions.SnsAction(alerts_topic))
+
+        # Alarm for low confidence (<0.7)
+        low_confidence_alarm = cloudwatch.Alarm(
+            self, "LowConfidenceAlarm",
+            alarm_name="CostGuard-Autonomous-LowConfidence",
+            alarm_description="Triggered when average confidence score falls below 0.7",
+            metric=cloudwatch.Metric(
+                namespace=metric_namespace,
+                metric_name="ConfidenceScore",
+                statistic="Average",
+                period=Duration.minutes(15),
+            ),
+            threshold=0.7,
+            evaluation_periods=2,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+
+        # Add SNS action to alarm
+        low_confidence_alarm.add_alarm_action(cw_actions.SnsAction(alerts_topic))
+
+        # =====================================================================
         # Outputs
         # =====================================================================
 
@@ -258,6 +442,30 @@ class AutonomousStack(Stack):
             description="SNS topic for error alerts",
         )
 
+        CfnOutput(
+            self, "DashboardName",
+            value=dashboard.dashboard_name,
+            description="CloudWatch Dashboard name",
+        )
+
+        CfnOutput(
+            self, "LowSuccessAlarmName",
+            value=low_success_alarm.alarm_name,
+            description="CloudWatch Alarm for low success rate",
+        )
+
+        CfnOutput(
+            self, "BudgetAlarmName",
+            value=budget_alarm.alarm_name,
+            description="CloudWatch Alarm for budget exceeded",
+        )
+
+        CfnOutput(
+            self, "LowConfidenceAlarmName",
+            value=low_confidence_alarm.alarm_name,
+            description="CloudWatch Alarm for low confidence",
+        )
+
         # Store references for use by Lambda functions in subsequent tasks
         self.action_history_table = action_history_table
         self.training_checkpoints_table = training_checkpoints_table
@@ -266,3 +474,4 @@ class AutonomousStack(Stack):
         self.checkpoints_bucket = checkpoints_bucket
         self.approvals_topic = approvals_topic
         self.alerts_topic = alerts_topic
+        self.dashboard = dashboard

@@ -25,6 +25,8 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from autonomous.utils.time_manager import TimeManager
+from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+from autonomous.utils.xray_tracing import trace_subsegment, trace_cost_analysis, XRaySubsegment
 
 
 # Environment variables
@@ -125,6 +127,7 @@ class ScheduleRecommendation:
         }
 
 
+@trace_subsegment('analyze_cost_patterns')
 def analyze_cost_patterns(days: int) -> List[OptimizationWindow]:
     """
     Analyze GPU cost patterns over specified number of days.
@@ -170,6 +173,9 @@ def analyze_cost_patterns(days: int) -> List[OptimizationWindow]:
             optimization_windows.append(window)
         
         current_date += timedelta(days=1)
+    
+    # Add X-Ray tracing metadata
+    trace_cost_analysis(days, len(optimization_windows))
     
     return optimization_windows
 
@@ -390,6 +396,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     print(f"GPU Scheduler invoked with event: {json.dumps(event, default=str)}")
     
+    # Get metrics publisher
+    metrics = get_metrics_publisher()
+    
     # Parse parameters from event
     if "body" in event:
         # API Gateway request
@@ -410,10 +419,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # Generate recommendations
     recommendations = []
+    total_confidence = 0.0
+    
     for window in optimization_windows:
         recommendation = generate_recommendation(window)
         if recommendation:
             recommendations.append(recommendation)
+            total_confidence += recommendation.confidence_score
             
             # Publish event
             publish_recommendation_event(recommendation)
@@ -422,6 +434,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             record_action(recommendation)
     
     print(f"Generated {len(recommendations)} recommendations")
+    
+    # Publish CloudWatch metrics
+    if recommendations:
+        avg_confidence = total_confidence / len(recommendations)
+        metrics.publish_confidence_score(avg_confidence)
+        print(f"Published confidence score metric: {avg_confidence:.2f}")
     
     # Build response
     response_data = {

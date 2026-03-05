@@ -25,6 +25,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+from autonomous.utils.xray_tracing import trace_subsegment, trace_action_outcome
+
 
 # Environment variables
 ACTION_HISTORY_TABLE = os.environ.get("ACTION_HISTORY_TABLE", "costguard-action-history")
@@ -199,6 +202,7 @@ def query_historical_actions(action_type: str, limit: int = 1000) -> List[Dict[s
         return []
 
 
+@trace_subsegment('calculate_success_rate')
 def calculate_success_rate(action_type: str) -> float:
     """
     Calculate success rate for a specific action type.
@@ -509,6 +513,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         print(f"Learning Engine invoked with event: {json.dumps(event, default=str)}")
         
+        # Get metrics publisher
+        metrics = get_metrics_publisher()
+        
         # Determine event type
         detail_type = event.get("detail-type", "")
         
@@ -537,6 +544,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Calculate success rate
             success_rate = calculate_success_rate(action_type)
             
+            # Publish CloudWatch metrics
+            metrics.publish_action_success_rate(action_type, success_rate)
+            print(f"Published success rate metric for {action_type}: {success_rate:.2%}")
+            
             # Check if action type should be flagged
             if success_rate < SUCCESS_RATE_THRESHOLD:
                 print(f"WARNING: Low success rate for '{action_type}': {success_rate:.2%}")
@@ -563,6 +574,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if report:
                 # Send success report via SNS (if topic configured)
                 print(f"Success milestone reached: {report}")
+                cumulative_savings = report.get("cumulative_savings", 0)
+                metrics.publish_cumulative_savings(cumulative_savings)
             
             return {
                 "statusCode": 200,
@@ -579,6 +592,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             action_types = ["schedule", "spot_migration", "right_sizing"]
             results = {}
+            total_success_rate = 0.0
             
             for action_type in action_types:
                 success_rate = calculate_success_rate(action_type)
@@ -589,9 +603,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "success_rate": success_rate,
                     "patterns_count": len(patterns),
                 }
+                
+                # Publish metrics for each action type
+                metrics.publish_action_success_rate(action_type, success_rate)
+                total_success_rate += success_rate
             
             # Calculate cumulative ROI
             cumulative_roi = calculate_cumulative_roi()
+            
+            # Publish cumulative savings metric
+            if cumulative_roi < 0:  # Negative = savings
+                metrics.publish_cumulative_savings(abs(cumulative_roi))
+            
+            # Publish average confidence score
+            avg_confidence = total_success_rate / len(action_types) if action_types else 0.5
+            metrics.publish_confidence_score(avg_confidence)
+            
+            print(f"Published batch metrics: avg_confidence={avg_confidence:.2f}, cumulative_roi=${cumulative_roi:.2f}")
             
             return {
                 "statusCode": 200,

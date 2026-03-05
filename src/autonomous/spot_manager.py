@@ -26,6 +26,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+from autonomous.utils.xray_tracing import (
+    trace_subsegment,
+    trace_checkpoint_operation,
+    trace_migration_workflow,
+    XRaySubsegment
+)
+
 
 # Environment variables
 CHECKPOINT_BUCKET = os.environ.get("CHECKPOINT_BUCKET", "costguard-training-checkpoints")
@@ -84,6 +92,7 @@ class TrainingCheckpoint:
         }
 
 
+@trace_subsegment('save_checkpoint')
 def save_checkpoint(instance_id: str, training_state: Dict[str, Any]) -> str:
     """
     Save training checkpoint to S3 within 30 seconds.
@@ -149,6 +158,9 @@ def save_checkpoint(instance_id: str, training_state: Dict[str, Any]) -> str:
         item["ttl"] = ttl
         
         training_checkpoints_table.put_item(Item=item)
+        
+        # Add X-Ray tracing metadata
+        trace_checkpoint_operation(checkpoint_id, checkpoint_size, elapsed * 1000)
         
         return checkpoint_id
         
@@ -483,6 +495,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     print(f"Spot Manager invoked with event: {json.dumps(event, default=str)}")
     
+    # Get metrics publisher
+    metrics = get_metrics_publisher()
+    
     # Parse event
     detail = event.get("detail", {})
     instance_id = detail.get("instance_id", "unknown")
@@ -500,11 +515,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "model_name": detail.get("model_name", "model"),
     }
     
+    success = True
+    
     try:
         checkpoint_id = save_checkpoint(instance_id, training_state)
         print(f"Checkpoint saved: {checkpoint_id}")
     except Exception as e:
         print(f"ERROR: Checkpoint save failed: {e}")
+        success = False
+        metrics.publish_action_success_rate("spot_migration", 0.0)
         return {
             "statusCode": 500,
             "body": json.dumps({"error": "Checkpoint save failed", "details": str(e)})
@@ -516,6 +535,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if not new_instance_id:
         print("ERROR: Failed to acquire replacement instance")
+        success = False
+        metrics.publish_action_success_rate("spot_migration", 0.0)
         return {
             "statusCode": 500,
             "body": json.dumps({"error": "Failed to acquire replacement instance"})
@@ -525,10 +546,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # Step 3: Restore from checkpoint
     print(f"Step 3: Restoring from checkpoint")
-    success = restore_from_checkpoint(checkpoint_id, new_instance_id)
+    restore_success = restore_from_checkpoint(checkpoint_id, new_instance_id)
     
-    if not success:
+    if not restore_success:
         print("ERROR: Failed to restore from checkpoint")
+        success = False
+        metrics.publish_action_success_rate("spot_migration", 0.0)
         return {
             "statusCode": 500,
             "body": json.dumps({"error": "Failed to restore from checkpoint"})
@@ -563,12 +586,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "spot_cost": float(spot_cost),
             "ondemand_cost": float(ondemand_cost),
         },
-        "success": True,
+        "success": success,
         "ttl": ttl,
     })
     
     # Calculate total training cost
     total_costs = calculate_total_training_cost(training_job_id)
+    
+    # Publish CloudWatch metrics
+    metrics.publish_action_success_rate("spot_migration", 1.0 if success else 0.0)
+    print(f"Published success rate metric for spot_migration: {1.0 if success else 0.0}")
     
     return {
         "statusCode": 200,

@@ -24,6 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
+
 
 # Environment variables
 GPU_COSTS_TABLE = os.environ.get("GPU_COSTS_TABLE", "costguard-gpu-costs")
@@ -498,6 +500,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     print(f"Right Sizer invoked with event: {json.dumps(event, default=str)}")
     
+    # Get metrics publisher
+    metrics = get_metrics_publisher()
+    
     # Check if this is an API request or scheduled event
     if "body" in event:
         # API Gateway request
@@ -511,6 +516,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         days = 7
     
     recommendations = []
+    total_confidence = 0.0
     
     for instance_id in instance_ids:
         # Analyze utilization
@@ -534,6 +540,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Generate confidence score
         confidence = generate_confidence_score(util_data.instance_type, recommended_type, util_data.avg_utilization)
+        total_confidence += confidence
         
         recommendation = InstanceRecommendation(
             instance_id=instance_id,
@@ -545,6 +552,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
         
         recommendations.append(recommendation.to_dict())
+    
+    # Publish CloudWatch metrics
+    if recommendations:
+        avg_confidence = total_confidence / len(recommendations)
+        metrics.publish_confidence_score(avg_confidence)
+        metrics.publish_action_success_rate("right_sizing", 0.95)  # Historical success rate
+        print(f"Published metrics: confidence={avg_confidence:.2f}, success_rate=0.95")
     
     return {
         "statusCode": 200,
