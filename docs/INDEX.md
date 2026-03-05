@@ -47,6 +47,8 @@
 
 ### Submission
 - **[submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements (February 2026)**
+- **[HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md)** - 📋 **Official AWS 10,000 AIdeas Competition info - rules, prizes, timeline, requirements (8 days to article deadline)** - `hackathon` `competition` `AWS 10,000 AIdeas` `prizes` `timeline` `eligibility` `technical requirements` `Free Tier` `semi-finalist` `community voting` `expert review` `article deadline` `March 13 2026`
+- **[HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md)** - 🏆 **Complete winning strategy - article plan, community engagement, judging criteria, 8-day action plan** - `winning strategy` `competition strategy` `judging criteria` `innovation showcase` `technical depth` `community voting` `expert review` `article strategy` `demo strategy` `competitive positioning` `Innovation Award` `Global Champion` `Regional Champion` `8-day action plan`
 - **[submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)** - 📋 **Original submission form responses with game plan**
 - **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐⭐ **READY TO COPY - Submission-ready pitch (fill in [YOUR NAME] and submit)**
 - **[submission/SUBMISSION-GUIDE.md](./submission/SUBMISSION-GUIDE.md)** - 📋 **Step-by-step submission guide**
@@ -253,6 +255,11 @@
 - **...understand what makes us innovative** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **Deep technical innovations and future opportunities**
 - **...see what features to build next** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **10 prioritized innovation opportunities**
 - **...understand our differentiation** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **What makes CostGuard unique**
+- **...understand hackathon competition** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md) 📋 **Official competition rules, prizes, timeline**
+- **...develop winning strategy** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md) 🏆 **Complete strategy for winning**
+- **...prepare article submission** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#article-strategy-march-13-deadline) 📝 **Article structure and content plan**
+- **...understand judging criteria** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#what-judges-are-looking-for) 🎯 **Community voting and expert review criteria**
+- **...see competition timeline** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md#timeline) ⏰ **8 days to article deadline**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
 - **...understand Free Tier** → [technical/aws-services.md](./technical/aws-services.md)
@@ -299,6 +306,7 @@ Each documentation file includes keywords in its header. Search for:
 - **Phase 4:** AI advisor, conversational AI, natural language processing, NLP, query processing, intent classification, context management, response caching, proactive insights, anomaly detection, optimization suggestions, markdown formatting, conversation history, Bedrock Nova Lite
 - **Phase 6:** GPU costs, GPU tracking, workload classification, training workloads, inference workloads, idle GPUs, cost-per-inference, cost-per-training, spot instances, spot recommendations, SageMaker costs, Bedrock costs, token usage, ML optimization, AI workload costs, GPU utilization, GPU prevention, multi-account GPU, autonomous optimization, autonomous loops, autonomous action loops, GPU scheduling, spot management, right-sizing, learning engine, safety guard, confidence scoring, self-optimizing, automated optimization, cost reduction automation, AI-driven optimization, machine learning optimization, EventBridge scheduling, S3 checkpoints, SNS alerts, approval workflows, rollback capability, audit logging, demo mode, integration testing, 5-phase loop, analyze-decide-act-verify-learn
 - **Innovation & Differentiation:** innovation, innovative, differentiation, unique features, technical depth, competitive advantage, future opportunities, what makes us special, novel capabilities, deep dive, automation depth, integration depth, conversational AI + actions, safety system, real-time estimation
+- **Hackathon & Competition:** hackathon, competition, AWS 10,000 AIdeas, winning strategy, judging criteria, innovation showcase, technical depth showcase, community voting, expert review, article deadline, semi-finalist, Innovation Award, Global Champion, Regional Champion, prizes, timeline, eligibility, technical requirements, Free Tier compliance, Builder Center article, demo strategy, competitive positioning, 8-day action plan, March 13 2026, article submission, community engagement
 
 ## 📝 File Structure
 
