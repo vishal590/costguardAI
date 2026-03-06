@@ -121,7 +121,7 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 
 ### Features
 - Budget threshold monitoring (80% warning, 90% action)
-- Idle resource detection across 20+ AWS services
+- Idle resource detection across 22 AWS services (20 with idle detection)
 - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
 - Safety guards (tag-based protection, whitelists, active usage checks)
 - Approval workflows with 30-minute timeout
@@ -635,7 +635,7 @@ Free Tier Usage:
 
 ### Automated Prevention
 - ✅ Budget threshold monitoring
-- ✅ Idle resource detection (20+ services)
+- ✅ Idle resource detection (22 services: 20 with idle detection, 2 discovery-only)
 - ✅ Automated cost-saving actions
 - ✅ Safety guards and approval workflows
 - ✅ 24-hour rollback capability

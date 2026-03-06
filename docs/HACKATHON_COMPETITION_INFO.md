@@ -280,7 +280,7 @@ No. Applications are judged on innovation, efficiency, and practical impact—no
 - ✅ Original, new, and unpublished application
 - ✅ Complete documentation ready
 - ✅ Demo ready (autonomous loop in 5.26 seconds)
-- ✅ AWS services documented (20+ services)
+- ✅ AWS services documented (22 services: 20 with idle detection)
 - ✅ Resource optimization strategies implemented
 - ✅ Expected running costs calculated
 

@@ -89,7 +89,7 @@
 1. **Technical Depth** - 1,409 tests, property-based testing, 87% coverage
 2. **Novel Architecture** - 5-phase autonomous loop (Analyze→Decide→Act→Verify→Learn)
 3. **Production-Ready** - Fully deployed, not a prototype
-4. **AWS Service Integration** - 20+ AWS services, Bedrock, Nova, EventBridge
+4. **AWS Service Integration** - 22 AWS services (20 with idle detection), Bedrock, Nova, EventBridge
 5. **Kiro Usage** - Extensive use throughout development
 
 ### Stage 5: Final Voting (April 17-30)
@@ -198,7 +198,7 @@
 - Screenshots of dashboard and alerts
 
 **6. AWS Services Used**
-- List all 20+ services with brief rationale
+- List all 22 services with brief rationale (EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers, SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront)
 - Highlight Kiro usage throughout development
 - Emphasize Free Tier compliance
 - Show cost breakdown (~$4/month)

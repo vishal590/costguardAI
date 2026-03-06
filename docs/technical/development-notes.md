@@ -109,14 +109,14 @@
 
 ### January 2026 - Phase 3: Automated Cost Prevention
 **Status:** ✅ Completed  
-**Description:** Added automated cost prevention with budget monitoring, idle resource detection across 20+ services, and automated cost-saving actions. System monitors budgets every 5 minutes via EventBridge, detects idle resources, and takes action when 90% threshold is breached. Comprehensive safety mechanisms include tag-based protection, whitelists, approval workflows, and 24-hour rollback capability. Maintains full backward compatibility with Phase 1, 1.5, and 2.  
+**Description:** Added automated cost prevention with budget monitoring, idle resource detection across 22 AWS services (20 with idle detection), and automated cost-saving actions. System monitors budgets every 5 minutes via EventBridge, detects idle resources, and takes action when 90% threshold is breached. Comprehensive safety mechanisms include tag-based protection, whitelists, approval workflows, and 24-hour rollback capability. Maintains full backward compatibility with Phase 1, 1.5, and 2.  
 **Kiro Usage:** Used Kiro for 10 new service modules (Budget Monitor, Resource Manager, Idle Detector, Safety Guard, Action Executor, Approval Manager, Rollback Manager, Notification Service, Prevention Engine, EventBridge Scheduler), 6 new API endpoints, comprehensive property-based testing (15 properties), and infrastructure-as-code (CDK stack). Kiro generated 312 additional tests (724 total, 87%+ coverage). Approximately 70% of Phase 3 development used Kiro.  
-**AWS Services:** AWS Budgets, EventBridge, SNS (3 topics), Amazon DynamoDB (4 new tables), AWS Lambda, CloudWatch Metrics, EC2, RDS, Lambda, EBS, S3, DynamoDB, NAT Gateway, and 14+ more services  
+**AWS Services:** AWS Budgets, EventBridge, SNS (3 topics), Amazon DynamoDB (4 new tables), AWS Lambda, CloudWatch Metrics, and 22 AWS services for resource discovery (EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers, SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront)  
 **Free Tier Impact:** All services within Free Tier. AWS Budgets (2 free), EventBridge (free), SNS (~348 messages/month within 1M free tier), DynamoDB +100 MB storage (within 25 GB free tier), Lambda +8,640 invocations/month (within 1M free tier). Total additional cost: ~$0.00.  
 **Notes:**
 - Implemented 10 new core services for prevention workflow
 - Budget monitoring every 5 minutes via EventBridge (80% warning, 90% action thresholds)
-- Idle resource detection across 20+ AWS services with service-specific criteria
+- Idle resource detection across 22 AWS services (20 with idle detection) with service-specific criteria
 - Automated actions: stop EC2/RDS, limit Lambda concurrency, snapshot/delete EBS, switch DynamoDB billing, delete NAT gateways
 - Safety guards: tag-based protection, whitelists, active usage checks, dry run mode
 - Approval workflows with 30-minute timeout and SNS notifications

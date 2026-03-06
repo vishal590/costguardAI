@@ -7,7 +7,7 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
 ## Goals
 
 1. **Prevent Cost Overruns:** Automatically detect and respond to budget threshold breaches
-2. **Eliminate Waste:** Identify and remediate idle resources across 20+ AWS services
+2. **Eliminate Waste:** Identify and remediate idle resources across 22 AWS services (20 with idle detection)
 3. **Maintain Safety:** Comprehensive safety guards to prevent accidental disruption
 4. **Enable Rollback:** 24-hour rollback capability for all automated actions
 5. **Provide Visibility:** Complete audit trail and notification system
@@ -17,7 +17,7 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
 ### Components
 
 1. **Budget Monitor** - Polls AWS Budgets API every 5 minutes
-2. **Resource Manager** - Discovers resources across 20+ AWS services
+2. **Resource Manager** - Discovers resources across 22 AWS services
 3. **Idle Detector** - Detects idle resources using CloudWatch metrics
 4. **Safety Guard** - Validates actions against safety rules
 5. **Action Executor** - Executes prevention actions on resources
@@ -38,7 +38,7 @@ EventBridge (5 min) → Lambda → Prevention Engine
                                       ↓
                               Resource Manager
                                       ↓
-                          Discover Resources (20+ services)
+                          Discover Resources (22 services)
                                       ↓
                               Idle Detector
                                       ↓
@@ -77,15 +77,14 @@ EventBridge (5 min) → Lambda → Prevention Engine
 
 ### Resource Discovery
 
-- **Services Supported:** 20+ AWS services
-  - Compute: EC2, Lambda, ECS, EKS
-  - Database: RDS, DynamoDB, ElastiCache, Redshift
-  - Storage: EBS, S3
-  - Networking: NAT Gateway, Load Balancers
-  - Messaging: SNS, SQS
-  - Analytics: Kinesis, Elasticsearch
-  - CDN: CloudFront
-  - API: API Gateway
+- **Services Supported:** 22 AWS services (fully implemented)
+  - **Compute (4):** EC2, Lambda, ECS, EKS
+  - **Database (4):** RDS, DynamoDB, ElastiCache, Redshift
+  - **Storage (2):** EBS, S3
+  - **Networking (4):** NAT Gateway, Elastic IP, Application Load Balancer (ALB), Network Load Balancer (NLB), Classic Load Balancer (ELB)
+  - **Messaging (2):** SNS, SQS
+  - **Application (3):** API Gateway, Step Functions, CloudFront
+  - **Analytics (2):** Glue, SageMaker
 - **Metadata Collected:**
   - Resource ID, type, service, region
   - Tags, creation date, state
@@ -95,16 +94,31 @@ EventBridge (5 min) → Lambda → Prevention Engine
 
 ### Idle Detection
 
-Service-specific idle criteria:
+Service-specific idle criteria (20 services with idle detection):
 
 | Service | Idle Criteria | Duration |
 |---------|--------------|----------|
 | EC2 | CPU < 5% | 2 hours |
+| EC2 GPU | GPU < 10% | 2 hours |
 | RDS | Connections = 0 | 1 hour |
 | Lambda | Invocations = 0 | 24 hours |
 | EBS | Unattached | 7 days |
 | S3 | Requests = 0 | 30 days |
 | DynamoDB | Read/Write = 0 | 24 hours |
+| ElastiCache | CPU < 5% | 2 hours |
+| Redshift | Connections = 0 | 1 hour |
+| ECS | No running tasks | 2 hours |
+| EKS | No active pods | 2 hours |
+| NAT Gateway | Bytes processed = 0 | 1 hour |
+| Elastic IP | Unattached | 7 days |
+| Load Balancers (ALB/NLB/ELB) | Requests = 0 | 1 hour |
+| SNS | Messages published = 0 | 24 hours |
+| SQS | Messages sent = 0 | 24 hours |
+| API Gateway | Requests = 0 | 24 hours |
+| Step Functions | Executions = 0 | 24 hours |
+| Glue | No runs | 7 days |
+| SageMaker | Invocations = 0 | 24 hours |
+| CloudFront | Requests = 0 | 7 days |
 
 - **Configurable:** Per-service thresholds can be adjusted
 - **CloudWatch Integration:** Real-time metrics for detection
@@ -230,7 +244,7 @@ Three SNS topics for different notification types:
 
 Required permissions:
 - Budgets: `ViewBudget`, `DescribeBudget`
-- Resource Discovery: Read/describe for 20+ services
+- Resource Discovery: Read/describe for 22 services
 - CloudWatch: `GetMetricStatistics`, `GetMetricData`
 - Resource Management: Stop, start, delete, modify
 - SNS: `Publish`

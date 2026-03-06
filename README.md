@@ -43,7 +43,7 @@
 - **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
 - **Automated Cost Prevention (Phase 3):** Automatically detect and prevent cost overruns with:
   - Budget threshold monitoring (80% warning, 90% action)
-  - Idle resource detection across 20+ AWS services
+  - Idle resource detection across 22 AWS services (20 with idle detection)
   - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
   - Safety guards (tag-based protection, whitelists, active usage checks)
   - Approval workflows with 30-minute timeout
@@ -452,7 +452,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Features:**
 - Automatic budget monitoring every 5 minutes via EventBridge
-- Idle resource detection across 20+ AWS services (EC2, RDS, Lambda, EBS, S3, DynamoDB, etc.)
+- Idle resource detection across 22 AWS services: EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers (ALB/NLB/ELB), SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront (20 with idle detection)
 - Safety guards: tag-based protection, whitelists, active usage checks
 - Dry run mode for testing (enabled by default)
 - Approval workflows with 30-minute timeout
@@ -513,7 +513,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Features:**
 - Automatic budget monitoring every 5 minutes via EventBridge
-- Idle resource detection across 20+ AWS services (EC2, RDS, Lambda, EBS, S3, DynamoDB, etc.)
+- Idle resource detection across 22 AWS services: EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers (ALB/NLB/ELB), SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront (20 with idle detection)
 - Safety guards: tag-based protection, whitelists, active usage checks
 - Dry run mode for testing (enabled by default)
 - Approval workflows with 30-minute timeout

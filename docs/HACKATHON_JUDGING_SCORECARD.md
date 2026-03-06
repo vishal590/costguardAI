@@ -591,7 +591,7 @@
 - [ ] **Solution Overview:** Autonomous action loops (unique differentiator)
 - [ ] **Demo Video:** Show 5.26s autonomous loop execution
 - [ ] **Results:** 20-30% savings, 1,409 tests, 87% coverage
-- [ ] **AWS Services:** List all 20+ services with rationale
+- [ ] **AWS Services:** List all 22 services with rationale (EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers, SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront)
 - [ ] **Kiro Usage:** Highlight 70%+ usage throughout
 - [ ] **Free Tier:** Show $4/month cost breakdown
 - [ ] **Architecture Diagram:** 5-phase autonomous loop
@@ -605,7 +605,7 @@
 - [ ] **Market Impact:** 20-30% savings, $1K-1.5K/month for startups
 - [ ] **Scalability:** Serverless architecture, 30M+ SMBs
 - [ ] **Commercial Viability:** $10-100/month, 5-10x cheaper
-- [ ] **AWS Integration:** 20+ services, creative use of Bedrock
+- [ ] **AWS Integration:** 22 services (20 with idle detection), creative use of Bedrock
 - [ ] **Kiro Integration:** 70%+ usage, comprehensive examples
 
 ### For Final Voting (April 17-30)

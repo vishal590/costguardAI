@@ -2925,7 +2925,7 @@ The prevention system includes multiple safety mechanisms:
 
 ### Supported Services
 
-Phase 3 supports idle detection and automated actions for 20+ AWS services:
+Phase 3 supports idle detection and automated actions for 22 AWS services (20 with idle detection):
 
 - **Compute:** EC2, Lambda, ECS, EKS
 - **Database:** RDS, DynamoDB, ElastiCache, Redshift

@@ -121,7 +121,7 @@ From HACKATHON_COMPETITION_INFO.md:
 
 **Evidence:**
 - 70%+ Kiro usage for development
-- 20+ AWS services integrated
+- 22 AWS services integrated (20 with idle detection)
 - Creative use of Bedrock for action planning
 - Novel architecture (5-phase autonomous loop)
 
@@ -229,7 +229,7 @@ From HACKATHON_COMPETITION_INFO.md:
 - Amazon Nova Lite for forecasting
 - EventBridge for scheduling
 - Lambda for serverless execution
-- 20+ AWS services total
+- 22 AWS services total (20 with idle detection)
 
 **5. Free Tier Compliance (REQUIRED)**
 - $4/month total cost
@@ -273,7 +273,7 @@ From HACKATHON_COMPETITION_INFO.md:
 |-----------|-------|-----------|
 | **Breakthrough Implementation** | 10/10 | NO competitor has autonomous loops |
 | **Creative Problem-Solving** | 9/10 | Learning engine, safety guards, 5-phase loop |
-| **AWS Service Integration** | 9/10 | Bedrock, Nova, EventBridge, Lambda (20+ services) |
+| **AWS Service Integration** | 9/10 | Bedrock, Nova, EventBridge, Lambda (22 services: EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers, SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront) |
 | **Free Tier Compliance** | 10/10 | $4/month, well within limits |
 | **Production Quality** | 9/10 | 1,409 tests, 87% coverage |
 | **Measurable Impact** | 9/10 | 20-30% savings, 5.26s execution |
@@ -388,7 +388,7 @@ From HACKATHON_COMPETITION_INFO.md:
 1. Write article emphasizing autonomous action loops
 2. Create demo video showing 5.26s execution
 3. Prepare diagrams of 5-phase loop
-4. Document AWS service usage (20+ services)
+4. Document AWS service usage (22 services: list all with rationale)
 5. Show Free Tier compliance ($4/month breakdown)
 
 ---

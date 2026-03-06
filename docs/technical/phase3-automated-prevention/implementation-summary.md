@@ -33,8 +33,8 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
    - Decoupled from API requests for reliability
 
 3. **Multi-Service Support**
-   - 20+ AWS services supported for resource discovery
-   - Service-specific idle detection criteria
+   - 22 AWS services fully implemented for resource discovery
+   - 20 services with idle detection criteria
    - Extensible architecture for future services
 
 4. **Comprehensive Audit Trail**
@@ -54,19 +54,41 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
    - Fallback to Phase 1.5 cost estimates
 
 2. **Resource Manager** (`resource_manager.py`)
-   - Discovers resources across 20+ services
+   - Discovers resources across 22 AWS services:
+     - Compute: EC2, Lambda, ECS, EKS
+     - Database: RDS, DynamoDB, ElastiCache, Redshift
+     - Storage: EBS, S3
+     - Networking: NAT Gateway, Elastic IP, Load Balancers (ALB/NLB/ELB)
+     - Messaging: SNS, SQS
+     - Application: API Gateway, Step Functions, CloudFront
+     - Analytics: Glue, SageMaker
    - Retrieves metadata (tags, state, creation date)
    - Maintains inventory in DynamoDB
    - 15-minute refresh cycle
 
 3. **Idle Detector** (`idle_detector.py`)
-   - Service-specific idle criteria:
+   - Service-specific idle criteria for 20 services:
      - EC2: CPU < 5% for 2 hours
+     - EC2 GPU: GPU < 10% for 2 hours
      - RDS: Connections = 0 for 1 hour
      - Lambda: Invocations = 0 for 24 hours
      - EBS: Unattached for 7 days
      - S3: Requests = 0 for 30 days
      - DynamoDB: Read/Write = 0 for 24 hours
+     - ElastiCache: CPU < 5% for 2 hours
+     - Redshift: Connections = 0 for 1 hour
+     - ECS: No running tasks for 2 hours
+     - EKS: No active pods for 2 hours
+     - NAT Gateway: Bytes processed = 0 for 1 hour
+     - Elastic IP: Unattached for 7 days
+     - Load Balancers: Requests = 0 for 1 hour
+     - SNS: Messages published = 0 for 24 hours
+     - SQS: Messages sent = 0 for 24 hours
+     - API Gateway: Requests = 0 for 24 hours
+     - Step Functions: Executions = 0 for 24 hours
+     - Glue: No runs for 7 days
+     - SageMaker: Invocations = 0 for 24 hours
+     - CloudFront: Requests = 0 for 7 days
    - Configurable thresholds per service
 
 4. **Safety Guard** (`safety_guard.py`)
@@ -290,7 +312,7 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
 ### Resource Discovery
 
 - **Frequency:** Every 15 minutes (configurable)
-- **Duration:** 30-60 seconds for 20+ services
+- **Duration:** 30-60 seconds for 22 services
 - **Resources Tracked:** All discovered resources
 - **Inventory Size:** ~40 MB in DynamoDB
 

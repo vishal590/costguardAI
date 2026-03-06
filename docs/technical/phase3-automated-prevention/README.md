@@ -18,14 +18,14 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
 - **Budget Threshold Monitoring:** Automatic monitoring every 5 minutes via EventBridge
   - 80% threshold: Warning notifications
   - 90% threshold: Automated prevention actions
-- **Idle Resource Detection:** Detect idle resources across 20+ AWS services
-  - EC2: CPU < 5% for 2 hours
-  - RDS: Connections = 0 for 1 hour
-  - Lambda: Invocations = 0 for 24 hours
-  - EBS: Unattached for 7 days
-  - S3: Requests = 0 for 30 days
-  - DynamoDB: Read/Write = 0 for 24 hours
-  - And 14+ more services
+- **Idle Resource Detection:** Detect idle resources across 22 AWS services (20 with idle detection)
+  - **Compute:** EC2 (CPU < 5%), Lambda (no invocations), ECS (no tasks), EKS (no pods)
+  - **Database:** RDS (no connections), DynamoDB (no read/write), ElastiCache (CPU < 5%), Redshift (no connections)
+  - **Storage:** EBS (unattached), S3 (no requests)
+  - **Networking:** NAT Gateway (no traffic), Elastic IP (unattached), Load Balancers (no requests)
+  - **Messaging:** SNS (no messages), SQS (no messages)
+  - **Application:** API Gateway (no requests), Step Functions (no executions), CloudFront (no requests)
+  - **Analytics:** Glue (no runs), SageMaker (no invocations)
 - **Automated Cost-Saving Actions:**
   - Stop EC2 instances
   - Stop RDS databases
@@ -507,7 +507,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 ### Resource Discovery
 
 - **Frequency:** Every 15 minutes (configurable)
-- **Duration:** 30-60 seconds for 20+ services
+- **Duration:** 30-60 seconds for 22 services
 - **Inventory Size:** ~40 MB in DynamoDB
 
 ## Monitoring
