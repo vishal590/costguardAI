@@ -23,7 +23,11 @@ class InsightGenerator:
     def __init__(
         self,
         cost_explorer_client=None,
-        dynamodb_client=None
+        dynamodb_client=None,
+        resource_manager=None,
+        idle_detector=None,
+        budget_monitor=None,
+        budgets_client=None
     ):
         """
         Initialize insight generator.
@@ -31,9 +35,17 @@ class InsightGenerator:
         Args:
             cost_explorer_client: AWS Cost Explorer client
             dynamodb_client: DynamoDB client for forecast/prevention data
+            resource_manager: ResourceManager instance for Phase 3 integration
+            idle_detector: IdleDetector instance for Phase 3 integration
+            budget_monitor: BudgetMonitor instance for budget data
+            budgets_client: AWS Budgets client for budget queries
         """
         self.cost_explorer_client = cost_explorer_client
         self.dynamodb_client = dynamodb_client
+        self.resource_manager = resource_manager
+        self.idle_detector = idle_detector
+        self.budget_monitor = budget_monitor
+        self.budgets_client = budgets_client
         
         logger.info("InsightGenerator initialized")
     
@@ -197,7 +209,7 @@ class InsightGenerator:
     
     def suggest_optimizations(self, user_id: str) -> List[Insight]:
         """
-        Suggest cost optimization opportunities.
+        Suggest cost optimization opportunities based on Phase 3 idle detection.
         
         Args:
             user_id: User identifier
@@ -205,27 +217,84 @@ class InsightGenerator:
         Returns:
             List of optimization Insights
         """
-        # Placeholder: would integrate with Phase 3 idle detection
-        logger.info("Generating optimization suggestions")
+        logger.info("Generating optimization suggestions from Phase 3 idle detection")
         
         suggestions = []
         
-        # Example suggestion (would be data-driven in production)
-        suggestions.append(Insight(
-            insight_type="optimization",
-            title="Idle Resources Detected",
-            description="3 EC2 instances have been idle for >7 days. Consider stopping or terminating them to save ~$50/month.",
-            severity="info",
-            action_required=False,
-            related_services=["ec2"],
-            estimated_impact=50.0
-        ))
+        # Integrate with Phase 3 idle detection
+        if not self.resource_manager or not self.idle_detector:
+            logger.warning("Phase 3 components not available, returning empty suggestions")
+            return []
+        
+        try:
+            # Get resources from inventory
+            resources = self.resource_manager.discover_resources(
+                ["ec2", "rds", "lambda", "ebs", "dynamodb", "nat_gateway"]
+            )
+            
+            idle_resources_by_service = {}
+            total_estimated_savings = 0.0
+            
+            # Check each resource for idle status
+            for resource in resources:
+                try:
+                    metadata = self.resource_manager.get_resource_metadata(resource)
+                    idle_status = self.idle_detector.is_resource_idle(resource, metadata)
+                    
+                    if idle_status.is_idle and idle_status.idle_duration >= 7 * 24 * 60:  # At least 7 days
+                        service = resource.service
+                        if service not in idle_resources_by_service:
+                            idle_resources_by_service[service] = []
+                        
+                        # Estimate monthly savings (simplified: $0.10/hour per resource)
+                        estimated_monthly_savings = 0.10 * 24 * 30  # $72/month per resource
+                        total_estimated_savings += estimated_monthly_savings
+                        
+                        idle_resources_by_service[service].append({
+                            'resource_id': resource.resource_id,
+                            'idle_duration_days': idle_status.idle_duration / (24 * 60),
+                            'estimated_savings': estimated_monthly_savings
+                        })
+                        
+                except Exception as e:
+                    logger.debug(f"Failed to check idle status for {resource.resource_id}: {e}")
+                    continue
+            
+            # Create insights grouped by service
+            for service, idle_resources in idle_resources_by_service.items():
+                count = len(idle_resources)
+                service_savings = sum(r['estimated_savings'] for r in idle_resources)
+                avg_duration = sum(r['idle_duration_days'] for r in idle_resources) / count
+                
+                resource_list = ", ".join([r['resource_id'] for r in idle_resources[:5]])  # Show first 5
+                if count > 5:
+                    resource_list += f" and {count - 5} more"
+                
+                suggestions.append(Insight(
+                    insight_type="optimization",
+                    title=f"Idle {service.upper()} Resources Detected",
+                    description=f"{count} {service} resources have been idle for {avg_duration:.1f} days on average. "
+                               f"Resources: {resource_list}. Estimated savings: ${service_savings:.2f}/month if stopped.",
+                    severity="info" if count < 5 else "warning",
+                    action_required=count >= 5,
+                    related_services=[service],
+                    estimated_impact=service_savings
+                ))
+            
+            if suggestions:
+                logger.info(f"Generated {len(suggestions)} optimization suggestions for {sum(len(r) for r in idle_resources_by_service.values())} idle resources")
+            else:
+                logger.info("No idle resources found for optimization suggestions")
+                
+        except Exception as e:
+            logger.error(f"Error generating optimization suggestions: {e}")
+            # Return empty list on error rather than placeholder
         
         return suggestions
     
     def check_forecast_alerts(self, user_id: str) -> List[Insight]:
         """
-        Check forecasts for budget overrun predictions.
+        Check forecasts for budget overrun predictions using real budget data.
         
         Args:
             user_id: User identifier
@@ -255,26 +324,77 @@ class InsightGenerator:
             
             # Calculate forecasted monthly cost
             forecast_items = response.get('Items', [])
-            if forecast_items:
-                total_forecast = sum(
-                    float(item.get('predicted_cost', {}).get('N', 0))
-                    for item in forecast_items
-                )
+            if not forecast_items:
+                return []
+            
+            total_forecast = sum(
+                float(item.get('predicted_cost', {}).get('N', 0))
+                for item in forecast_items
+            )
+            
+            # Get real budget data from AWS Budgets or Phase 3
+            budget_limits = []
+            
+            # Try Phase 3 BudgetMonitor first
+            if self.budget_monitor:
+                try:
+                    threshold_events = self.budget_monitor.poll_budgets()
+                    for event in threshold_events:
+                        budget_status = event.budget_status
+                        budget_limits.append({
+                            'name': budget_status.budget_name,
+                            'limit': budget_status.limit,
+                            'currency': budget_status.currency
+                        })
+                except Exception as e:
+                    logger.debug(f"Failed to get budgets from BudgetMonitor: {e}")
+            
+            # Fallback to AWS Budgets API
+            if not budget_limits and self.budgets_client:
+                try:
+                    import boto3
+                    sts = boto3.client('sts')
+                    account_id = sts.get_caller_identity()['Account']
+                    
+                    budgets_response = self.budgets_client.describe_budgets(AccountId=account_id)
+                    for budget in budgets_response.get('Budgets', []):
+                        limit = float(budget['BudgetLimit']['Amount'])
+                        currency = budget['BudgetLimit']['Unit']
+                        budget_limits.append({
+                            'name': budget['BudgetName'],
+                            'limit': limit,
+                            'currency': currency
+                        })
+                except Exception as e:
+                    logger.debug(f"Failed to get budgets from AWS Budgets API: {e}")
+            
+            # Check forecast against each budget
+            for budget in budget_limits:
+                budget_limit = budget['limit']
+                budget_name = budget['name']
+                currency = budget.get('currency', 'USD')
                 
-                # Check against budget (placeholder: $100/month)
-                budget_limit = 100.0
+                # Convert forecast to monthly (30-day forecast assumed to be monthly)
+                monthly_forecast = total_forecast
                 
-                if total_forecast > budget_limit:
-                    overage = total_forecast - budget_limit
+                if monthly_forecast > budget_limit:
+                    overage = monthly_forecast - budget_limit
+                    overage_percent = (overage / budget_limit * 100) if budget_limit > 0 else 0
+                    
                     alerts.append(Insight(
                         insight_type="forecast_alert",
-                        title="Budget Overrun Predicted",
-                        description=f"Forecasted costs (${total_forecast:.2f}) exceed budget (${budget_limit:.2f}) by ${overage:.2f}.",
-                        severity="critical",
+                        title=f"Budget Overrun Predicted: {budget_name}",
+                        description=f"Forecasted costs (${monthly_forecast:.2f} {currency}) exceed budget "
+                                   f"(${budget_limit:.2f} {currency}) by ${overage:.2f} ({overage_percent:.1f}%).",
+                        severity="critical" if overage_percent > 20 else "warning",
                         action_required=True,
                         related_services=[],
                         estimated_impact=overage
                     ))
+            
+            # If no budgets found, log warning but don't create alert
+            if not budget_limits:
+                logger.warning("No budgets found - cannot check forecast overruns. Configure AWS Budgets or Phase 3 budget monitoring.")
             
             logger.info(f"Generated {len(alerts)} forecast alerts")
             return alerts

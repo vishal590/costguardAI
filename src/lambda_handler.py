@@ -1628,6 +1628,32 @@ def _get_advisor_engine() -> AdvisorEngine:
     # Initialize Bedrock Runtime client
     bedrock_runtime_client = boto3.client('bedrock-runtime')
     
+    # Initialize Phase 3 components for InsightGenerator integration
+    # Create AWS clients for Phase 3
+    aws_clients = {
+        'ec2': boto3.client('ec2'),
+        'rds': boto3.client('rds'),
+        'lambda': boto3.client('lambda'),
+        's3': boto3.client('s3'),
+        'dynamodb': boto3.client('dynamodb'),
+        'cloudwatch': boto3.client('cloudwatch'),
+        'budgets': boto3.client('budgets')
+    }
+    
+    resource_manager = ResourceManager(
+        aws_clients=aws_clients,
+        dynamodb_client=dynamodb_client
+    )
+    
+    idle_detector = IdleDetector(
+        cloudwatch_client=aws_clients.get('cloudwatch')
+    )
+    
+    budget_monitor = BudgetMonitor(
+        budgets_client=aws_clients.get('budgets'),
+        cost_estimator=None  # Could pass CostEstimator if needed
+    )
+    
     # Initialize Phase 4 components
     query_processor = QueryProcessor()
     context_manager = ContextManager(
@@ -1643,7 +1669,11 @@ def _get_advisor_engine() -> AdvisorEngine:
     )
     insight_generator = InsightGenerator(
         cost_explorer_client=None,
-        dynamodb_client=dynamodb_client
+        dynamodb_client=dynamodb_client,
+        resource_manager=resource_manager,
+        idle_detector=idle_detector,
+        budget_monitor=budget_monitor,
+        budgets_client=aws_clients.get('budgets')
     )
     
     # Create advisor engine
