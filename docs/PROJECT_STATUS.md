@@ -115,9 +115,15 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 
 ### Features
 - 7-30 day cost forecasts using Amazon Bedrock Nova Lite
-- 95% confidence intervals
+- Confidence intervals (95% when Bedrock provides, ±20% fallback otherwise)
+- Intelligent caching with adaptive TTL, persistent hit rate tracking, and cache warming
 - Forecast caching with DynamoDB
 - Service-specific and aggregate forecasts
+
+### Recent Updates (January 2026)
+- ✅ Completed intelligent caching: Adaptive TTL, persistent metrics, access tracking, cache warming
+- ✅ Fixed misleading claims: Clarified confidence intervals fallback behavior
+- ✅ All tests passing: 29/29 forecast cache tests (including 6 new intelligent caching tests)
 
 ### Metrics
 - **Tests:** 176 passing

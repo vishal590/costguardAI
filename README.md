@@ -40,7 +40,7 @@
 
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly). Uses efficient DynamoDB Query operations with partition-based access patterns for optimal performance.
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
-- **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
+- **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with confidence intervals (95% when Bedrock provides, ±20% fallback otherwise). Intelligent caching with adaptive TTL and persistent hit rate tracking.
 - **Automated Cost Prevention (Phase 3):** Automatically detect and prevent cost overruns with:
   - Budget threshold monitoring (80% warning, 90% action)
   - Idle resource detection across 22 AWS services (20 with idle detection)
@@ -411,7 +411,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Response includes:**
 - Predicted costs for each time period
-- 95% confidence intervals (upper/lower bounds)
+- Confidence intervals (95% when Bedrock provides, ±20% fallback otherwise)
 - Metadata (model used, cache status, historical data days)
 
 #### Phase 3: Automated Cost Prevention
