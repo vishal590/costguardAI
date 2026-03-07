@@ -22,7 +22,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 from autonomous.utils.time_manager import TimeManager
 from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
@@ -144,35 +144,30 @@ def analyze_cost_patterns(days: int) -> List[OptimizationWindow]:
     start_time = end_time - time_window
     
     # Query GPU cost data from DynamoDB
-    # In production, this would scan the workload-type-index GSI
-    # For now, we'll use a simplified query
-    
-    optimization_windows = []
-    
-    # Identify low-cost periods (simplified algorithm)
-    # In production, this would use more sophisticated pattern analysis
-    
-    # Example: Identify early morning hours (2-6 AM) as optimization windows
-    current_date = start_time.date()
-    end_date = end_time.date()
-    
-    while current_date <= end_date:
-        window_start = datetime.combine(current_date, datetime.min.time()).replace(hour=2)
-        window_end = datetime.combine(current_date, datetime.min.time()).replace(hour=6)
-        
-        # Only include future windows
-        if window_start > end_time:
-            window = OptimizationWindow(
-                window_start=window_start,
-                window_end=window_end,
-                avg_spot_price=0.294,  # Example price
-                price_stability=0.92,  # High stability
-                region="us-east-1",
-                instance_type="g4dn.xlarge",
+    try:
+        # Query GPU costs table for historical cost data
+        # Use scan with filter for date range (in production, would use GSI)
+        response = gpu_costs_table.scan(
+            FilterExpression=Attr('date').between(
+                start_time.strftime('%Y-%m-%d'),
+                end_time.strftime('%Y-%m-%d')
             )
-            optimization_windows.append(window)
+        )
         
-        current_date += timedelta(days=1)
+        cost_data = response.get('Items', [])
+        
+        # If no data in DynamoDB, query EC2 spot price history as fallback
+        if not cost_data:
+            cost_data = _get_spot_price_history_from_ec2(start_time, end_time)
+        
+        # Identify optimization windows from actual cost data
+        optimization_windows = identify_optimization_windows(cost_data)
+        
+    except Exception as e:
+        print(f"ERROR: Failed to query GPU cost data: {e}")
+        # Fallback: Use EC2 spot price history directly
+        cost_data = _get_spot_price_history_from_ec2(start_time, end_time)
+        optimization_windows = identify_optimization_windows(cost_data)
     
     # Add X-Ray tracing metadata
     trace_cost_analysis(days, len(optimization_windows))
@@ -182,7 +177,7 @@ def analyze_cost_patterns(days: int) -> List[OptimizationWindow]:
 
 def identify_optimization_windows(data: List[Dict[str, Any]]) -> List[OptimizationWindow]:
     """
-    Identify optimization windows from cost data.
+    Identify optimization windows from cost data using pattern analysis.
     
     Args:
         data: List of cost data points
@@ -190,14 +185,154 @@ def identify_optimization_windows(data: List[Dict[str, Any]]) -> List[Optimizati
     Returns:
         List of optimization windows
     """
-    # Simplified implementation
-    # In production, this would use clustering and pattern recognition
-    return []
+    if not data:
+        return []
+    
+    # Group cost data by hour of day to identify patterns
+    hourly_costs = {}
+    for item in data:
+        date_str = item.get('date', '')
+        if date_str:
+            try:
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                hour = dt.hour
+                cost = float(item.get('cost', 0))
+                
+                if hour not in hourly_costs:
+                    hourly_costs[hour] = []
+                hourly_costs[hour].append(cost)
+            except:
+                continue
+    
+    # Calculate average cost per hour
+    avg_hourly_costs = {}
+    for hour, costs in hourly_costs.items():
+        if costs:
+            avg_hourly_costs[hour] = sum(costs) / len(costs)
+    
+    if not avg_hourly_costs:
+        return []
+    
+    # Find hours with consistently low costs (bottom 25%)
+    sorted_hours = sorted(avg_hourly_costs.items(), key=lambda x: x[1])
+    low_cost_threshold = sorted_hours[len(sorted_hours) // 4][1] if len(sorted_hours) >= 4 else sorted_hours[0][1]
+    
+    # Identify contiguous low-cost periods (optimization windows)
+    low_cost_hours = [hour for hour, cost in avg_hourly_costs.items() if cost <= low_cost_threshold * 1.1]
+    low_cost_hours.sort()
+    
+    optimization_windows = []
+    current_date = datetime.utcnow().date()
+    
+    # Group contiguous hours into windows
+    if low_cost_hours:
+        window_start_hour = low_cost_hours[0]
+        window_end_hour = low_cost_hours[0]
+        
+        for i in range(1, len(low_cost_hours)):
+            if low_cost_hours[i] == low_cost_hours[i-1] + 1:
+                window_end_hour = low_cost_hours[i]
+            else:
+                # Create window for this contiguous period
+                if window_end_hour - window_start_hour >= 2:  # At least 2 hours
+                    window_start = datetime.combine(current_date, datetime.min.time()).replace(hour=window_start_hour)
+                    window_end = datetime.combine(current_date, datetime.min.time()).replace(hour=window_end_hour + 1)
+                    
+                    # Calculate average spot price for this window
+                    window_costs = [avg_hourly_costs[h] for h in range(window_start_hour, window_end_hour + 1) if h in avg_hourly_costs]
+                    avg_price = sum(window_costs) / len(window_costs) if window_costs else 0.3
+                    
+                    # Calculate price stability (coefficient of variation)
+                    if len(window_costs) > 1:
+                        mean_cost = sum(window_costs) / len(window_costs)
+                        variance = sum((c - mean_cost) ** 2 for c in window_costs) / len(window_costs)
+                        std_dev = variance ** 0.5
+                        cv = std_dev / mean_cost if mean_cost > 0 else 1.0
+                        stability = max(0.0, 1.0 - cv)  # Higher stability = lower variation
+                    else:
+                        stability = 0.9
+                    
+                    # Get instance type and region from data if available
+                    instance_type = data[0].get('instance_type', 'g4dn.xlarge') if data else 'g4dn.xlarge'
+                    region = data[0].get('region', 'us-east-1') if data else 'us-east-1'
+                    
+                    window = OptimizationWindow(
+                        window_start=window_start,
+                        window_end=window_end,
+                        avg_spot_price=avg_price,
+                        price_stability=stability,
+                        region=region,
+                        instance_type=instance_type,
+                    )
+                    optimization_windows.append(window)
+                
+                window_start_hour = low_cost_hours[i]
+                window_end_hour = low_cost_hours[i]
+        
+        # Add final window
+        if window_end_hour - window_start_hour >= 2:
+            window_start = datetime.combine(current_date, datetime.min.time()).replace(hour=window_start_hour)
+            window_end = datetime.combine(current_date, datetime.min.time()).replace(hour=window_end_hour + 1)
+            
+            window_costs = [avg_hourly_costs[h] for h in range(window_start_hour, window_end_hour + 1) if h in avg_hourly_costs]
+            avg_price = sum(window_costs) / len(window_costs) if window_costs else 0.3
+            
+            if len(window_costs) > 1:
+                mean_cost = sum(window_costs) / len(window_costs)
+                variance = sum((c - mean_cost) ** 2 for c in window_costs) / len(window_costs)
+                std_dev = variance ** 0.5
+                cv = std_dev / mean_cost if mean_cost > 0 else 1.0
+                stability = max(0.0, 1.0 - cv)
+            else:
+                stability = 0.9
+            
+            instance_type = data[0].get('instance_type', 'g4dn.xlarge') if data else 'g4dn.xlarge'
+            region = data[0].get('region', 'us-east-1') if data else 'us-east-1'
+            
+            window = OptimizationWindow(
+                window_start=window_start,
+                window_end=window_end,
+                avg_spot_price=avg_price,
+                price_stability=stability,
+                region=region,
+                instance_type=instance_type,
+            )
+            optimization_windows.append(window)
+    
+    return optimization_windows
+
+
+def _get_spot_price_history_from_ec2(start_time: datetime, end_time: datetime) -> List[Dict[str, Any]]:
+    """Get spot price history from EC2 API as fallback."""
+    try:
+        # Query EC2 spot price history
+        response = ec2_client.describe_spot_price_history(
+            InstanceTypes=['g4dn.xlarge', 'g4dn.2xlarge', 'g4dn.4xlarge'],
+            ProductDescriptions=['Linux/UNIX'],
+            StartTime=start_time,
+            EndTime=end_time,
+            MaxResults=1000
+        )
+        
+        # Convert to cost data format
+        cost_data = []
+        for price_history in response.get('SpotPriceHistory', []):
+            cost_data.append({
+                'date': price_history['Timestamp'].strftime('%Y-%m-%d'),
+                'cost': float(price_history['SpotPrice']),
+                'instance_type': price_history['InstanceType'],
+                'region': price_history['AvailabilityZone'][:-1]  # Remove AZ suffix
+            })
+        
+        return cost_data
+    except Exception as e:
+        print(f"ERROR: Failed to get spot price history: {e}")
+        return []
 
 
 def calculate_pattern_stability(window: OptimizationWindow) -> float:
     """
-    Calculate pattern stability for an optimization window.
+    Calculate pattern stability for an optimization window using coefficient of variation.
     
     Args:
         window: Optimization window to analyze
@@ -205,9 +340,46 @@ def calculate_pattern_stability(window: OptimizationWindow) -> float:
     Returns:
         Stability score between 0.0 and 1.0
     """
-    # Simplified implementation
-    # In production, this would calculate coefficient of variation
-    return window.price_stability
+    # Query historical spot prices for this window across multiple days
+    try:
+        # Get spot prices for this time window over the last 7 days
+        historical_prices = []
+        for day_offset in range(7):
+            check_date = window.window_start - timedelta(days=day_offset)
+            check_end = window.window_end - timedelta(days=day_offset)
+            
+            try:
+                response = ec2_client.describe_spot_price_history(
+                    InstanceTypes=[window.instance_type],
+                    ProductDescriptions=['Linux/UNIX'],
+                    StartTime=check_date,
+                    EndTime=check_end,
+                    MaxResults=100
+                )
+                
+                for price_history in response.get('SpotPriceHistory', []):
+                    historical_prices.append(float(price_history['SpotPrice']))
+            except:
+                continue
+        
+        if len(historical_prices) < 2:
+            # Fallback to window's stored stability
+            return window.price_stability
+        
+        # Calculate coefficient of variation
+        mean_price = sum(historical_prices) / len(historical_prices)
+        variance = sum((p - mean_price) ** 2 for p in historical_prices) / len(historical_prices)
+        std_dev = variance ** 0.5
+        cv = std_dev / mean_price if mean_price > 0 else 1.0
+        
+        # Convert to stability score (lower CV = higher stability)
+        stability = max(0.0, 1.0 - cv)
+        return stability
+        
+    except Exception as e:
+        print(f"ERROR: Failed to calculate pattern stability: {e}")
+        # Fallback to window's stored stability
+        return window.price_stability
 
 
 def calculate_confidence_score(window: OptimizationWindow) -> float:
@@ -265,7 +437,7 @@ def should_recommend_spot(savings_percent: float) -> bool:
 
 def check_spot_availability(region: str, instance_type: str = "g4dn.xlarge") -> float:
     """
-    Check spot instance availability in region.
+    Check spot instance availability in region using EC2 API.
     
     Args:
         region: AWS region
@@ -274,9 +446,38 @@ def check_spot_availability(region: str, instance_type: str = "g4dn.xlarge") -> 
     Returns:
         Availability percentage (0.0 to 1.0)
     """
-    # Simplified implementation
-    # In production, this would query EC2 spot instance availability
-    return 0.85  # 85% availability
+    try:
+        # Query spot price history to infer availability
+        # If we can get recent spot prices, the instance is likely available
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(hours=1)
+        
+        response = ec2_client.describe_spot_price_history(
+            InstanceTypes=[instance_type],
+            ProductDescriptions=['Linux/UNIX'],
+            StartTime=start_time,
+            EndTime=end_time,
+            MaxResults=10
+        )
+        
+        # If we got recent prices, assume availability
+        if response.get('SpotPriceHistory'):
+            # Check multiple availability zones
+            azs = set()
+            for price_history in response['SpotPriceHistory']:
+                if price_history['AvailabilityZone'].startswith(region):
+                    azs.add(price_history['AvailabilityZone'])
+            
+            # Availability is proportional to number of AZs with prices
+            # Assume 3 AZs per region, so 3 AZs = 100% availability
+            availability = min(1.0, len(azs) / 3.0)
+            return max(0.5, availability)  # Minimum 50% if we got any prices
+        
+        return 0.5  # Default if no recent prices
+        
+    except Exception as e:
+        print(f"ERROR: Failed to check spot availability: {e}")
+        return 0.5  # Default availability on error
 
 
 def generate_recommendation(window: OptimizationWindow) -> Optional[ScheduleRecommendation]:

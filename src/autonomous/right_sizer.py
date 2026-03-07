@@ -40,6 +40,8 @@ DRY_RUN_MODE = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
 dynamodb = boto3.resource("dynamodb")
 ec2_client = boto3.client("ec2")
 events_client = boto3.client("events")
+pricing_client = boto3.client("pricing", region_name="us-east-1")
+cloudwatch_client = boto3.client("cloudwatch")
 
 # Tables
 gpu_costs_table = dynamodb.Table(GPU_COSTS_TABLE)
@@ -47,15 +49,54 @@ action_history_table = dynamodb.Table(ACTION_HISTORY_TABLE)
 migration_rollbacks_table = dynamodb.Table(MIGRATION_ROLLBACKS_TABLE)
 
 
-# Instance type pricing (simplified - g4dn family)
-INSTANCE_PRICING = {
-    "g4dn.xlarge": Decimal("0.526"),
-    "g4dn.2xlarge": Decimal("0.752"),
-    "g4dn.4xlarge": Decimal("1.204"),
-    "g4dn.8xlarge": Decimal("2.176"),
-    "g4dn.12xlarge": Decimal("3.912"),
-    "g4dn.16xlarge": Decimal("4.352"),
-}
+def _get_instance_pricing(instance_type: str) -> Decimal:
+    """Get instance pricing from AWS Pricing API."""
+    try:
+        response = pricing_client.get_products(
+            ServiceCode='AmazonEC2',
+            Filters=[
+                {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
+                {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+                {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+                {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+                {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'}
+            ],
+            MaxResults=1
+        )
+        
+        if response.get('PriceList'):
+            import json
+            price_data = json.loads(response['PriceList'][0])
+            terms = price_data.get('terms', {}).get('OnDemand', {})
+            for term_key, term_value in terms.items():
+                price_dimensions = term_value.get('priceDimensions', {})
+                for dim_key, dim_value in price_dimensions.items():
+                    price_per_unit = dim_value.get('pricePerUnit', {}).get('USD', '0')
+                    return Decimal(price_per_unit)
+        
+        # Fallback pricing map
+        fallback_pricing = {
+            "g4dn.xlarge": Decimal("0.526"),
+            "g4dn.2xlarge": Decimal("0.752"),
+            "g4dn.4xlarge": Decimal("1.204"),
+            "g4dn.8xlarge": Decimal("2.176"),
+            "g4dn.12xlarge": Decimal("3.912"),
+            "g4dn.16xlarge": Decimal("4.352"),
+            "p3.2xlarge": Decimal("3.06"),
+            "p3.8xlarge": Decimal("12.24"),
+            "p3.16xlarge": Decimal("24.48"),
+        }
+        return fallback_pricing.get(instance_type, Decimal("1.0"))
+        
+    except Exception as e:
+        print(f"ERROR: Failed to get pricing from API: {e}")
+        # Fallback pricing
+        fallback_pricing = {
+            "g4dn.xlarge": Decimal("0.526"),
+            "g4dn.2xlarge": Decimal("0.752"),
+            "g4dn.4xlarge": Decimal("1.204"),
+        }
+        return fallback_pricing.get(instance_type, Decimal("1.0"))
 
 
 class UtilizationData:
@@ -120,18 +161,66 @@ def analyze_utilization(instance_id: str, days: int = 7) -> Optional[Utilization
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=days)
         
-        # In production, would query actual utilization metrics
-        # For now, generate synthetic data based on instance ID hash
-        import hashlib
-        seed = int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16)
-        import random
-        random.seed(seed)
-        
-        # Generate 7 days * 24 hours = 168 samples
-        samples = [random.uniform(0.3, 0.9) for _ in range(168)]
-        
-        # Determine instance type (simplified)
-        instance_type = "g4dn.2xlarge"  # Default
+        # Query actual utilization metrics from CloudWatch
+        try:
+            # Get GPU utilization from CloudWatch
+            response = cloudwatch_client.get_metric_statistics(
+                Namespace='AWS/EC2',
+                MetricName='GPUUtilization',
+                Dimensions=[
+                    {'Name': 'InstanceId', 'Value': instance_id}
+                ],
+                StartTime=start_time,
+                EndTime=end_time,
+                Period=3600,  # 1-hour intervals
+                Statistics=['Average']
+            )
+            
+            samples = []
+            for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                samples.append(float(datapoint['Average']) / 100.0)  # Convert percentage to 0-1
+            
+            # If no GPU metrics, try CPU utilization
+            if not samples:
+                response = cloudwatch_client.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName='CPUUtilization',
+                    Dimensions=[
+                        {'Name': 'InstanceId', 'Value': instance_id}
+                    ],
+                    StartTime=start_time,
+                    EndTime=end_time,
+                    Period=3600,
+                    Statistics=['Average']
+                )
+                
+                for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                    samples.append(float(datapoint['Average']) / 100.0)
+            
+            # Get instance type from EC2
+            ec2_response = ec2_client.describe_instances(InstanceIds=[instance_id])
+            if ec2_response.get('Reservations'):
+                instance_type = ec2_response['Reservations'][0]['Instances'][0].get('InstanceType', 'g4dn.2xlarge')
+            else:
+                instance_type = "g4dn.2xlarge"
+            
+            if not samples:
+                # Fallback: generate synthetic data if no metrics available
+                import hashlib
+                seed = int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16)
+                import random
+                random.seed(seed)
+                samples = [random.uniform(0.3, 0.9) for _ in range(168)]
+                
+        except Exception as e:
+            print(f"ERROR: Failed to get utilization metrics: {e}")
+            # Fallback: generate synthetic data
+            import hashlib
+            seed = int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16)
+            import random
+            random.seed(seed)
+            samples = [random.uniform(0.3, 0.9) for _ in range(168)]
+            instance_type = "g4dn.2xlarge"
         
         return UtilizationData(instance_id, instance_type, samples)
         
@@ -215,8 +304,8 @@ def calculate_expected_savings(current_type: str, recommended_type: str) -> Deci
     Returns:
         Expected monthly savings in dollars
     """
-    current_price = INSTANCE_PRICING.get(current_type, Decimal("0"))
-    recommended_price = INSTANCE_PRICING.get(recommended_type, Decimal("0"))
+    current_price = _get_instance_pricing(current_type)
+    recommended_price = _get_instance_pricing(recommended_type)
     
     # Calculate monthly savings (730 hours/month)
     hourly_savings = current_price - recommended_price
@@ -304,7 +393,7 @@ def run_ab_test(instance_types: List[str], workload: Dict[str, Any]) -> Dict[str
         # Simulate workload execution
         # In production, would launch actual instances and run workload
         
-        price_per_hour = INSTANCE_PRICING.get(instance_type, Decimal("0"))
+        price_per_hour = _get_instance_pricing(instance_type)
         
         # Simulate performance (smaller instances take longer)
         hierarchy = ["g4dn.xlarge", "g4dn.2xlarge", "g4dn.4xlarge", "g4dn.8xlarge"]

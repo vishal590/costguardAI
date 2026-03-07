@@ -48,6 +48,7 @@ APPROVAL_REQUIRED_FOR_ONDEMAND = os.environ.get("APPROVAL_REQUIRED_FOR_ONDEMAND"
 dynamodb = boto3.resource("dynamodb")
 s3_client = boto3.client("s3")
 ec2_client = boto3.client("ec2")
+pricing_client = boto3.client("pricing", region_name="us-east-1")
 events_client = boto3.client("events")
 
 # Tables
@@ -355,10 +356,25 @@ def check_spot_availability(region: str, instance_type: str) -> bool:
     Returns:
         True if spot instances available
     """
-    # Simplified implementation
-    # In production, would query EC2 spot instance availability
-    import random
-    return random.random() > 0.5  # 50% chance
+    try:
+        # Query EC2 spot price history to check availability
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(hours=1)
+        
+        response = ec2_client.describe_spot_price_history(
+            InstanceTypes=[instance_type],
+            ProductDescriptions=['Linux/UNIX'],
+            StartTime=start_time,
+            EndTime=end_time,
+            MaxResults=10
+        )
+        
+        # If we got recent spot prices, instance is available
+        return len(response.get('SpotPriceHistory', [])) > 0
+        
+    except Exception as e:
+        print(f"ERROR: Failed to check spot availability: {e}")
+        return False
 
 
 def request_ondemand_approval(training_job_id: str, instance_type: str, region: str) -> bool:
@@ -415,10 +431,35 @@ def track_spot_cost(instance_id: str, duration_hours: float) -> Decimal:
     Returns:
         Cost in dollars
     """
-    # Simplified pricing (g4dn.xlarge spot ~$0.294/hour)
-    spot_price_per_hour = Decimal("0.294")
-    cost = spot_price_per_hour * Decimal(str(duration_hours))
-    return cost
+    try:
+        # Get instance type from EC2 API
+        ec2_response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        instance_type = 'g4dn.xlarge'  # Default
+        if ec2_response.get('Reservations'):
+            instance_type = ec2_response['Reservations'][0]['Instances'][0].get('InstanceType', 'g4dn.xlarge')
+        
+        # Get actual spot price from EC2 API
+        response = ec2_client.describe_spot_price_history(
+            InstanceTypes=[instance_type],
+            ProductDescriptions=['Linux/UNIX'],
+            MaxResults=1
+        )
+        
+        if response.get('SpotPriceHistory'):
+            spot_price = float(response['SpotPriceHistory'][0]['SpotPrice'])
+        else:
+            # Fallback: estimate 60% of on-demand price
+            on_demand_price = _get_ondemand_price_from_pricing_api(instance_type)
+            spot_price = on_demand_price * 0.6
+        
+        cost = Decimal(str(spot_price)) * Decimal(str(duration_hours))
+        return cost
+        
+    except Exception as e:
+        print(f"ERROR: Failed to track spot cost: {e}")
+        # Fallback to simplified pricing
+        spot_price_per_hour = Decimal("0.294")
+        return spot_price_per_hour * Decimal(str(duration_hours))
 
 
 def track_ondemand_cost(instance_id: str, duration_hours: float) -> Decimal:
@@ -432,10 +473,18 @@ def track_ondemand_cost(instance_id: str, duration_hours: float) -> Decimal:
     Returns:
         Cost in dollars
     """
-    # Simplified pricing (g4dn.xlarge on-demand $0.526/hour)
-    ondemand_price_per_hour = Decimal("0.526")
-    cost = ondemand_price_per_hour * Decimal(str(duration_hours))
-    return cost
+    try:
+        # Get actual on-demand price from Pricing API
+        instance_type = instance_id.split('.')[0] if '.' in instance_id else 'g4dn.xlarge'
+        ondemand_price_per_hour = _get_ondemand_price_from_pricing_api(instance_type)
+        cost = Decimal(str(ondemand_price_per_hour)) * Decimal(str(duration_hours))
+        return cost
+        
+    except Exception as e:
+        print(f"ERROR: Failed to track on-demand cost: {e}")
+        # Fallback to simplified pricing
+        ondemand_price_per_hour = Decimal("0.526")
+        return ondemand_price_per_hour * Decimal(str(duration_hours))
 
 
 def calculate_total_training_cost(training_job_id: str) -> Dict[str, Decimal]:

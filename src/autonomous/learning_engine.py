@@ -267,8 +267,18 @@ def generate_confidence_score(action_type: str, parameters: Dict[str, Any]) -> f
         # Base confidence on success rate
         confidence = success_rate
         
-        # Adjust based on parameter similarity (simplified)
-        # In production, would analyze parameter patterns
+        # Adjust based on parameter similarity
+        # Calculate similarity score between current parameters and historical successful parameters
+        try:
+            historical_actions = query_historical_actions(action_type, limit=100)
+            similar_actions = _find_similar_actions(action_type, parameters, historical_actions)
+            if similar_actions:
+                similar_success_rate = sum(1 for a in similar_actions if a.get("success", False)) / len(similar_actions)
+                # Weight confidence by similarity
+                confidence = (confidence * 0.7) + (similar_success_rate * 0.3)
+        except Exception:
+            # If similarity calculation fails, use base confidence
+            pass
         
         # Ensure valid range
         confidence = max(0.0, min(1.0, confidence))
