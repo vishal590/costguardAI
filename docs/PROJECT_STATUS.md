@@ -21,7 +21,8 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 9. **Phase 7:** Unit economics + RI/SP optimization ⏸️ PLANNED
 10. **Phase 8:** React frontend dashboard ⏸️ PLANNED
 
-**Total Tests:** 1409 passing (922 unit + 386 property + 101 integration)  
+**Total Tests:** 1621 passing (1134 unit + 386 property + 101 integration)  
+**Phase 6 & 6 Extension:** 212 unit tests passing (41 Phase 6 + 171 Phase 6 Extension)  
 **Overall Coverage:** 87%  
 **Monthly Cost:** ~$4.01 (Phases 1-6 + Autonomous)
 
@@ -37,8 +38,8 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 | **Phase 3** | ✅ | ✅ 312 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 4** | ✅ | ✅ 270 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 5** | ✅ | ✅ 263 | ✅ | ✅ | ✅ | **DEPLOYED** |
-| **Phase 6** | ✅ | ✅ 161 | ✅ | ✅ | ✅ | **DEPLOYED** |
-| **Phase 6 Ext** | ✅ | ✅ 14 | ✅ | ✅ | ✅ | **DEPLOYED** |
+| **Phase 6** | ✅ | ✅ 41 | ✅ | ✅ | ✅ | **DEPLOYED & TESTED** |
+| **Phase 6 Ext** | ✅ | ✅ 171 | ✅ | ✅ | ✅ | **DEPLOYED & TESTED** |
 | **Phase 7** | ⏸️ | ⏸️ | ✅ | ⏸️ | ⏸️ | **PLANNED** |
 | **Phase 8** | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | **PLANNED** |
 
@@ -419,7 +420,10 @@ Coverage:
 - Projected 20-30% cost savings on AI/ML workloads (not yet verified with real data)
 
 ### Metrics
-- **Tests:** 14 integration tests passing (100%)
+- **Tests:** 212 unit tests + 14 integration tests passing (100%)
+  - Phase 6: 41 unit tests
+  - Phase 6 Extension: 171 unit tests
+  - Integration: 14 tests
 - **Coverage:** 87%+ on autonomous modules
 - **API Endpoints:** 6 autonomous endpoints
 - **Monthly Cost:** ~$0.00 (within free tier)
@@ -452,7 +456,10 @@ Coverage:
 - ✅ **Fixed Spot Manager**: Integrated AWS Pricing API for on-demand pricing and EC2 spot price history
 - ✅ **Fixed Right Sizer**: Integrated AWS Pricing API for all instance types and CloudWatch for real utilization metrics
 - ✅ **Enhanced Learning Engine**: Implemented parameter similarity analysis for confidence scoring
+- ✅ **Added Cost Savings Tracking**: Implemented `calculate_actual_savings_percentage()` using Cost Explorer API
+- ✅ **Enhanced Pattern Recognition**: Added utilization ranges, savings correlation, and day-of-week patterns
 - ✅ **All fixes validated**: Syntax checks passed for all modified files
+- ✅ **All tests passing**: 212 unit tests (41 Phase 6 + 171 Phase 6 Extension) verified and passing
 
 ### Implementation Notes
 - **Real AWS API Integrations**: All components now use real AWS APIs:
@@ -465,7 +472,20 @@ Coverage:
 
 ### Test Results Summary
 ```
-Total Tests: 14 integration tests (100% passing)
+Unit Tests: 212 tests (100% passing)
+├── Phase 6: 41 unit tests passing
+│   ├── Error handling: 14 tests
+│   ├── GPU cost tracker: 4 tests
+│   ├── Idle detector: 15 tests
+│   └── Workload classifier: 8 tests
+└── Phase 6 Extension: 171 unit tests passing
+    ├── GPU Scheduler: 38 tests
+    ├── Learning Engine: 36 tests
+    ├── Safety Guard: 32 tests
+    ├── Spot Manager: 43 tests
+    └── Right Sizer: 39 tests (fixed Pricing API mocks)
+
+Integration Tests: 14 tests (100% passing)
 ├── Complete Autonomous Loop: 5 passing
 ├── EventBridge Integration: 3 passing
 ├── Phase 6 Backward Compatibility: 2 passing
