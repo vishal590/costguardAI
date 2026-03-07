@@ -312,7 +312,47 @@ class TestOptimizationSuggestions:
     
     def test_suggest_optimizations(self):
         """Test optimization suggestion generation."""
-        generator = InsightGenerator()
+        from src.utils.types import Resource, ResourceMetadata, IdleStatus
+        
+        # Mock Phase 3 components
+        resource_manager_mock = Mock()
+        idle_detector_mock = Mock()
+        
+        # Create mock idle resources
+        mock_resource = Resource(
+            resource_id="i-1234567890abcdef0",
+            resource_type="instance",
+            service="ec2",
+            region="us-east-1",
+            tags={},
+            state="running",
+            creation_date="2025-01-01T00:00:00Z"
+        )
+        
+        mock_metadata = ResourceMetadata(
+            resource=mock_resource,
+            cost_per_hour=0.10,
+            last_activity="2025-01-01T00:00:00Z",
+            metrics={}
+        )
+        
+        mock_idle_status = IdleStatus(
+            resource_id="i-1234567890abcdef0",
+            is_idle=True,
+            idle_duration=10 * 24 * 60,  # 10 days in minutes
+            metrics_used={"cpu_utilization": 2.5},
+            confidence=0.95
+        )
+        
+        # Setup mocks
+        resource_manager_mock.discover_resources.return_value = [mock_resource]
+        resource_manager_mock.get_resource_metadata.return_value = mock_metadata
+        idle_detector_mock.is_resource_idle.return_value = mock_idle_status
+        
+        generator = InsightGenerator(
+            resource_manager=resource_manager_mock,
+            idle_detector=idle_detector_mock
+        )
         
         result = generator.suggest_optimizations("user123")
         
@@ -323,7 +363,47 @@ class TestOptimizationSuggestions:
     
     def test_suggest_optimizations_structure(self):
         """Test optimization suggestion structure."""
-        generator = InsightGenerator()
+        from src.utils.types import Resource, ResourceMetadata, IdleStatus
+        
+        # Mock Phase 3 components
+        resource_manager_mock = Mock()
+        idle_detector_mock = Mock()
+        
+        # Create mock idle resources
+        mock_resource = Resource(
+            resource_id="i-1234567890abcdef0",
+            resource_type="instance",
+            service="ec2",
+            region="us-east-1",
+            tags={},
+            state="running",
+            creation_date="2025-01-01T00:00:00Z"
+        )
+        
+        mock_metadata = ResourceMetadata(
+            resource=mock_resource,
+            cost_per_hour=0.10,
+            last_activity="2025-01-01T00:00:00Z",
+            metrics={}
+        )
+        
+        mock_idle_status = IdleStatus(
+            resource_id="i-1234567890abcdef0",
+            is_idle=True,
+            idle_duration=10 * 24 * 60,  # 10 days in minutes
+            metrics_used={"cpu_utilization": 2.5},
+            confidence=0.95
+        )
+        
+        # Setup mocks
+        resource_manager_mock.discover_resources.return_value = [mock_resource]
+        resource_manager_mock.get_resource_metadata.return_value = mock_metadata
+        idle_detector_mock.is_resource_idle.return_value = mock_idle_status
+        
+        generator = InsightGenerator(
+            resource_manager=resource_manager_mock,
+            idle_detector=idle_detector_mock
+        )
         
         result = generator.suggest_optimizations("user123")
         
@@ -367,7 +447,10 @@ class TestForecastAlerts:
     
     def test_check_forecast_alerts_with_overrun(self):
         """Test forecast alerts with budget overrun."""
+        from src.utils.types import BudgetStatus, ThresholdEvent
+        
         dynamodb_mock = Mock()
+        budget_monitor_mock = Mock()
         
         # Mock forecast data over budget
         dynamodb_mock.query.return_value = {
@@ -377,7 +460,31 @@ class TestForecastAlerts:
             ]
         }
         
-        generator = InsightGenerator(dynamodb_client=dynamodb_mock)
+        # Mock budget data (100/month budget, forecast is 150)
+        mock_budget_status = BudgetStatus(
+            budget_name="test-budget",
+            limit=100.0,
+            actual_spend=0.0,
+            forecasted_spend=0.0,
+            utilization_percent=0.0,
+            currency="USD",
+            time_period="current"
+        )
+        
+        mock_threshold_event = ThresholdEvent(
+            budget_name="test-budget",
+            threshold_type="warning",
+            utilization_percent=0.0,
+            timestamp="2025-01-01T00:00:00Z",
+            budget_status=mock_budget_status
+        )
+        
+        budget_monitor_mock.poll_budgets.return_value = [mock_threshold_event]
+        
+        generator = InsightGenerator(
+            dynamodb_client=dynamodb_mock,
+            budget_monitor=budget_monitor_mock
+        )
         
         result = generator.check_forecast_alerts("user123")
         
@@ -416,8 +523,13 @@ class TestInsightGeneratorIntegration:
     
     def test_generate_all_insights(self):
         """Test generating all types of insights."""
+        from src.utils.types import Resource, ResourceMetadata, IdleStatus, BudgetStatus, ThresholdEvent
+        
         cost_explorer_mock = Mock()
         dynamodb_mock = Mock()
+        resource_manager_mock = Mock()
+        idle_detector_mock = Mock()
+        budget_monitor_mock = Mock()
         
         # Mock Cost Explorer responses
         cost_explorer_mock.get_cost_and_usage.return_value = {
@@ -434,9 +546,63 @@ class TestInsightGeneratorIntegration:
             ]
         }
         
+        # Mock Phase 3 components for optimization suggestions
+        mock_resource = Resource(
+            resource_id="i-1234567890abcdef0",
+            resource_type="instance",
+            service="ec2",
+            region="us-east-1",
+            tags={},
+            state="running",
+            creation_date="2025-01-01T00:00:00Z"
+        )
+        
+        mock_metadata = ResourceMetadata(
+            resource=mock_resource,
+            cost_per_hour=0.10,
+            last_activity="2025-01-01T00:00:00Z",
+            metrics={}
+        )
+        
+        mock_idle_status = IdleStatus(
+            resource_id="i-1234567890abcdef0",
+            is_idle=True,
+            idle_duration=10 * 24 * 60,  # 10 days in minutes
+            metrics_used={"cpu_utilization": 2.5},
+            confidence=0.95
+        )
+        
+        resource_manager_mock.discover_resources.return_value = [mock_resource]
+        resource_manager_mock.get_resource_metadata.return_value = mock_metadata
+        idle_detector_mock.is_resource_idle.return_value = mock_idle_status
+        
+        # Mock budget monitor for forecast alerts
+        mock_budget_status = BudgetStatus(
+            budget_name="test-budget",
+            limit=100.0,
+            actual_spend=0.0,
+            forecasted_spend=0.0,
+            utilization_percent=0.0,
+            currency="USD",
+            time_period="current"
+        )
+        
+        mock_threshold_event = ThresholdEvent(
+            budget_name="test-budget",
+            threshold_type="warning",
+            utilization_percent=0.0,
+            timestamp="2025-01-01T00:00:00Z",
+            budget_status=mock_budget_status
+        )
+        
+        budget_monitor_mock.poll_budgets.return_value = [mock_threshold_event]
+        
         generator = InsightGenerator(
             cost_explorer_client=cost_explorer_mock,
-            dynamodb_client=dynamodb_mock
+            dynamodb_client=dynamodb_mock,
+            resource_manager=resource_manager_mock,
+            idle_detector=idle_detector_mock,
+            budget_monitor=budget_monitor_mock
         )
         
         # Generate all insight types
@@ -453,7 +619,47 @@ class TestInsightGeneratorIntegration:
     
     def test_insight_types_distinct(self):
         """Test that different insight types are distinct."""
-        generator = InsightGenerator()
+        from src.utils.types import Resource, ResourceMetadata, IdleStatus
+        
+        # Mock Phase 3 components
+        resource_manager_mock = Mock()
+        idle_detector_mock = Mock()
+        
+        # Create mock idle resources
+        mock_resource = Resource(
+            resource_id="i-1234567890abcdef0",
+            resource_type="instance",
+            service="ec2",
+            region="us-east-1",
+            tags={},
+            state="running",
+            creation_date="2025-01-01T00:00:00Z"
+        )
+        
+        mock_metadata = ResourceMetadata(
+            resource=mock_resource,
+            cost_per_hour=0.10,
+            last_activity="2025-01-01T00:00:00Z",
+            metrics={}
+        )
+        
+        mock_idle_status = IdleStatus(
+            resource_id="i-1234567890abcdef0",
+            is_idle=True,
+            idle_duration=10 * 24 * 60,  # 10 days in minutes
+            metrics_used={"cpu_utilization": 2.5},
+            confidence=0.95
+        )
+        
+        # Setup mocks
+        resource_manager_mock.discover_resources.return_value = [mock_resource]
+        resource_manager_mock.get_resource_metadata.return_value = mock_metadata
+        idle_detector_mock.is_resource_idle.return_value = mock_idle_status
+        
+        generator = InsightGenerator(
+            resource_manager=resource_manager_mock,
+            idle_detector=idle_detector_mock
+        )
         
         optimizations = generator.suggest_optimizations("user123")
         
