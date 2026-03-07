@@ -410,13 +410,13 @@ Coverage:
 
 ### Features
 - 5-phase autonomous optimization loop (Analyze → Decide → Act → Verify → Learn)
-- Intelligent GPU scheduling based on cost patterns
-- Dynamic spot instance management with checkpoint/restore
-- Smart right-sizing with A/B testing and rollback
-- Learning feedback loop with confidence scoring
+- GPU scheduling with simplified cost pattern analysis (uses hardcoded optimization windows)
+- Spot instance management with simplified pricing (hardcoded spot/on-demand prices)
+- Right-sizing with simplified instance type determination (hardcoded g4dn pricing)
+- Learning feedback loop with basic pattern recognition (simplified parameter similarity)
 - Safety guards with approval workflows
 - Complete loop execution in <10 minutes (achieved: 5.26 seconds)
-- 20-30% cost savings on AI/ML workloads
+- Projected 20-30% cost savings on AI/ML workloads (not yet verified with real data)
 
 ### Metrics
 - **Tests:** 14 integration tests passing (100%)
@@ -446,6 +446,15 @@ Coverage:
 - ✅ Demo mode validated (<10 minute requirement exceeded)
 - ✅ All documentation complete
 - ✅ Final verification report created
+
+### Implementation Notes
+- **Simplified Algorithms**: Several components use simplified implementations with hardcoded values:
+  - GPU Scheduler: Uses hardcoded 2-6 AM optimization windows instead of analyzing actual cost patterns
+  - Spot Manager: Uses hardcoded pricing instead of real AWS Pricing API
+  - Right Sizer: Uses hardcoded g4dn family pricing only
+  - Learning Engine: Basic pattern recognition (time of day, instance transitions) without ML
+- **Cost Savings**: 20-30% savings claim is projected based on simplified calculations, not verified with real historical data
+- **Production Enhancement**: Production implementation would use real AWS APIs (Pricing API, EC2 Spot Price History, DynamoDB cost queries) and more sophisticated pattern recognition
 
 ### Test Results Summary
 ```
