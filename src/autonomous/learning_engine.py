@@ -40,6 +40,7 @@ LEARNING_MODE_ENABLED = os.environ.get("LEARNING_MODE_ENABLED", "true").lower() 
 dynamodb = boto3.resource("dynamodb")
 events_client = boto3.client("events")
 sns_client = boto3.client("sns")
+ce_client = boto3.client("ce")  # Cost Explorer for actual savings tracking
 
 # Tables
 action_history_table = dynamodb.Table(ACTION_HISTORY_TABLE)
@@ -488,6 +489,7 @@ def generate_success_report() -> Dict[str, Any]:
             
             report = {
                 "cumulative_savings": abs(cumulative_roi),
+                "actual_savings_percentage": actual_savings_percent,
                 "report_timestamp": datetime.utcnow().isoformat(),
                 "action_breakdown": type_breakdown,
                 "milestone": "100_dollars_saved",
@@ -637,6 +639,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "analysis_type": "batch",
                     "results": results,
                     "cumulative_roi": cumulative_roi,
+                    "actual_savings_percentage": actual_savings_percent,
                 }),
             }
         
