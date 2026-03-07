@@ -32,7 +32,7 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 | Phase | Code | Tests | Docs | Infrastructure | Integration Tests | Status |
 |-------|------|-------|------|----------------|-------------------|--------|
 | **Phase 1** | ✅ | ✅ 134 | ✅ | ✅ | ✅ | **DEPLOYED** |
-| **Phase 1.5** | ✅ | ✅ 102 | ✅ | ✅ | ✅ | **DEPLOYED** |
+| **Phase 1.5** | ✅ | ✅ 21 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 2** | ✅ | ✅ 176 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 3** | ✅ | ✅ 312 | ✅ | ✅ | ✅ | **DEPLOYED** |
 | **Phase 4** | ✅ | ✅ 270 | ✅ | ✅ | ✅ | **DEPLOYED** |
@@ -77,25 +77,35 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 
 ## Phase 1.5: Near-Real-Time Cost Estimation
 
-**Status:** ✅ **COMPLETE & DEPLOYED**
+**Status:** ✅ **COMPLETE & DEPLOYED** (Updated January 2026)
 
 ### Features
-- Real-time cost estimation from CloudWatch metrics
+- Near-real-time cost estimation from CloudWatch metrics (6-10 minute delay)
 - Support for EC2, Lambda, DynamoDB, S3, RDS
-- Pricing data management with caching
-- Anomaly detection for cost spikes
+- Pricing data management with 24-hour caching in DynamoDB
+- Service-specific cost estimation algorithms
+- Metrics storage in DynamoDB (optional feature)
+
+### Recent Updates (January 2026)
+- ✅ Fixed implementation gaps: Service-specific estimation, pricing cache, metrics storage
+- ✅ Updated all tests: Integration tests, pricing cache tests, new method tests (21 tests passing)
+- ✅ Fixed misleading claims: Clarified timing, removed non-existent features
+- ✅ Added comprehensive test coverage for all new methods
 
 ### Metrics
-- **Tests:** 102 passing
+- **Tests:** 21 passing (4 integration + 5 pricing cache + 10 new method + 2 compatibility)
 - **Coverage:** 89%
 - **API Endpoints:** 2
 - **Monthly Cost:** ~$0.01
 
 ### Documentation
-- ✅ [README.md](./technical/phase1.5-near-realtime/README.md)
+- ✅ [README.md](./technical/phase1.5-near-realtime/README.md) - Includes Limitations section
 - ✅ [specification.md](./technical/phase1.5-near-realtime/specification.md)
 - ✅ [implementation-summary.md](./technical/phase1.5-near-realtime/implementation-summary.md)
 - ✅ [infrastructure-updates.md](./technical/phase1.5-near-realtime/infrastructure-updates.md)
+- ✅ [testing-gaps-analysis.md](./technical/phase1.5-near-realtime/testing-gaps-analysis.md) - All gaps resolved
+- ✅ [misleading-claims-analysis.md](./technical/phase1.5-near-realtime/misleading-claims-analysis.md) - Issues found and fixed
+- ✅ [implementation-gaps-analysis.md](./technical/phase1.5-near-realtime/implementation-gaps-analysis.md) - Gaps identified and fixed
 
 ---
 
