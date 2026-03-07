@@ -66,7 +66,7 @@ class TestForecastCacheManager:
         
         assert manager.dynamodb_client == mock_dynamodb_client
         assert manager.table_name == 'test-table'
-        assert manager.ttl_hours == 48
+        assert manager.base_ttl_hours == 48
         assert manager.cache_hits == 0
         assert manager.cache_misses == 0
     
@@ -182,6 +182,9 @@ class TestForecastCacheManager:
     
     def test_store_forecast(self, cache_manager, mock_dynamodb_client, sample_forecast):
         """Test storing forecast in cache."""
+        # Mock _get_access_count call (no existing cache entry)
+        mock_dynamodb_client.get_item.return_value = {}
+        
         cache_manager.store_forecast(sample_forecast, 'EC2', 30, 'daily')
         
         # Verify put_item was called
@@ -207,6 +210,9 @@ class TestForecastCacheManager:
     
     def test_store_forecast_with_none_service(self, cache_manager, mock_dynamodb_client, sample_forecast):
         """Test storing total forecast (service=None)."""
+        # Mock _get_access_count call (no existing cache entry)
+        mock_dynamodb_client.get_item.return_value = {}
+        
         cache_manager.store_forecast(sample_forecast, None, 30, 'daily')
         
         call_args = mock_dynamodb_client.put_item.call_args
@@ -216,6 +222,9 @@ class TestForecastCacheManager:
     
     def test_store_forecast_sets_ttl(self, cache_manager, mock_dynamodb_client, sample_forecast):
         """Test TTL is set correctly."""
+        # Mock _get_access_count call (no existing cache entry)
+        mock_dynamodb_client.get_item.return_value = {}
+        
         before_time = datetime.now(UTC) + timedelta(hours=24)
         
         cache_manager.store_forecast(sample_forecast, 'EC2', 30, 'daily')
@@ -231,6 +240,9 @@ class TestForecastCacheManager:
     
     def test_store_forecast_handles_error(self, cache_manager, mock_dynamodb_client, sample_forecast):
         """Test store handles DynamoDB errors gracefully."""
+        # Mock _get_access_count call (no existing cache entry)
+        mock_dynamodb_client.get_item.return_value = {}
+        
         mock_dynamodb_client.put_item.side_effect = ClientError(
             {'Error': {'Code': 'ServiceUnavailable', 'Message': 'Service unavailable'}},
             'PutItem'
@@ -360,3 +372,167 @@ class TestForecastCacheManager:
         # Another hit
         cache_manager.get_cached_forecast('Lambda', 30, 'daily')
         assert cache_manager.track_cache_hit_rate() == pytest.approx(0.666, rel=0.01)
+
+
+class TestIntelligentCaching:
+    """Test intelligent caching features."""
+    
+    @pytest.fixture
+    def mock_dynamodb_client(self):
+        """Create mock DynamoDB client."""
+        return Mock()
+    
+    @pytest.fixture
+    def cache_manager(self, mock_dynamodb_client):
+        """Create ForecastCacheManager instance."""
+        return ForecastCacheManager(
+            dynamodb_client=mock_dynamodb_client,
+            table_name='test-forecast-cache',
+            ttl_hours=24
+        )
+    
+    def test_adaptive_ttl_for_frequently_accessed_forecast(self, cache_manager, mock_dynamodb_client):
+        """Test that frequently accessed forecasts get longer TTL."""
+        import json
+        
+        # Mock existing cache item with high access count
+        cache_key = cache_manager.get_cache_key('ec2', 30, 'daily')
+        future_ttl = int((datetime.now(UTC) + timedelta(hours=12)).timestamp())
+        
+        mock_dynamodb_client.get_item.return_value = {
+            'Item': {
+                'cache_key': {'S': cache_key},
+                'forecast_data': {'S': json.dumps({'test': 'data'})},
+                'ttl': {'N': str(future_ttl)},
+                'access_count': {'N': '6'},  # High access count
+                'last_accessed': {'S': datetime.now(UTC).isoformat()}
+            }
+        }
+        
+        # Get cached forecast (should update TTL)
+        cache_manager.get_cached_forecast('ec2', 30, 'daily')
+        
+        # Verify update_item was called (may be called multiple times - for cache entry and metrics)
+        assert mock_dynamodb_client.update_item.called
+        
+        # Find the update_item call for the cache entry (not metrics)
+        update_calls = [call for call in mock_dynamodb_client.update_item.call_args_list 
+                       if call[1]['TableName'] == 'test-forecast-cache']
+        
+        assert len(update_calls) > 0
+        call_args = update_calls[0]
+        expr_values = call_args[1]['ExpressionAttributeValues']
+        
+        # Verify access_count was incremented
+        assert ':count' in expr_values
+        assert expr_values[':count']['N'] == '7'  # 6 + 1
+    
+    def test_persistent_cache_hit_rate_retrieval(self, cache_manager, mock_dynamodb_client):
+        """Test retrieving persistent cache hit rate from DynamoDB."""
+        metrics_key = 'CACHE_METRICS:AGGREGATE'
+        
+        mock_dynamodb_client.get_item.return_value = {
+            'Item': {
+                'cache_key': {'S': metrics_key},
+                'total_hits': {'N': '80'},
+                'total_misses': {'N': '20'}
+            }
+        }
+        
+        hit_rate = cache_manager.get_persistent_cache_hit_rate()
+        
+        assert hit_rate == 0.8  # 80 / (80 + 20)
+        assert mock_dynamodb_client.get_item.called
+    
+    def test_persistent_cache_hit_rate_no_metrics(self, cache_manager, mock_dynamodb_client):
+        """Test persistent cache hit rate returns None when no metrics exist."""
+        mock_dynamodb_client.get_item.return_value = {}
+        
+        hit_rate = cache_manager.get_persistent_cache_hit_rate()
+        
+        assert hit_rate is None
+    
+    def test_store_forecast_with_adaptive_ttl(self, cache_manager, mock_dynamodb_client):
+        """Test storing forecast with adaptive TTL based on previous access count."""
+        import json
+        
+        cache_key = cache_manager.get_cache_key('ec2', 30, 'daily')
+        
+        # Mock previous cache entry with high access count
+        mock_dynamodb_client.get_item.return_value = {
+            'Item': {
+                'cache_key': {'S': cache_key},
+                'access_count': {'N': '6'}  # High access count
+            }
+        }
+        
+        forecast_data = {'test': 'forecast'}
+        cache_manager.store_forecast(forecast_data, 'ec2', 30, 'daily')
+        
+        # Verify put_item was called
+        assert mock_dynamodb_client.put_item.called
+        call_args = mock_dynamodb_client.put_item.call_args
+        item = call_args[1]['Item']
+        
+        # Verify adaptive_ttl_hours is set (should be 36 hours for 6+ accesses: 24 * 1.5)
+        assert 'adaptive_ttl_hours' in item
+        assert int(item['adaptive_ttl_hours']['N']) == 36  # 24 * 1.5
+    
+    def test_access_count_tracking(self, cache_manager, mock_dynamodb_client):
+        """Test that access count is tracked and updated."""
+        import json
+        
+        cache_key = cache_manager.get_cache_key('ec2', 30, 'daily')
+        future_ttl = int((datetime.now(UTC) + timedelta(hours=12)).timestamp())
+        
+        # First access
+        mock_dynamodb_client.get_item.return_value = {
+            'Item': {
+                'cache_key': {'S': cache_key},
+                'forecast_data': {'S': json.dumps({'test': 'data'})},
+                'ttl': {'N': str(future_ttl)},
+                'access_count': {'N': '0'}
+            }
+        }
+        
+        cache_manager.get_cached_forecast('ec2', 30, 'daily')
+        
+        # Verify update_item was called (may be called multiple times)
+        assert mock_dynamodb_client.update_item.called
+        
+        # Find the update_item call for the cache entry (not metrics)
+        update_calls = [call for call in mock_dynamodb_client.update_item.call_args_list 
+                       if call[1]['TableName'] == 'test-forecast-cache']
+        
+        assert len(update_calls) > 0
+        call_args = update_calls[0]
+        expr_values = call_args[1]['ExpressionAttributeValues']
+        assert expr_values[':count']['N'] == '1'
+    
+    def test_cache_warming(self, cache_manager, mock_dynamodb_client):
+        """Test cache warming for common queries."""
+        common_queries = [
+            {'service': None, 'days': 30, 'granularity': 'daily'},
+            {'service': 'ec2', 'days': 7, 'granularity': 'daily'}
+        ]
+        
+        # Mock get_item to return no cached items
+        mock_dynamodb_client.get_item.return_value = {}
+        
+        # Test without generator (should return pending status)
+        results = cache_manager.warm_cache(common_queries)
+        
+        assert results['warmed'] == 0
+        assert results['cached'] == 0
+        assert len(results['details']) == 2
+        assert results['details'][0]['status'] == 'pending'
+        
+        # Test with generator
+        def mock_generator(service, days, granularity):
+            return {'test': 'forecast', 'service': service, 'days': days}
+        
+        mock_dynamodb_client.get_item.return_value = {}
+        results = cache_manager.warm_cache(common_queries, forecast_generator=mock_generator)
+        
+        assert results['warmed'] == 2
+        assert mock_dynamodb_client.put_item.call_count >= 2  # Should store forecasts

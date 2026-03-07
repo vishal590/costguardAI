@@ -6,16 +6,16 @@
 
 ## Overview
 
-Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon Bedrock Nova Lite. The system generates 7-30 day cost forecasts with 95% confidence intervals based on historical cost data.
+Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon Bedrock Nova Lite. The system generates 7-30 day cost forecasts with confidence intervals. When Bedrock provides confidence intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, a fallback uses ±20% ranges around the prediction.
 
 ## Key Features
 
 - **AI-Powered Predictions:** Uses Amazon Bedrock Nova Lite for time series forecasting
-- **Confidence Intervals:** Provides 95% confidence intervals (upper/lower bounds) for all predictions
+- **Confidence Intervals:** Provides confidence intervals for all predictions. When Bedrock provides intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, fallback uses ±20% ranges around predictions.
 - **Flexible Horizons:** Supports 7, 14, or 30-day forecasts
 - **Multiple Granularities:** Daily or weekly aggregation
 - **Service-Specific Forecasts:** Generate forecasts for individual AWS services or total costs
-- **Intelligent Caching:** 24-hour forecast cache with 80%+ hit rate target
+- **Intelligent Caching:** 24-hour forecast cache with adaptive TTL, persistent hit rate tracking, and cache warming. Frequently accessed forecasts automatically get extended TTL (up to 48 hours). Target: 80%+ hit rate.
 - **Historical Data Processing:** Retrieves 90 days of historical data with gap interpolation
 - **Backward Compatible:** Maintains full compatibility with Phase 1 & 1.5 endpoints
 
@@ -106,19 +106,28 @@ Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon 
 - Data quality validation
 
 ### 4. Forecast Cache Manager (`forecast_cache.py`)
-**Purpose:** Manages forecast caching in DynamoDB
+**Purpose:** Manages forecast caching in DynamoDB with intelligent features
 
 **Key Methods:**
-- `get_cached_forecast()` - Retrieves cached forecast if valid
-- `store_forecast()` - Stores forecast with 24-hour TTL
+- `get_cached_forecast()` - Retrieves cached forecast if valid, tracks access
+- `store_forecast()` - Stores forecast with adaptive TTL based on access frequency
 - `invalidate_all()` - Clears all cached forecasts
-- `track_cache_hit_rate()` - Monitors cache performance
+- `track_cache_hit_rate()` - Monitors cache performance (in-memory)
+- `get_persistent_cache_hit_rate()` - Gets persistent hit rate from DynamoDB
+- `warm_cache()` - Pre-generates forecasts for common queries (accepts optional forecast generator callback)
+
+**Intelligent Features:**
+- **Adaptive TTL:** Frequently accessed forecasts (3-5 accesses = +25% TTL, 6+ = +50% TTL, max 48 hours)
+- **Access Frequency Tracking:** Tracks how often each forecast is accessed
+- **Persistent Metrics:** Stores cache hit/miss metrics in DynamoDB (survives Lambda cold starts)
+- **Automatic TTL Extension:** Extends TTL for frequently accessed forecasts when TTL is low
+- **Cache Warming:** Method to pre-generate forecasts for common queries. Accepts optional forecast generator callback for testing/integration. Returns detailed results with status for each query (warmed, cached, failed, pending)
 
 **Features:**
-- 24-hour TTL for forecasts
+- Base 24-hour TTL (extends up to 48 hours for frequently accessed)
 - Unique cache keys per service/days/granularity
 - Automatic TTL expiration
-- Cache hit rate tracking
+- In-memory and persistent cache hit rate tracking
 - Separate DynamoDB table
 
 ## API Endpoints
@@ -345,7 +354,7 @@ Added to Lambda execution role:
   - New services or resources being added
   - Pricing changes from AWS
   - Seasonal or cyclical patterns not captured in historical data
-- **Confidence Intervals:** 95% confidence intervals provide upper and lower bounds, but actual costs may fall outside these bounds in edge cases.
+- **Confidence Intervals:** When Bedrock provides confidence intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, the system uses a fallback of ±20% ranges around predictions (not true statistical confidence intervals). Actual costs may fall outside these bounds in edge cases.
 - **Historical Data Dependency:** Forecast accuracy depends on having sufficient historical data (minimum 30 days recommended, 90 days optimal).
 
 ### Data Requirements

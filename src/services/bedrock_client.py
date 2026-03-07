@@ -264,6 +264,8 @@ Generate the forecast now:"""
                 
                 # Extract values with validation
                 pred = float(forecast.get('predicted_cost', 0))
+                # Fallback: If Bedrock doesn't provide confidence intervals, use ±20% ranges
+                # Note: This is NOT a true 95% confidence interval, just a simple range
                 lower = float(forecast.get('confidence_lower', pred * 0.8))
                 upper = float(forecast.get('confidence_upper', pred * 1.2))
                 
