@@ -73,12 +73,12 @@
   - Automated workload classification - **CloudWatch metrics and EC2 tags**
 - **Autonomous Action Loops (Phase 6 Extension):** Self-optimizing AI/ML cost management:
   - 5-phase autonomous loop: Analyze → Decide → Act → Verify → Learn
-  - GPU scheduling with simplified cost pattern analysis
-  - Spot instance management with simplified pricing
-  - Right-sizing with simplified instance type determination
-  - Learning feedback loop with basic pattern recognition
+  - Intelligent GPU scheduling based on real cost patterns (DynamoDB + EC2 spot price analysis)
+  - Dynamic spot instance management with real AWS Pricing API and EC2 spot prices
+  - Smart right-sizing with real Pricing API and CloudWatch utilization metrics
+  - Learning feedback loop with parameter similarity analysis
   - Complete loop execution in <10 minutes (achieved: 5.26 seconds)
-  - Projected 20-30% cost savings on AI/ML workloads (simplified calculations)
+  - Projected 20-30% cost savings on AI/ML workloads (based on real pricing calculations)
 - **RESTful API:** Simple HTTP API with API key authentication
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
 - **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, Amazon Bedrock, and EventBridge for automatic scaling
