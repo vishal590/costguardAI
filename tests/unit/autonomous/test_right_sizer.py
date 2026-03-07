@@ -207,8 +207,15 @@ class TestInstanceTypeRecommendation:
 class TestCostSavings:
     """Test cost savings calculations."""
     
-    def test_calculate_expected_savings_typical(self):
+    @patch('autonomous.right_sizer._get_instance_pricing')
+    def test_calculate_expected_savings_typical(self, mock_get_price):
         """Test savings calculation with typical values."""
+        # Mock Pricing API responses
+        mock_get_price.side_effect = lambda instance_type: {
+            "g4dn.2xlarge": Decimal("0.752"),
+            "g4dn.xlarge": Decimal("0.526")
+        }.get(instance_type, Decimal("0"))
+        
         savings = calculate_expected_savings("g4dn.2xlarge", "g4dn.xlarge")
         
         # g4dn.2xlarge: $0.752/hr, g4dn.xlarge: $0.526/hr
@@ -217,14 +224,23 @@ class TestCostSavings:
         
         assert abs(savings - expected) < Decimal("0.01")
     
-    def test_calculate_expected_savings_same_type(self):
+    @patch('autonomous.right_sizer._get_instance_pricing')
+    def test_calculate_expected_savings_same_type(self, mock_get_price):
         """Test savings when types are the same."""
+        mock_get_price.return_value = Decimal("0.526")
+        
         savings = calculate_expected_savings("g4dn.xlarge", "g4dn.xlarge")
         
         assert savings == Decimal("0")
     
-    def test_calculate_expected_savings_larger_type(self):
+    @patch('autonomous.right_sizer._get_instance_pricing')
+    def test_calculate_expected_savings_larger_type(self, mock_get_price):
         """Test savings when recommended type is larger (negative savings)."""
+        mock_get_price.side_effect = lambda instance_type: {
+            "g4dn.xlarge": Decimal("0.526"),
+            "g4dn.2xlarge": Decimal("0.752")
+        }.get(instance_type, Decimal("0"))
+        
         savings = calculate_expected_savings("g4dn.xlarge", "g4dn.2xlarge")
         
         assert savings < 0
