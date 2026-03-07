@@ -510,6 +510,48 @@ curl -H "x-api-key: YOUR_API_KEY" \
 - **Duration:** 30-60 seconds for 22 services
 - **Inventory Size:** ~40 MB in DynamoDB
 
+## Limitations
+
+### Automated Actions Scope
+- **Limited Service Coverage:** Only 6 services have fully automated actions (EC2, RDS, Lambda, EBS, DynamoDB, NAT Gateway). The remaining 14 services with idle detection require manual action.
+- **Action Types:** Automated actions are limited to stopping, limiting, or deleting resources. More complex optimizations (e.g., right-sizing, reserved instance recommendations) are not automated.
+- **Safety First:** The system prioritizes safety over automation. Many resources require approval workflows even when idle.
+
+### Resource Discovery
+- **Discovery Frequency:** Resources are discovered every 15 minutes. New resources may not be detected immediately.
+- **Service Coverage:** Supports 22 AWS services for discovery, but not all AWS services are covered. Custom resources or services not in the list are not monitored.
+- **Cross-Region:** Discovery is limited to the configured AWS region. Multi-region deployments require separate configurations.
+
+### Idle Detection Accuracy
+- **Metric-Based Detection:** Idle detection relies on CloudWatch metrics, which have 1-5 minute delays. Resources may appear idle briefly during normal operations.
+- **False Positives:** Some resources may be flagged as idle when they're actually in use (e.g., low-traffic services, scheduled jobs).
+- **Service-Specific Criteria:** Each service has different idle criteria. Some services (e.g., S3, CloudFront) are harder to detect as idle due to metric limitations.
+
+### Budget Monitoring
+- **5-Minute Intervals:** Budgets are checked every 5 minutes via EventBridge. Budget threshold breaches may not be detected immediately.
+- **AWS Budgets Dependency:** Requires AWS Budgets to be configured. The system monitors existing budgets but doesn't create them automatically.
+- **Threshold Accuracy:** Budget thresholds (80% warning, 90% action) are fixed. Custom thresholds require code changes.
+
+### Approval Workflows
+- **30-Minute Timeout:** Approval requests expire after 30 minutes. If no response is received, the action is cancelled.
+- **SNS Notifications:** Requires SNS topics to be configured. Email/SMS delivery depends on SNS configuration and may have delays.
+- **Manual Intervention:** High-risk actions always require approval, which means they cannot be fully automated.
+
+### Rollback Capabilities
+- **24-Hour Window:** Rollbacks are only available for 24 hours after an action. After this window, manual restoration is required.
+- **State Restoration:** Rollback restores resource state but may not restore all metadata (e.g., tags, configurations) depending on the action type.
+- **Partial Rollbacks:** Some actions (e.g., EBS volume deletion) may not be fully reversible if snapshots fail.
+
+### Safety Guards
+- **Tag-Based Protection:** Resources with `CostGuard:Protected=true` tag are never acted upon. Users must ensure tags are applied correctly.
+- **Whitelist Management:** Whitelists must be maintained manually. New resources are not automatically whitelisted.
+- **Active Usage Checks:** The system checks for active usage, but some usage patterns may not be detected (e.g., scheduled jobs, low-traffic services).
+
+### Free Tier Considerations
+- **EventBridge:** Free tier includes 1M custom events/month. Budget monitoring every 5 minutes uses ~8,640 events/month (within limits).
+- **SNS:** Free tier includes 1M requests/month. Approval notifications use minimal requests.
+- **DynamoDB:** Multiple tables for configuration, inventory, history, and rollback. Storage within 25 GB free tier for typical usage.
+
 ## Monitoring
 
 ### CloudWatch Metrics

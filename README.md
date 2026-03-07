@@ -38,7 +38,7 @@
 
 ### Key Features (Phases 1-6 Complete)
 
-- **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly)
+- **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly). Uses efficient DynamoDB Query operations with partition-based access patterns for optimal performance.
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
 - **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with 95% confidence intervals
 - **Automated Cost Prevention (Phase 3):** Automatically detect and prevent cost overruns with:

@@ -46,24 +46,32 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 
 ## Phase 1: Historical Cost Data Pipeline
 
-**Status:** ✅ **COMPLETE & DEPLOYED**
+**Status:** ✅ **COMPLETE & DEPLOYED** (Updated January 2026)
 
 ### Features
 - Fetch AWS cost data from Cost Explorer API
-- Query stored historical cost data
+- Query stored historical cost data using efficient DynamoDB Query operations
 - Flexible granularity (hourly, daily, monthly)
-- DynamoDB storage with efficient querying
+- DynamoDB storage with partition key (pk) and sort key (sk) for optimized access patterns
+- Robust error handling with exponential backoff retry logic
+
+### Recent Updates (January 2026)
+- ✅ Fixed schema consistency: Code now uses `pk`/`sk` as per specification
+- ✅ Optimized queries: Replaced Scan with Query operations for date range queries
+- ✅ Added Limitations section: Honest documentation of query performance and constraints
 
 ### Metrics
-- **Tests:** 134 passing
+- **Tests:** 134 passing (55 Phase 1 unit tests verified)
 - **Coverage:** 94.43%
 - **API Endpoints:** 2
 - **Monthly Cost:** ~$1.00
 
 ### Documentation
-- ✅ [README.md](./technical/phase1-cost-pipeline/README.md)
+- ✅ [README.md](./technical/phase1-cost-pipeline/README.md) - Includes Limitations section
 - ✅ [specification.md](./technical/phase1-cost-pipeline/specification.md)
 - ✅ [implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md)
+- ✅ [verification-checklist.md](./technical/phase1-cost-pipeline/verification-checklist.md) - Complete verification
+- ✅ [misleading-claims-analysis.md](./technical/phase1-cost-pipeline/misleading-claims-analysis.md) - Issues found and fixed
 
 ---
 

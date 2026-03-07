@@ -337,6 +337,35 @@ Added to Lambda execution role:
 - **Timeout:** 30 seconds
 - **Retry:** 3 attempts with exponential backoff
 
+## Limitations
+
+### Forecast Accuracy
+- **AI Predictions:** Forecasts are AI-generated predictions, not guarantees. Actual costs may differ due to:
+  - Unexpected usage spikes or changes
+  - New services or resources being added
+  - Pricing changes from AWS
+  - Seasonal or cyclical patterns not captured in historical data
+- **Confidence Intervals:** 95% confidence intervals provide upper and lower bounds, but actual costs may fall outside these bounds in edge cases.
+- **Historical Data Dependency:** Forecast accuracy depends on having sufficient historical data (minimum 30 days recommended, 90 days optimal).
+
+### Data Requirements
+- **Minimum Historical Data:** Requires at least 30 days of historical cost data from Phase 1. Forecasts with less data may be less accurate.
+- **Data Gaps:** The system interpolates gaps in historical data, but large gaps (>7 days) may affect forecast accuracy.
+- **Service Coverage:** Forecasts are available for services that have historical data in Phase 1. New services without historical data cannot be forecasted.
+
+### Bedrock API Limitations
+- **Rate Limits:** Bedrock API has rate limits. The system implements retry logic, but high-frequency requests may be throttled.
+- **Model Limitations:** Uses Amazon Nova Lite, which is optimized for speed and cost but may have limitations for complex forecasting scenarios.
+- **Response Time:** Bedrock API calls take 1-3 seconds. Cache hits are fast (<200ms), but cache misses require Bedrock calls.
+
+### Cache Behavior
+- **24-Hour Cache:** Forecasts are cached for 24 hours. New forecasts are generated after cache expiration, which means forecasts may not reflect the most recent cost changes immediately.
+- **Cache Key:** Cache is based on service, date range, and granularity. Different parameters generate different cache entries.
+
+### Cost Considerations
+- **Bedrock Costs:** Each forecast generation (cache miss) costs ~$0.001 (Nova Lite pricing). With 80% cache hit rate, monthly cost is ~$0.50.
+- **DynamoDB Storage:** Forecast cache storage is minimal (~50 MB) but grows with more services and forecast requests.
+
 ## Monitoring
 
 ### CloudWatch Metrics

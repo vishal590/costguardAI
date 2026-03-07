@@ -203,6 +203,36 @@ Phase 1.5 operates within AWS Free Tier:
    aws logs tail /aws/lambda/costguard-cost-data-handler --follow
    ```
 
+## Limitations
+
+### Estimation vs. Actual Costs
+- **Not Real-Time Actual Costs:** Phase 1.5 provides cost **estimation** based on CloudWatch metrics, not actual billing data. Actual costs from AWS Cost Explorer have a 24-hour delay.
+- **Estimation Accuracy:** Cost estimates have ±6% confidence intervals. Actual costs may differ due to:
+  - Complex pricing models (tiered pricing, reserved instances, spot instances)
+  - Data transfer costs not fully captured in metrics
+  - Regional pricing variations
+  - Discounts and credits not reflected in metrics
+
+### Metric Collection Limitations
+- **5-Minute Delay:** CloudWatch metrics have a 1-5 minute delay. The system uses 5-minute aggregation periods for efficiency.
+- **Metric Availability:** New resources may not have metrics available immediately. Wait 5-10 minutes after resource creation.
+- **Limited Services:** Currently supports only EC2, Lambda, DynamoDB, S3, and RDS. Other services require Phase 1 historical data.
+
+### Pricing Data
+- **24-Hour Cache:** Pricing data is cached for 24 hours to minimize API costs. Pricing changes may not be reflected immediately.
+- **Regional Variations:** Pricing is fetched per region. Multi-region deployments require separate queries.
+- **Complex Pricing:** Some services have complex pricing models (e.g., tiered storage, reserved capacity) that may not be fully captured.
+
+### Performance
+- **Response Time:** Single service queries: <2 seconds. All services: <5 seconds. Large time ranges may take longer.
+- **Cold Starts:** Lambda cold starts can add 1-2 seconds to response time.
+- **Metric Collection:** Collecting metrics for all services can take several seconds.
+
+### Free Tier Considerations
+- **CloudWatch API:** 1M requests/month free tier. The system uses ~50,000 requests/month for typical usage.
+- **Pricing API:** No free tier. Costs ~$0.0001 per request. 24-hour caching reduces calls by 95%.
+- **DynamoDB:** Pricing cache storage within 25 GB free tier.
+
 ## Troubleshooting
 
 ### Issue: Estimation returns zero cost

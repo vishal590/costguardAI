@@ -183,11 +183,12 @@ class TestQueryCostData:
     """Test query_cost_data function."""
     
     def test_query_with_start_date_only(self):
-        """Test querying with only start_date."""
+        """Test querying with only start_date (should use Query with today as end_date)."""
         params = QueryParams(start_date='2025-01-01')
         
         # Create mock table
         mock_table = Mock()
+        # Mock returns one item per month query
         mock_table.query = Mock(return_value={
             'Items': [
                 {
@@ -201,7 +202,8 @@ class TestQueryCostData:
                     'unit': 'USD',
                     'timestamp': '2025-01-01T00:00:00Z'
                 }
-            ]
+            ],
+            'LastEvaluatedKey': None
         })
         
         # Create mock DynamoDB resource
@@ -211,8 +213,10 @@ class TestQueryCostData:
         # Query cost data
         results = query_cost_data(params, dynamodb_resource=mock_dynamodb)
         
-        # Verify results
-        assert len(results) == 1
+        # Verify Query was used (not Scan)
+        assert mock_table.query.called
+        # Verify we got results (may be multiple months from 2025-01 to today)
+        assert len(results) > 0
         assert results[0].service == 'Amazon EC2'
         assert results[0].blended_cost == 100.0
     
@@ -225,7 +229,10 @@ class TestQueryCostData:
         
         # Create mock table
         mock_table = Mock()
-        mock_table.query = Mock(return_value={'Items': []})
+        mock_table.query = Mock(return_value={
+            'Items': [],
+            'LastEvaluatedKey': None
+        })
         
         # Create mock DynamoDB resource
         mock_dynamodb = Mock()
@@ -246,7 +253,10 @@ class TestQueryCostData:
         
         # Create mock table
         mock_table = Mock()
-        mock_table.query = Mock(return_value={'Items': []})
+        mock_table.query = Mock(return_value={
+            'Items': [],
+            'LastEvaluatedKey': None
+        })
         
         # Create mock DynamoDB resource
         mock_dynamodb = Mock()
@@ -256,8 +266,9 @@ class TestQueryCostData:
         results = query_cost_data(params, dynamodb_resource=mock_dynamodb)
         
         # Verify query was called with service filter
+        assert mock_table.query.called
         call_kwargs = mock_table.query.call_args[1]
-        assert ':sk' in call_kwargs['ExpressionAttributeValues']
+        assert ':sk_prefix' in call_kwargs['ExpressionAttributeValues']
     
     def test_query_with_limit(self):
         """Test querying with limit."""
@@ -283,7 +294,8 @@ class TestQueryCostData:
                     'timestamp': '2025-01-01T00:00:00Z'
                 }
                 for i in range(10)
-            ]
+            ],
+            'LastEvaluatedKey': None
         })
         
         # Create mock DynamoDB resource
@@ -293,29 +305,41 @@ class TestQueryCostData:
         # Query cost data
         results = query_cost_data(params, dynamodb_resource=mock_dynamodb)
         
-        # Verify limit was applied
+        # Verify limit was applied (across all months)
         assert len(results) == 5
     
     def test_query_without_start_date(self):
-        """Test querying without start_date returns empty list."""
+        """Test querying without start_date uses Scan (fallback)."""
         params = QueryParams(service='Amazon EC2')
+        
+        # Create mock table
+        mock_table = Mock()
+        mock_table.scan = Mock(return_value={
+            'Items': [],
+            'LastEvaluatedKey': None
+        })
         
         # Create mock DynamoDB resource
         mock_dynamodb = Mock()
+        mock_dynamodb.Table = Mock(return_value=mock_table)
         
         # Query cost data
         results = query_cost_data(params, dynamodb_resource=mock_dynamodb)
         
-        # Verify empty list is returned
+        # Verify Scan was used (fallback when no date range)
+        assert mock_table.scan.called
         assert results == []
     
     def test_query_uses_query_not_scan(self):
-        """Test that query uses Query operation (not Scan)."""
-        params = QueryParams(start_date='2025-01-01')
+        """Test that query uses Query operation (not Scan) when date range provided."""
+        params = QueryParams(start_date='2025-01-01', end_date='2025-01-31')
         
         # Create mock table
         mock_table = Mock()
-        mock_table.query = Mock(return_value={'Items': []})
+        mock_table.query = Mock(return_value={
+            'Items': [],
+            'LastEvaluatedKey': None
+        })
         mock_table.scan = Mock(return_value={'Items': []})
         
         # Create mock DynamoDB resource

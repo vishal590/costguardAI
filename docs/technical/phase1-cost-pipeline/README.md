@@ -9,7 +9,7 @@ A serverless AWS cost data pipeline that fetches historical cost data from AWS C
 ## Features
 
 - **Automated Cost Data Fetching**: Retrieve AWS cost data from Cost Explorer API with configurable date ranges and granularity
-- **Efficient Storage**: Store cost data in DynamoDB with optimized access patterns
+- **Efficient Storage**: Store cost data in DynamoDB using partition key (pk) and sort key (sk) for optimized Query operations
 - **REST API**: Query stored cost data through authenticated REST endpoints
 - **Robust Error Handling**: Exponential backoff retry logic for rate limits and transient errors
 - **Property-Based Testing**: Comprehensive test coverage with both unit and property-based tests
@@ -410,6 +410,29 @@ This pipeline is designed for AWS Free Tier:
 - Heavy usage (10000 API calls): $15-50
 
 Monitor your usage in AWS Cost Explorer to avoid unexpected charges.
+
+## Limitations
+
+### Query Performance
+- **Date Range Required for Efficiency:** For optimal performance, always provide both `startDate` and `endDate` parameters. Queries without a date range fall back to Scan operations, which are less efficient for large datasets.
+- **Partition-Based Queries:** The system queries each month partition separately (COST#YYYY-MM). Queries spanning many months will make multiple DynamoDB Query calls, which is efficient but may take longer for very large date ranges.
+
+### Schema Constraints
+- **Partition Key Design:** Data is partitioned by month (COST#YYYY-MM). This design optimizes queries by date range but means service-based queries across multiple months require querying each month partition.
+- **Global Secondary Index:** The optional GSI (`service-date-index`) mentioned in the specification is not currently implemented. Service-based queries use sort key filtering within month partitions.
+
+### Data Accuracy
+- **Cost Explorer Delay:** Historical cost data from AWS Cost Explorer has a 24-hour delay. The most recent data available is from yesterday.
+- **Granularity Limits:** Cost Explorer API supports DAILY, MONTHLY, and HOURLY granularity, but HOURLY data may not be available for all services or time periods.
+
+### Free Tier Considerations
+- **DynamoDB Storage:** On-demand billing mode is used, but storage costs apply after the 25 GB free tier.
+- **API Gateway Limits:** 1M API calls/month free tier. Monitor usage to avoid charges.
+- **Cost Explorer API:** First 100 requests free, then $0.01 per request. Frequent fetching may incur costs.
+
+### Scalability
+- **Large Date Ranges:** Querying very large date ranges (e.g., 12+ months) will query multiple partitions sequentially. Consider pagination or limiting date ranges for better performance.
+- **Batch Writes:** DynamoDB batch writes are limited to 25 items per batch. The system handles this automatically, but very large datasets may take longer to store.
 
 ## Troubleshooting
 
