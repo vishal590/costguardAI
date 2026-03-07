@@ -149,7 +149,7 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
 - Safety guards (tag-based protection, whitelists, active usage checks)
 - Approval workflows with 30-minute timeout
-- 24-hour rollback capability
+- 24-hour rollback capability (for 3 of 6 automated actions: EC2, RDS, Lambda)
 - Comprehensive audit logging
 - EventBridge scheduled monitoring (every 5 minutes)
 

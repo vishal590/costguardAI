@@ -45,8 +45,9 @@ Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proac
   - API endpoint for approval/denial
 - **Rollback Capability:**
   - 24-hour rollback window
-  - Complete state restoration
+  - Basic state restoration (operational state only)
   - Service-specific rollback logic
+  - **Note:** Rollback available for 3 of 6 automated actions (EC2, RDS, Lambda). EBS deletion, DynamoDB billing changes, and NAT Gateway deletion are not reversible.
 - **Comprehensive Audit Logging:**
   - All actions logged to DynamoDB
   - Before/after state captured
@@ -538,9 +539,9 @@ curl -H "x-api-key: YOUR_API_KEY" \
 - **Manual Intervention:** High-risk actions always require approval, which means they cannot be fully automated.
 
 ### Rollback Capabilities
+- **Limited Service Coverage:** Rollback is only available for 3 of 6 automated actions (EC2 stop, RDS stop, Lambda concurrency limit). EBS volume deletion, DynamoDB billing mode changes, and NAT Gateway deletion are not reversible.
+- **Basic State Restoration:** Rollback restores operational state (e.g., start instance, start database) but does not restore tags, configurations, or other metadata.
 - **24-Hour Window:** Rollbacks are only available for 24 hours after an action. After this window, manual restoration is required.
-- **State Restoration:** Rollback restores resource state but may not restore all metadata (e.g., tags, configurations) depending on the action type.
-- **Partial Rollbacks:** Some actions (e.g., EBS volume deletion) may not be fully reversible if snapshots fail.
 
 ### Safety Guards
 - **Tag-Based Protection:** Resources with `CostGuard:Protected=true` tag are never acted upon. Users must ensure tags are applied correctly.
