@@ -32,10 +32,10 @@ Phase 5 transforms CostGuard AI from a single-account tool into a production-rea
 - **Automatic Discovery**: Automatically discovers all AWS accounts in your organization
 - **OU Hierarchy**: Maps organizational unit structure
 - **Account Metadata**: Stores account names, emails, and status
-- **Real-time Sync**: Refreshes organization structure every 4 hours
+- **Periodic Sync**: Refreshes organization structure every 4 hours via EventBridge
 
 ### 💰 Multi-Account Cost Collection
-- **Parallel Processing**: Collects costs from up to 100 accounts simultaneously
+- **Parallel Processing**: Collects costs from up to 100 accounts, processing N accounts simultaneously in parallel batches (configurable via `MAX_PARALLEL_ACCOUNTS` environment variable, default: 10)
 - **Cross-Account Access**: Secure role-based access using AWS STS
 - **Resilient Collection**: Continues even if individual accounts fail
 - **Historical Data**: Collects last 90 days on initial setup
@@ -669,7 +669,7 @@ For additional support:
 A: Yes! CostGuard maintains backward compatibility. If no organization is configured, it operates in single-account mode using Phase 1-4 functionality.
 
 **Q: How many accounts can CostGuard support?**  
-A: CostGuard supports up to 100 AWS accounts per organization. Cost collection completes within 10 minutes for 100 accounts.
+A: CostGuard supports up to 100 AWS accounts per organization. Cost collection completes within 10 minutes for 100 accounts using default parallel processing (10 concurrent workers). You can increase parallelism by setting the `MAX_PARALLEL_ACCOUNTS` environment variable, but be aware of Lambda timeout limits and Cost Explorer API rate limits.
 
 **Q: Does CostGuard work with AWS Free Tier?**  
 A: Yes! CostGuard is optimized for AWS Free Tier with on-demand DynamoDB billing, optimized Lambda memory, and cost-effective log retention.
@@ -713,7 +713,7 @@ A: Yes! Configure alert thresholds (e.g., 80%, 100%) to receive proactive notifi
 A: Consolidated cost queries return within 5 seconds. Results are cached for 1 hour.
 
 **Q: How long does cost collection take?**  
-A: Cost collection completes within 10 minutes for 100 accounts using parallel processing.
+A: Cost collection completes within 10 minutes for 100 accounts using default parallel processing (10 concurrent workers). Collection time depends on the number of accounts and the `MAX_PARALLEL_ACCOUNTS` setting. With default settings: 100 accounts ÷ 10 workers = 10 batches × 60 seconds timeout = ~10 minutes maximum.
 
 **Q: Can I collect costs more frequently?**  
 A: Yes! Modify the EventBridge rule to trigger more frequently. Default is daily at 6 AM UTC.
@@ -728,6 +728,30 @@ A: Read-only permissions for Cost Explorer, CloudWatch, and Organizations API. N
 
 **Q: Is cost data encrypted?**  
 A: Yes! All data is encrypted at rest (DynamoDB) and in transit (TLS 1.2+).
+
+---
+
+## Limitations
+
+### Parallel Processing
+- **Concurrent Workers**: Default is 10 concurrent account collections (configurable via `MAX_PARALLEL_ACCOUNTS`)
+- **Batch Processing**: For 100 accounts, processes in batches of 10 (or configured number)
+- **Collection Time**: ~10 minutes for 100 accounts with default settings (10 batches × 60 seconds timeout)
+- **Configurable**: Can adjust `MAX_PARALLEL_ACCOUNTS` environment variable, but consider:
+  - Lambda timeout limits (15 minutes maximum)
+  - Cost Explorer API rate limits
+  - Memory usage increases with more concurrent workers
+
+### Organization Sync
+- **Sync Frequency**: Organization structure refreshed periodically via EventBridge (default: 4 hours, configurable via CDK context `org-sync-hours`)
+- **Cache TTL**: Organization data cached (default: 24 hours, configurable via `ORG_CACHE_TTL_HOURS` environment variable)
+- **Manual Refresh**: Can trigger manual discovery via API
+- **Configuration**: Deploy with custom frequency: `cdk deploy -c org-sync-hours=2` (syncs every 2 hours)
+
+### Cost Collection
+- **Rate Limits**: Cost Explorer API has rate limits that may affect high-volume collections
+- **Timeout**: Individual account collection times out after 60 seconds (configurable via `COLLECTION_TIMEOUT_SECONDS`)
+- **Retry Logic**: Failed collections retry up to 3 times with exponential backoff
 
 ---
 

@@ -1,6 +1,7 @@
 """
 Unit tests for Organization Discovery Service
 """
+import os
 import pytest
 from datetime import datetime
 from unittest.mock import Mock, MagicMock, patch
@@ -287,3 +288,31 @@ class TestOrganizationDiscoveryService:
         # Verify organization was still discovered
         assert isinstance(result, Organization)
         assert result.id == 'o-123456789'
+    
+    def test_cache_ttl_from_environment_variable(self, mock_dynamodb, mock_organizations):
+        """Test that cache_ttl_hours can be read from environment variable"""
+        with patch.dict(os.environ, {'ORG_CACHE_TTL_HOURS': '12'}):
+            service = OrganizationDiscoveryService(
+                dynamodb_client=mock_dynamodb,
+                organizations_client=mock_organizations
+            )
+            assert service.cache_ttl_hours == 12
+    
+    def test_cache_ttl_default_when_not_in_environment(self, mock_dynamodb, mock_organizations):
+        """Test that cache_ttl_hours defaults to 24 when not in environment"""
+        with patch.dict(os.environ, {}, clear=True):
+            service = OrganizationDiscoveryService(
+                dynamodb_client=mock_dynamodb,
+                organizations_client=mock_organizations
+            )
+            assert service.cache_ttl_hours == 24
+    
+    def test_cache_ttl_explicit_override(self, mock_dynamodb, mock_organizations):
+        """Test that explicitly passing cache_ttl_hours overrides environment variable"""
+        with patch.dict(os.environ, {'ORG_CACHE_TTL_HOURS': '12'}):
+            service = OrganizationDiscoveryService(
+                dynamodb_client=mock_dynamodb,
+                organizations_client=mock_organizations,
+                cache_ttl_hours=18
+            )
+            assert service.cache_ttl_hours == 18

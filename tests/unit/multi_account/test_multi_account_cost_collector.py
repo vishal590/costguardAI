@@ -1,6 +1,7 @@
 """
 Unit tests for Multi-Account Cost Collector
 """
+import os
 import pytest
 from datetime import date, datetime
 from decimal import Decimal
@@ -340,3 +341,31 @@ class TestMultiAccountCostCollector:
         # Verify - collection should still succeed even if storage fails
         assert result.status == 'SUCCESS'
         assert result.total_cost > 0
+    
+    def test_max_workers_from_environment_variable(self, mock_role_manager, mock_cost_repository):
+        """Test that max_workers can be read from environment variable"""
+        with patch.dict(os.environ, {'MAX_PARALLEL_ACCOUNTS': '20'}):
+            collector = MultiAccountCostCollector(
+                role_manager=mock_role_manager,
+                cost_repository=mock_cost_repository
+            )
+            assert collector.max_workers == 20
+    
+    def test_max_workers_default_when_not_in_environment(self, mock_role_manager, mock_cost_repository):
+        """Test that max_workers defaults to 10 when not in environment"""
+        with patch.dict(os.environ, {}, clear=True):
+            collector = MultiAccountCostCollector(
+                role_manager=mock_role_manager,
+                cost_repository=mock_cost_repository
+            )
+            assert collector.max_workers == 10
+    
+    def test_max_workers_explicit_override(self, mock_role_manager, mock_cost_repository):
+        """Test that explicitly passing max_workers overrides environment variable"""
+        with patch.dict(os.environ, {'MAX_PARALLEL_ACCOUNTS': '20'}):
+            collector = MultiAccountCostCollector(
+                role_manager=mock_role_manager,
+                cost_repository=mock_cost_repository,
+                max_workers=15
+            )
+            assert collector.max_workers == 15

@@ -4,6 +4,7 @@ Organization Discovery Service
 Discovers and maps AWS Organizations structure including accounts and OUs.
 """
 import logging
+import os
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import boto3
@@ -25,17 +26,25 @@ class OrganizationDiscoveryService:
     - Refresh organization structure periodically
     """
     
-    def __init__(self, dynamodb_client=None, organizations_client=None):
+    def __init__(self, dynamodb_client=None, organizations_client=None, cache_ttl_hours=None):
         """
         Initialize the Organization Discovery Service
         
         Args:
             dynamodb_client: Optional DynamoDB client (for testing)
             organizations_client: Optional Organizations client (for testing)
+            cache_ttl_hours: Optional cache TTL in hours. If None, reads from ORG_CACHE_TTL_HOURS
+                            environment variable (default: 24)
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
         self.organizations = organizations_client or boto3.client('organizations')
-        self.cache_ttl_hours = 24
+        
+        # Read cache TTL from environment variable if not provided
+        if cache_ttl_hours is None:
+            cache_ttl_hours = int(os.environ.get('ORG_CACHE_TTL_HOURS', '24'))
+        
+        self.cache_ttl_hours = cache_ttl_hours
+        logger.info(f"Initialized OrganizationDiscoveryService with cache_ttl_hours={self.cache_ttl_hours}")
         
     def discover_organization(self) -> Organization:
         """

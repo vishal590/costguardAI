@@ -5,6 +5,7 @@ Collects cost data from multiple AWS accounts in parallel using cross-account ro
 Implements retry logic and graceful failure handling.
 """
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from datetime import date, datetime, timedelta
@@ -60,7 +61,7 @@ class MultiAccountCostCollector:
         self,
         role_manager: Optional[CrossAccountRoleManager] = None,
         cost_repository: Optional[MultiAccountCostRepository] = None,
-        max_workers: int = 10,
+        max_workers: Optional[int] = None,
         timeout_seconds: int = 60,
         max_retries: int = 3
     ):
@@ -70,15 +71,24 @@ class MultiAccountCostCollector:
         Args:
             role_manager: Manager for cross-account role operations
             cost_repository: Repository for storing cost data
-            max_workers: Maximum number of concurrent account collections
+            max_workers: Maximum number of concurrent account collections.
+                         If None, reads from MAX_PARALLEL_ACCOUNTS environment variable.
+                         Defaults to 10 if not set.
             timeout_seconds: Timeout for each account collection
             max_retries: Maximum number of retry attempts for failed collections
         """
         self.role_manager = role_manager or CrossAccountRoleManager()
         self.cost_repository = cost_repository or MultiAccountCostRepository()
+        
+        # Read max_workers from environment variable if not provided
+        if max_workers is None:
+            max_workers = int(os.environ.get('MAX_PARALLEL_ACCOUNTS', '10'))
+        
         self.max_workers = max_workers
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+        
+        logger.info(f"Initialized MultiAccountCostCollector with max_workers={self.max_workers}")
     
     def collect_all_accounts(
         self,

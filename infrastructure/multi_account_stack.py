@@ -293,7 +293,7 @@ class MultiAccountStack(Stack):
                 "ALLOCATION_RULES_TABLE": allocation_rules_table.table_name,
                 "BUDGETS_TABLE": budgets_table.table_name,
                 "CROSS_ACCOUNT_ROLE_NAME": "CostGuardCrossAccountRole",
-                "MAX_PARALLEL_ACCOUNTS": "10",
+                "MAX_PARALLEL_ACCOUNTS": "10",  # Configurable: Number of accounts processed in parallel (default: 10)
                 "COLLECTION_TIMEOUT_SECONDS": "60",
                 "LOG_LEVEL": "INFO",
             },
@@ -343,6 +343,10 @@ class MultiAccountStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
 
+        # Configurable organization sync frequency (default: 4 hours)
+        # Can be overridden via CDK context: cdk deploy -c org-sync-hours=2
+        org_sync_hours = self.node.try_get_context("org-sync-hours") or 4
+
         # Multi-account main handler Lambda
         multi_account_handler = lambda_.Function(
             self, "MultiAccountHandler",
@@ -380,6 +384,8 @@ class MultiAccountStack(Stack):
                 "ALLOCATION_RULES_TABLE": allocation_rules_table.table_name,
                 "BUDGETS_TABLE": budgets_table.table_name,
                 "CROSS_ACCOUNT_ROLE_NAME": "CostGuardCrossAccountRole",
+                "MAX_PARALLEL_ACCOUNTS": "10",  # Configurable: Number of accounts processed in parallel (default: 10)
+                "ORG_CACHE_TTL_HOURS": str(org_sync_hours * 6),  # Cache TTL = 6x sync frequency (default: 24 hours)
                 "LOG_LEVEL": "INFO",
             },
             log_retention=logs.RetentionDays.ONE_WEEK,
@@ -500,11 +506,12 @@ class MultiAccountStack(Stack):
         )
 
         # Organization discovery refresh rule
+        # Uses org_sync_hours defined above (configurable via CDK context)
         org_discovery_rule = events.Rule(
             self, "OrganizationDiscoveryRule",
             rule_name="costguard-organization-discovery",
-            description="Refresh organization structure every 4 hours",
-            schedule=events.Schedule.rate(Duration.hours(4)),
+            description=f"Refresh organization structure every {org_sync_hours} hours",
+            schedule=events.Schedule.rate(Duration.hours(org_sync_hours)),
         )
 
         org_discovery_rule.add_target(

@@ -53,8 +53,10 @@
   - Natural language cost queries ("What were my EC2 costs last month?")
   - Context-aware responses with historical data, forecasts, and prevention actions
   - Proactive cost insights (daily summaries, anomaly detection, optimization suggestions)
+  - **Real optimization suggestions**: Integrated with Phase 3 idle detection for data-driven recommendations
+  - **Real forecast alerts**: Uses actual budget data from AWS Budgets or Phase 3 BudgetMonitor
   - Conversation history for follow-up questions
-  - Aggressive caching (40%+ hit rate) for cost efficiency
+  - Aggressive caching (40%+ hit rate target, persistent metrics tracking) for cost efficiency
   - Markdown-formatted responses with cost tables and highlights
 - **Multi-Account Cost Management (Phase 5):** Enterprise-grade multi-account support:
   - AWS Organizations integration

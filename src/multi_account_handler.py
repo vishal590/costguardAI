@@ -580,13 +580,16 @@ def _get_organization_service() -> OrganizationDiscoveryService:
 
 def _get_cost_collector() -> MultiAccountCostCollector:
     """Initialize and return MultiAccountCostCollector."""
+    import os
     dynamodb_client = get_dynamodb_client()
     cost_repo = MultiAccountCostRepository(dynamodb_client, 'costguard-multi-account-costs')
-    account_repo = AccountRepository(dynamodb_client, 'costguard-accounts')
+    
+    # Read max_workers from environment variable (defaults to 10 in MultiAccountCostCollector)
+    max_workers = int(os.environ.get('MAX_PARALLEL_ACCOUNTS', '10'))
     
     return MultiAccountCostCollector(
-        cost_repo=cost_repo,
-        account_repo=account_repo
+        cost_repository=cost_repo,
+        max_workers=max_workers
     )
 
 

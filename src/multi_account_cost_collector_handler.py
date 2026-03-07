@@ -74,7 +74,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Collect costs from all accounts
         logger.info(f"Starting cost collection for {len(account_ids)} accounts")
-        collector = MultiAccountCostCollector()
+        
+        # Read max_workers from environment variable (defaults to 10 in MultiAccountCostCollector)
+        max_workers = int(os.environ.get('MAX_PARALLEL_ACCOUNTS', '10'))
+        logger.info(f"Using max_workers={max_workers} for parallel collection")
+        
+        collector = MultiAccountCostCollector(max_workers=max_workers)
         
         try:
             result = collector.collect_all_accounts(
@@ -209,7 +214,12 @@ def manual_trigger_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any
         
         # Collect costs
         logger.info(f"Collecting costs from {start_date} to {end_date}")
-        collector = MultiAccountCostCollector()
+        
+        # Read max_workers from environment variable (defaults to 10 in MultiAccountCostCollector)
+        max_workers = int(os.environ.get('MAX_PARALLEL_ACCOUNTS', '10'))
+        logger.info(f"Using max_workers={max_workers} for parallel collection")
+        
+        collector = MultiAccountCostCollector(max_workers=max_workers)
         
         result = collector.collect_all_accounts(
             org_id=org_id,
