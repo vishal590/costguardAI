@@ -301,10 +301,42 @@ class IdleGPUDetector:
         Returns:
             List of GPU instance metadata
         """
-        # TODO: Implement EC2 API integration to get GPU instances
-        # For now, return empty list as placeholder
         logger.info(f"Retrieving GPU instances from {start_date} to {end_date}")
-        return []
+        
+        import boto3
+        ec2_client = boto3.client('ec2')
+        
+        # GPU instance type patterns
+        gpu_patterns = ['p3.', 'p4.', 'p4d.', 'p5.', 'g4.', 'g5.', 'g6.']
+        
+        try:
+            # Get all EC2 instances
+            response = ec2_client.describe_instances(
+                Filters=[
+                    {'Name': 'instance-state-name', 'Values': ['running', 'stopped']}
+                ]
+            )
+            
+            gpu_instances = []
+            for reservation in response.get('Reservations', []):
+                for instance in reservation.get('Instances', []):
+                    instance_type = instance.get('InstanceType', '')
+                    
+                    # Filter for GPU instance types
+                    if any(pattern in instance_type for pattern in gpu_patterns):
+                        gpu_instances.append({
+                            'instance_id': instance['InstanceId'],
+                            'instance_type': instance_type,
+                            'state': instance.get('State', {}).get('Name', 'unknown'),
+                            'launch_time': instance.get('LaunchTime', '').isoformat() if instance.get('LaunchTime') else None
+                        })
+            
+            logger.info(f"Found {len(gpu_instances)} GPU instances")
+            return gpu_instances
+            
+        except Exception as e:
+            logger.error(f"Error retrieving GPU instances: {e}")
+            return []
     
     def _get_gpu_utilization(
         self,
@@ -323,10 +355,67 @@ class IdleGPUDetector:
         Returns:
             List of GPU utilization percentages
         """
-        # TODO: Implement CloudWatch integration
-        # For now, return empty list as placeholder
         logger.info(f"Retrieving GPU utilization for {instance_id}")
-        return []
+        
+        if not self.cloudwatch:
+            import boto3
+            self.cloudwatch = boto3.client('cloudwatch')
+        
+        try:
+            from datetime import datetime
+            
+            # Parse dates
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            
+            utilization_values = []
+            
+            # Try GPUUtilization metric first
+            try:
+                response = self.cloudwatch.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName='GPUUtilization',
+                    Dimensions=[
+                        {'Name': 'InstanceId', 'Value': instance_id}
+                    ],
+                    StartTime=start_dt,
+                    EndTime=end_dt,
+                    Period=300,  # 5-minute intervals
+                    Statistics=['Average']
+                )
+                
+                for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                    utilization_values.append(float(datapoint['Average']))
+                    
+            except Exception as e:
+                logger.warning(f"GPUUtilization metric not available for {instance_id}: {e}")
+                # Fallback to CPUUtilization
+                try:
+                    response = self.cloudwatch.get_metric_statistics(
+                        Namespace='AWS/EC2',
+                        MetricName='CPUUtilization',
+                        Dimensions=[
+                            {'Name': 'InstanceId', 'Value': instance_id}
+                        ],
+                        StartTime=start_dt,
+                        EndTime=end_dt,
+                        Period=300,
+                        Statistics=['Average']
+                    )
+                    
+                    for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                        utilization_values.append(float(datapoint['Average']))
+                        
+                except Exception as e2:
+                    logger.error(f"Failed to get CPUUtilization for {instance_id}: {e2}")
+                    return []
+            
+            logger.info(f"Retrieved {len(utilization_values)} utilization data points for {instance_id}")
+            return utilization_values
+            
+        except Exception as e:
+            logger.error(f"Error retrieving GPU utilization for {instance_id}: {e}")
+            return []
     
     def _calculate_idle_hours(
         self,

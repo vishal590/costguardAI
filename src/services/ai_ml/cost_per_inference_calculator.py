@@ -163,8 +163,8 @@ class CostPerInferenceCalculator:
         Requirements: FR-3.2
         """
         if not self.cloudwatch:
-            # Return mock data for testing
-            return 1000
+            import boto3
+            self.cloudwatch = boto3.client('cloudwatch')
         
         total_requests = 0
         
@@ -218,12 +218,8 @@ class CostPerInferenceCalculator:
         Requirements: FR-3.3
         """
         if not self.cost_explorer:
-            # Return mock data for testing
-            return InferenceCosts(
-                compute_cost=100.0,
-                api_cost=20.0,
-                data_transfer_cost=5.0
-            )
+            import boto3
+            self.cost_explorer = boto3.client('ce')
         
         compute_cost = self._get_compute_costs(endpoint, start_date, end_date)
         api_cost = self._get_api_costs(endpoint, start_date, end_date)
@@ -309,8 +305,23 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> int:
         """Get request count from API Gateway metrics."""
-        # Implementation would query CloudWatch for API Gateway Count metric
-        return 0
+        try:
+            response = self.cloudwatch.get_metric_statistics(
+                Namespace='AWS/ApiGateway',
+                MetricName='Count',
+                Dimensions=[
+                    {'Name': 'ApiName', 'Value': endpoint}
+                ],
+                StartTime=start_date,
+                EndTime=end_date,
+                Period=300,
+                Statistics=['Sum']
+            )
+            
+            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
+            return total
+        except Exception:
+            return 0
     
     def _get_lambda_invocations(
         self,
@@ -319,8 +330,23 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> int:
         """Get invocation count from Lambda metrics."""
-        # Implementation would query CloudWatch for Lambda Invocations metric
-        return 0
+        try:
+            response = self.cloudwatch.get_metric_statistics(
+                Namespace='AWS/Lambda',
+                MetricName='Invocations',
+                Dimensions=[
+                    {'Name': 'FunctionName', 'Value': endpoint}
+                ],
+                StartTime=start_date,
+                EndTime=end_date,
+                Period=300,
+                Statistics=['Sum']
+            )
+            
+            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
+            return total
+        except Exception:
+            return 0
     
     def _get_sagemaker_invocations(
         self,
@@ -329,8 +355,23 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> int:
         """Get invocation count from SageMaker metrics."""
-        # Implementation would query CloudWatch for SageMaker InvocationsPerInstance metric
-        return 0
+        try:
+            response = self.cloudwatch.get_metric_statistics(
+                Namespace='AWS/SageMaker',
+                MetricName='InvocationsPerInstance',
+                Dimensions=[
+                    {'Name': 'EndpointName', 'Value': endpoint}
+                ],
+                StartTime=start_date,
+                EndTime=end_date,
+                Period=300,
+                Statistics=['Sum']
+            )
+            
+            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
+            return total
+        except Exception:
+            return 0
     
     def _get_bedrock_invocations(
         self,
@@ -339,8 +380,24 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> int:
         """Get invocation count from Bedrock metrics."""
-        # Implementation would query CloudWatch for Bedrock Invocations metric
-        return 0
+        try:
+            # Bedrock metrics are in AWS/Bedrock namespace
+            response = self.cloudwatch.get_metric_statistics(
+                Namespace='AWS/Bedrock',
+                MetricName='Invocations',
+                Dimensions=[
+                    {'Name': 'ModelId', 'Value': endpoint}
+                ],
+                StartTime=start_date,
+                EndTime=end_date,
+                Period=300,
+                Statistics=['Sum']
+            )
+            
+            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
+            return total
+        except Exception:
+            return 0
     
     def _get_compute_costs(
         self,
@@ -349,8 +406,28 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> float:
         """Get compute costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for EC2/Lambda/SageMaker costs
-        return 0.0
+        try:
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date.strftime('%Y-%m-%d'),
+                    'End': end_date.strftime('%Y-%m-%d')
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': ['Amazon Elastic Compute Cloud - Compute', 'AWS Lambda', 'Amazon SageMaker']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0
     
     def _get_api_costs(
         self,
@@ -359,8 +436,28 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> float:
         """Get API costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for API Gateway/Bedrock costs
-        return 0.0
+        try:
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date.strftime('%Y-%m-%d'),
+                    'End': end_date.strftime('%Y-%m-%d')
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': ['Amazon API Gateway', 'Amazon Bedrock']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0
     
     def _get_data_transfer_costs(
         self,
@@ -369,5 +466,25 @@ class CostPerInferenceCalculator:
         end_date: datetime
     ) -> float:
         """Get data transfer costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for data transfer costs
-        return 0.0
+        try:
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date.strftime('%Y-%m-%d'),
+                    'End': end_date.strftime('%Y-%m-%d')
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'USAGE_TYPE',
+                        'Values': ['DataTransfer-Out-Bytes', 'DataTransfer-In-Bytes']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0

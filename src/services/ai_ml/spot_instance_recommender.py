@@ -63,12 +63,12 @@ class WhatIfScenario:
 class SpotInstanceRecommender:
     """Recommends spot instances for training workloads."""
     
-    def __init__(self, region: str = 'us-east-1'):
+    def __init__(self, region: str = 'us-east-1', pricing_client=None, ec2_client=None, cloudwatch_client=None):
         """Initialize spot instance recommender."""
         self.region = region
-        self.ec2_client = boto3.client('ec2', region_name=region)
-        self.pricing_client = boto3.client('pricing', region_name='us-east-1')
-        self.cloudwatch_client = boto3.client('cloudwatch', region_name=region)
+        self.ec2_client = ec2_client or boto3.client('ec2', region_name=region)
+        self.pricing_client = pricing_client or boto3.client('pricing', region_name='us-east-1')
+        self.cloudwatch_client = cloudwatch_client or boto3.client('cloudwatch', region_name=region)
         
         # Spot suitability criteria
         self.min_training_duration = 1.0  # hours
@@ -346,20 +346,54 @@ class SpotInstanceRecommender:
         return any(instance_type.startswith(family) for family in gpu_families)
     
     def _get_on_demand_price(self, instance_type: str) -> float:
-        """Get on-demand price for instance type."""
-        # Simplified pricing (in production, use Pricing API)
-        pricing_map = {
-            'p3.2xlarge': 3.06,
-            'p3.8xlarge': 12.24,
-            'p3.16xlarge': 24.48,
-            'p4d.24xlarge': 32.77,
-            'p5.48xlarge': 98.32,
-            'g4dn.xlarge': 0.526,
-            'g4dn.2xlarge': 0.752,
-            'g5.xlarge': 1.006,
-            'g5.2xlarge': 1.212,
-        }
-        return pricing_map.get(instance_type, 1.0)
+        """Get on-demand price for instance type using Pricing API."""
+        try:
+            # Query AWS Pricing API for on-demand pricing
+            response = self.pricing_client.get_products(
+                ServiceCode='AmazonEC2',
+                Filters=[
+                    {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
+                    {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+                    {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+                    {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+                    {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'}
+                ],
+                MaxResults=1
+            )
+            
+            if response.get('PriceList'):
+                import json
+                price_data = json.loads(response['PriceList'][0])
+                
+                # Extract on-demand price from pricing structure
+                terms = price_data.get('terms', {}).get('OnDemand', {})
+                for term_key, term_value in terms.items():
+                    price_dimensions = term_value.get('priceDimensions', {})
+                    for dim_key, dim_value in price_dimensions.items():
+                        price_per_unit = dim_value.get('pricePerUnit', {}).get('USD', '0')
+                        return float(price_per_unit)
+        
+        except Exception as e:
+            # Fallback to simplified pricing if API call fails
+            pricing_map = {
+                'p3.2xlarge': 3.06,
+                'p3.8xlarge': 12.24,
+                'p3.16xlarge': 24.48,
+                'p4d.24xlarge': 32.77,
+                'p5.48xlarge': 98.32,
+                'g4dn.xlarge': 0.526,
+                'g4dn.2xlarge': 0.752,
+                'g4dn.4xlarge': 1.204,
+                'g4dn.8xlarge': 2.176,
+                'g5.xlarge': 1.006,
+                'g5.2xlarge': 1.212,
+                'g5.4xlarge': 1.624,
+                'g5.8xlarge': 2.448,
+            }
+            return pricing_map.get(instance_type, 1.0)
+        
+        # Default fallback
+        return 1.0
     
     @retry_with_exponential_backoff(max_retries=3)
     def _get_spot_price(self, instance_type: str) -> float:
@@ -389,8 +423,45 @@ class SpotInstanceRecommender:
         return on_demand_price * 0.3
     
     def _get_interruption_risk(self, instance_type: str, az: Optional[str] = None) -> float:
-        """Get interruption risk for spot instance."""
-        # Simplified risk assessment (in production, use historical data)
+        """Get interruption risk for spot instance using historical data."""
+        try:
+            # Query CloudWatch for spot interruption history
+            # Use SpotInstanceInterruption metric if available
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(days=30)  # Last 30 days
+            
+            try:
+                response = self.cloudwatch_client.get_metric_statistics(
+                    Namespace='AWS/EC2Spot',
+                    MetricName='SpotInstanceInterruption',
+                    Dimensions=[
+                        {'Name': 'InstanceType', 'Value': instance_type}
+                    ],
+                    StartTime=start_time,
+                    EndTime=end_time,
+                    Period=86400,  # Daily
+                    Statistics=['Sum']
+                )
+                
+                # Calculate interruption rate from historical data
+                total_interruptions = sum(float(dp['Sum']) for dp in response.get('Datapoints', []))
+                total_days = len(response.get('Datapoints', []))
+                
+                if total_days > 0:
+                    # Estimate risk as interruptions per day
+                    daily_risk = total_interruptions / total_days
+                    # Normalize to 0-1 range (assuming max 1 interruption per day = 100% risk)
+                    risk = min(daily_risk, 1.0)
+                    return risk
+                    
+            except Exception:
+                # Fallback to instance family-based risk assessment
+                pass
+        
+        except Exception:
+            pass
+        
+        # Fallback: Use instance family-based risk assessment
         # GPU instances typically have lower interruption rates
         risk_map = {
             'p3': 0.05,   # 5% risk

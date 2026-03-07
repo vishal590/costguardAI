@@ -92,12 +92,93 @@ class GPUCostTracker:
             # Use provided session or default Cost Explorer client
             if boto3_session:
                 ce_client = boto3_session.client('ce')
+            elif not self.cost_explorer:
+                import boto3
+                ce_client = boto3.client('ce')
             else:
                 ce_client = self.cost_explorer
             
-            # TODO: Implement Cost Explorer integration
-            # For now, return empty list as placeholder
-            return []
+            # Query Cost Explorer for EC2 costs grouped by instance type
+            response = ce_client.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date,
+                    'End': end_date
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost', 'UsageQuantity'],
+                GroupBy=[
+                    {'Type': 'DIMENSION', 'Key': 'SERVICE'},
+                    {'Type': 'DIMENSION', 'Key': 'INSTANCE_TYPE'},
+                    {'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}
+                ],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': ['Amazon Elastic Compute Cloud - Compute']
+                    }
+                }
+            )
+            
+            # Parse response and filter for GPU instances
+            gpu_costs = []
+            for result in response.get('ResultsByTime', []):
+                date = result['TimePeriod']['Start']
+                
+                for group in result.get('Groups', []):
+                    keys = group['Keys']
+                    if len(keys) < 2:
+                        continue
+                    
+                    service = keys[0]  # Should be EC2
+                    instance_type = keys[1] if len(keys) > 1 else ''
+                    usage_type = keys[2] if len(keys) > 2 else ''
+                    
+                    # Filter for GPU instance types
+                    if not any(pattern in instance_type for pattern in GPU_INSTANCE_PATTERNS):
+                        continue
+                    
+                    # Extract cost and usage
+                    cost = float(group['Metrics']['UnblendedCost']['Amount'])
+                    usage_quantity = float(group['Metrics'].get('UsageQuantity', {}).get('Amount', 0))
+                    
+                    # Calculate GPU hours (usage quantity is typically in hours for EC2)
+                    gpu_hours = usage_quantity
+                    
+                    # Calculate cost per GPU hour
+                    cost_per_gpu_hour = self.calculate_cost_per_gpu_hour(cost, gpu_hours) if gpu_hours > 0 else 0.0
+                    
+                    # Try to get workload classification from DynamoDB or default to "unknown"
+                    detected_workload_type = "unknown"
+                    utilization = 0.0
+                    classification_confidence = 0.0
+                    
+                    # Extract instance ID from usage type if available (e.g., "BoxUsage:i-1234567890abcdef0")
+                    instance_id = "unknown"
+                    if "BoxUsage:" in usage_type:
+                        instance_id = usage_type.split("BoxUsage:")[-1]
+                    
+                    gpu_cost_data = GPUCostData(
+                        date=date,
+                        instance_id=instance_id,
+                        instance_type=instance_type,
+                        workload_type=detected_workload_type,
+                        cost=cost,
+                        gpu_hours=gpu_hours,
+                        cost_per_gpu_hour=cost_per_gpu_hour,
+                        utilization=utilization,
+                        classification_confidence=classification_confidence
+                    )
+                    
+                    # Apply filters if provided
+                    if workload_type and workload_type != gpu_cost_data.workload_type:
+                        continue
+                    if instance_type and instance_type != gpu_cost_data.instance_type:
+                        continue
+                    
+                    gpu_costs.append(gpu_cost_data)
+            
+            logger.info(f"Collected {len(gpu_costs)} GPU cost records")
+            return gpu_costs
         except ClientError as e:
             # Handle Cost Explorer errors
             error_result = handle_cost_explorer_error(e, cache_data=None)

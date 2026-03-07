@@ -150,10 +150,70 @@ class WorkloadClassifier:
             
         Requirements: FR-2.1
         """
-        # TODO: Implement CloudWatch integration
-        # For now, return empty list as placeholder
         logger.info(f"Retrieving GPU utilization for {instance_id} from {start_date} to {end_date}")
-        return []
+        
+        if not self.cloudwatch:
+            import boto3
+            self.cloudwatch = boto3.client('cloudwatch')
+        
+        try:
+            from datetime import datetime, timedelta
+            
+            # Parse dates
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            
+            # Get GPU utilization metrics (5-minute intervals)
+            # Try GPUUtilization metric first (for GPU instances with NVIDIA drivers)
+            utilization_values = []
+            
+            try:
+                response = self.cloudwatch.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName='GPUUtilization',
+                    Dimensions=[
+                        {'Name': 'InstanceId', 'Value': instance_id}
+                    ],
+                    StartTime=start_dt,
+                    EndTime=end_dt,
+                    Period=300,  # 5-minute intervals
+                    Statistics=['Average']
+                )
+                
+                # Extract utilization values
+                for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                    utilization_values.append(float(datapoint['Average']))
+                    
+            except Exception as e:
+                logger.warning(f"GPUUtilization metric not available for {instance_id}: {e}")
+                # Fallback to CPUUtilization if GPUUtilization is not available
+                # (some GPU instances may not have GPUUtilization metric enabled)
+                try:
+                    response = self.cloudwatch.get_metric_statistics(
+                        Namespace='AWS/EC2',
+                        MetricName='CPUUtilization',
+                        Dimensions=[
+                            {'Name': 'InstanceId', 'Value': instance_id}
+                        ],
+                        StartTime=start_dt,
+                        EndTime=end_dt,
+                        Period=300,
+                        Statistics=['Average']
+                    )
+                    
+                    for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
+                        utilization_values.append(float(datapoint['Average']))
+                        
+                except Exception as e2:
+                    logger.error(f"Failed to get CPUUtilization for {instance_id}: {e2}")
+                    return []
+            
+            logger.info(f"Retrieved {len(utilization_values)} GPU utilization data points")
+            return utilization_values
+            
+        except Exception as e:
+            logger.error(f"Error retrieving GPU utilization for {instance_id}: {e}")
+            return []
     
     def apply_classification_rules(
         self,
@@ -222,10 +282,38 @@ class WorkloadClassifier:
             
         Requirements: FR-2.3
         """
-        # TODO: Implement EC2 tag reading
-        # For now, return None as placeholder
         logger.info(f"Checking for manual classification tag on {instance_id}")
-        return None
+        
+        if not self.ec2:
+            import boto3
+            self.ec2 = boto3.client('ec2')
+        
+        try:
+            # Get instance tags
+            response = self.ec2.describe_tags(
+                Filters=[
+                    {'Name': 'resource-id', 'Values': [instance_id]},
+                    {'Name': 'key', 'Values': ['WorkloadType', 'workload-type', 'Workload-Type']}
+                ]
+            )
+            
+            # Check for workload type tags
+            for tag in response.get('Tags', []):
+                tag_key = tag.get('Key', '').lower()
+                tag_value = tag.get('Value', '').lower()
+                
+                # Check if it's a workload type tag
+                if 'workload' in tag_key and 'type' in tag_key:
+                    # Validate tag value
+                    if tag_value in ['training', 'inference', 'idle']:
+                        logger.info(f"Found manual classification tag: {tag_value}")
+                        return tag_value
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error reading EC2 tags for {instance_id}: {e}")
+            return None
     
     def store_classification(
         self,

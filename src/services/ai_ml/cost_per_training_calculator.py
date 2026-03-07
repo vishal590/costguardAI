@@ -148,17 +148,9 @@ class CostPerTrainingCalculator:
         Requirements: FR-4.2
         """
         if not self.sagemaker and not self.ec2:
-            # Return mock data for testing
-            return TrainingJobMetadata(
-                job_id=job_id,
-                model="test-model",
-                dataset="test-dataset",
-                instance_type="ml.p3.2xlarge",
-                start_time=datetime(2024, 1, 1, 0, 0, 0),
-                end_time=datetime(2024, 1, 1, 10, 0, 0),
-                duration_hours=10.0,
-                source="sagemaker"
-            )
+            import boto3
+            self.sagemaker = boto3.client('sagemaker')
+            self.ec2 = boto3.client('ec2')
         
         # Try SageMaker first
         try:
@@ -191,12 +183,8 @@ class CostPerTrainingCalculator:
         Requirements: FR-4.3
         """
         if not self.cost_explorer:
-            # Return mock data for testing
-            return TrainingCosts(
-                compute_cost=1000.0,
-                storage_cost=50.0,
-                data_transfer_cost=25.0
-            )
+            import boto3
+            self.cost_explorer = boto3.client('ce')
         
         compute_cost = self._get_compute_costs(job_id)
         storage_cost = self._get_storage_costs(job_id)
@@ -260,28 +248,186 @@ class CostPerTrainingCalculator:
     
     def _get_sagemaker_job_metadata(self, job_id: str) -> Optional[TrainingJobMetadata]:
         """Get metadata from SageMaker training job."""
-        # Implementation would query SageMaker DescribeTrainingJob API
-        return None
+        if not self.sagemaker:
+            import boto3
+            self.sagemaker = boto3.client('sagemaker')
+        
+        try:
+            response = self.sagemaker.describe_training_job(TrainingJobName=job_id)
+            
+            start_time = response['TrainingStartTime']
+            end_time = response.get('TrainingEndTime', datetime.utcnow())
+            duration = (end_time - start_time).total_seconds() / 3600
+            
+            # Extract instance type from training job config
+            instance_type = response.get('ResourceConfig', {}).get('InstanceType', 'unknown')
+            
+            # Extract model and dataset from hyperparameters or tags
+            model = response.get('HyperParameters', {}).get('model_name', 'unknown')
+            dataset = response.get('HyperParameters', {}).get('dataset', 'unknown')
+            
+            return TrainingJobMetadata(
+                job_id=job_id,
+                model=model,
+                dataset=dataset,
+                instance_type=instance_type,
+                start_time=start_time,
+                end_time=end_time,
+                duration_hours=duration,
+                source="sagemaker"
+            )
+        except Exception as e:
+            return None
     
     def _get_ec2_training_metadata(self, job_id: str) -> Optional[TrainingJobMetadata]:
         """Get metadata from EC2 instance with training classification."""
-        # Implementation would query EC2 tags and CloudWatch metrics
-        return None
+        if not self.ec2:
+            import boto3
+            self.ec2 = boto3.client('ec2')
+        
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            
+            # Get EC2 instance details
+            response = self.ec2.describe_instances(InstanceIds=[job_id])
+            
+            if not response.get('Reservations'):
+                return None
+            
+            instance = response['Reservations'][0]['Instances'][0]
+            instance_type = instance.get('InstanceType', 'unknown')
+            launch_time = instance.get('LaunchTime', datetime.utcnow())
+            
+            # Get tags for model/dataset info
+            tags = {tag['Key']: tag['Value'] for tag in instance.get('Tags', [])}
+            model = tags.get('Model', tags.get('model', 'unknown'))
+            dataset = tags.get('Dataset', tags.get('dataset', 'unknown'))
+            
+            # Estimate end time from CloudWatch metrics or use current time
+            end_time = datetime.utcnow()
+            
+            # Try to get actual end time from CloudWatch if instance is stopped
+            if instance.get('State', {}).get('Name') == 'stopped':
+                end_time = instance.get('StateTransitionReason', end_time)
+                if isinstance(end_time, str):
+                    # Parse from state transition reason if available
+                    end_time = datetime.utcnow()
+            
+            duration = (end_time - launch_time).total_seconds() / 3600
+            
+            return TrainingJobMetadata(
+                job_id=job_id,
+                model=model,
+                dataset=dataset,
+                instance_type=instance_type,
+                start_time=launch_time,
+                end_time=end_time,
+                duration_hours=duration,
+                source="ec2"
+            )
+        except Exception:
+            return None
     
     def _get_compute_costs(self, job_id: str) -> float:
         """Get compute costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for EC2/SageMaker costs
-        return 0.0
+        if not self.cost_explorer:
+            import boto3
+            self.cost_explorer = boto3.client('ce')
+        
+        try:
+            # Get metadata to determine date range
+            metadata = self.get_training_job_metadata(job_id)
+            start_date = metadata.start_time.strftime('%Y-%m-%d')
+            end_date = metadata.end_time.strftime('%Y-%m-%d')
+            
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date,
+                    'End': end_date
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': ['Amazon Elastic Compute Cloud - Compute', 'Amazon SageMaker']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0
     
     def _get_storage_costs(self, job_id: str) -> float:
         """Get storage costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for S3/EBS costs
-        return 0.0
+        if not self.cost_explorer:
+            import boto3
+            self.cost_explorer = boto3.client('ce')
+        
+        try:
+            metadata = self.get_training_job_metadata(job_id)
+            start_date = metadata.start_time.strftime('%Y-%m-%d')
+            end_date = metadata.end_time.strftime('%Y-%m-%d')
+            
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date,
+                    'End': end_date
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': ['Amazon Simple Storage Service', 'Amazon Elastic Block Store']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0
     
     def _get_data_transfer_costs(self, job_id: str) -> float:
         """Get data transfer costs from Cost Explorer."""
-        # Implementation would query Cost Explorer for data transfer costs
-        return 0.0
+        if not self.cost_explorer:
+            import boto3
+            self.cost_explorer = boto3.client('ce')
+        
+        try:
+            metadata = self.get_training_job_metadata(job_id)
+            start_date = metadata.start_time.strftime('%Y-%m-%d')
+            end_date = metadata.end_time.strftime('%Y-%m-%d')
+            
+            response = self.cost_explorer.get_cost_and_usage(
+                TimePeriod={
+                    'Start': start_date,
+                    'End': end_date
+                },
+                Granularity='DAILY',
+                Metrics=['UnblendedCost'],
+                Filter={
+                    'Dimensions': {
+                        'Key': 'USAGE_TYPE',
+                        'Values': ['DataTransfer-Out-Bytes', 'DataTransfer-In-Bytes']
+                    }
+                }
+            )
+            
+            total = 0.0
+            for result in response.get('ResultsByTime', []):
+                total += float(result['Total']['UnblendedCost']['Amount'])
+            return total
+        except Exception:
+            return 0.0
     
     def _estimate_training_duration(self, model: str, instance_type: str) -> float:
         """Estimate training duration for model on instance type."""
