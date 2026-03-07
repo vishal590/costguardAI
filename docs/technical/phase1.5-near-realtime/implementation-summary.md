@@ -240,9 +240,9 @@ def test_phase1_compatibility():
 
 ### Performance
 
-- **Single Service Query:** 1.2s average (< 2s requirement)
-- **All Services Query:** 3.8s average (< 5s requirement)
-- **Pricing Cache Hit Rate:** 97%
+- **Single Service Query:** ~1.2s average (tested, < 2s requirement)
+- **All Services Query:** ~3.8s average (tested, < 5s requirement)
+- **Pricing Cache Hit Rate:** >95% (expected with 24-hour TTL)
 - **CloudWatch API Calls:** ~50,000/month (within 1M free tier)
 
 ## Lessons Learned
@@ -358,7 +358,7 @@ def test_phase1_compatibility():
 
 ### Cost Optimization Impact
 
-- **Pricing Cache:** Saved ~$0.95/month (95% reduction)
+- **Pricing Cache:** Expected savings ~$0.95/month (95% reduction in Pricing API calls)
 - **Metric Batching:** Stayed within CloudWatch Free Tier
 - **On-Demand DynamoDB:** No wasted provisioned capacity
 

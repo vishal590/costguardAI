@@ -6,7 +6,7 @@ Phase 1.5 extends the Cost Data Pipeline (Phase 1) by adding near-real-time cost
 
 ## Key Features
 
-- **Real-Time Cost Visibility:** Estimate current AWS costs without waiting for Cost Explorer's 24-hour delay
+- **Near-Real-Time Cost Visibility:** Estimate current AWS costs within 6-10 minutes, without waiting for Cost Explorer's 24-hour delay
 - **Multi-Service Support:** EC2, Lambda, DynamoDB, S3, and RDS cost estimation
 - **Confidence Intervals:** Statistical confidence bounds for estimation accuracy
 - **Pricing Cache:** 24-hour pricing data cache to minimize API calls
@@ -214,7 +214,7 @@ Phase 1.5 operates within AWS Free Tier:
   - Discounts and credits not reflected in metrics
 
 ### Metric Collection Limitations
-- **5-Minute Delay:** CloudWatch metrics have a 1-5 minute delay. The system uses 5-minute aggregation periods for efficiency.
+- **Total Delay:** CloudWatch metrics have a 1-5 minute delay, plus the system uses 5-minute aggregation periods. Total delay: 6-10 minutes from actual usage to cost estimate.
 - **Metric Availability:** New resources may not have metrics available immediately. Wait 5-10 minutes after resource creation.
 - **Limited Services:** Currently supports only EC2, Lambda, DynamoDB, S3, and RDS. Other services require Phase 1 historical data.
 

@@ -66,6 +66,27 @@ class ForecastCacheTable(Construct):
         )
 
 
+class PricingCacheTable(Construct):
+    """DynamoDB table for storing pricing cache (Phase 1.5)"""
+
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        # Create DynamoDB table for pricing cache
+        self.table = dynamodb.Table(
+            self,
+            "PricingCacheTable",
+            table_name="costguard-pricing-cache",
+            partition_key=dynamodb.Attribute(
+                name="cache_key", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,  # On-demand billing
+            time_to_live_attribute="ttl",  # Enable TTL for automatic cache expiration (24 hours)
+            removal_policy=RemovalPolicy.RETAIN,  # Retain table on stack deletion
+            point_in_time_recovery=False,  # Disabled for Free Tier
+        )
+
+
 class CostDataStack(Stack):
     """CDK Stack for Cost Data Pipeline DynamoDB tables"""
 
@@ -77,3 +98,6 @@ class CostDataStack(Stack):
 
         # Create DynamoDB table for forecast cache (Phase 2)
         self.forecast_cache_table = ForecastCacheTable(self, "ForecastCacheTableConstruct")
+        
+        # Create DynamoDB table for pricing cache (Phase 1.5)
+        self.pricing_cache_table = PricingCacheTable(self, "PricingCacheTableConstruct")

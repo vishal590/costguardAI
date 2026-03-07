@@ -366,7 +366,7 @@ None at this time.
 
 ### Glossary
 
-- **Near-Real-Time:** Data available within 1-5 minutes (vs 24-hour delay)
+- **Near-Real-Time:** Data available within 6-10 minutes (CloudWatch delay: 1-5 min + aggregation: 5 min) vs 24-hour delay from Cost Explorer
 - **Confidence Interval:** Statistical range indicating estimation accuracy
 - **Pricing Cache:** Temporary storage of AWS pricing data
 - **Metric Period:** Time window for metric aggregation (5 minutes)
