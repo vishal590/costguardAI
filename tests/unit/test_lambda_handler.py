@@ -200,6 +200,10 @@ class TestPhase15Compatibility:
     
     def test_phase15_estimation_current_works(self):
         """Test Phase 1.5 /cost-estimation/current endpoint still works."""
+        from datetime import datetime, UTC, timedelta
+        from decimal import Decimal
+        from src.utils.types import CostEstimate, PricingData
+        
         event = {
             'httpMethod': 'GET',
             'path': '/api/cost-estimation/current',
@@ -211,11 +215,34 @@ class TestPhase15Compatibility:
              patch('src.lambda_handler.CostEstimator') as mock_estimator:
             
             mock_collector_instance = Mock()
-            mock_collector_instance.collect_metrics.return_value = {}
+            mock_collector_instance.collect_service_metrics.return_value = {}
             mock_collector.return_value = mock_collector_instance
             
-            mock_pricing.return_value = Mock()
-            mock_estimator.return_value = Mock()
+            mock_pricing_instance = Mock()
+            mock_pricing_instance.get_pricing_data.return_value = PricingData(
+                service='ec2',
+                region='us-east-1',
+                prices={'t2.micro': Decimal('0.0116')},
+                currency='USD',
+                last_updated=datetime.now(UTC),
+                ttl=86400
+            )
+            mock_pricing.return_value = mock_pricing_instance
+            
+            mock_estimator_instance = Mock()
+            mock_estimator_instance.estimate_cost_with_service_method.return_value = CostEstimate(
+                service='ec2',
+                estimated_cost=Decimal('0'),
+                currency='USD',
+                confidence_lower=Decimal('0'),
+                confidence_upper=Decimal('0'),
+                timestamp=datetime.now(UTC),
+                period_start=datetime.now(UTC) - timedelta(hours=1),
+                period_end=datetime.now(UTC),
+                metrics_count=0
+            )
+            mock_estimator_instance.calculate_total_estimate.return_value = Decimal('0')
+            mock_estimator.return_value = mock_estimator_instance
             
             response = handler(event, None)
             
@@ -226,6 +253,10 @@ class TestPhase15Compatibility:
     
     def test_phase15_estimation_service_works(self):
         """Test Phase 1.5 /cost-estimation/service/{service} endpoint still works."""
+        from datetime import datetime, UTC, timedelta
+        from decimal import Decimal
+        from src.utils.types import CostEstimate, PricingData
+        
         event = {
             'httpMethod': 'GET',
             'path': '/api/cost-estimation/service/ec2',
@@ -237,11 +268,33 @@ class TestPhase15Compatibility:
              patch('src.lambda_handler.CostEstimator') as mock_estimator:
             
             mock_collector_instance = Mock()
-            mock_collector_instance.collect_metrics.return_value = {'ec2': []}
+            mock_collector_instance.collect_service_metrics.return_value = {'ec2': []}
             mock_collector.return_value = mock_collector_instance
             
-            mock_pricing.return_value = Mock()
-            mock_estimator.return_value = Mock()
+            mock_pricing_instance = Mock()
+            mock_pricing_instance.get_pricing_data.return_value = PricingData(
+                service='ec2',
+                region='us-east-1',
+                prices={'t2.micro': Decimal('0.0116')},
+                currency='USD',
+                last_updated=datetime.now(UTC),
+                ttl=86400
+            )
+            mock_pricing.return_value = mock_pricing_instance
+            
+            mock_estimator_instance = Mock()
+            mock_estimator_instance.estimate_cost_with_service_method.return_value = CostEstimate(
+                service='ec2',
+                estimated_cost=Decimal('0'),
+                currency='USD',
+                confidence_lower=Decimal('0'),
+                confidence_upper=Decimal('0'),
+                timestamp=datetime.now(UTC),
+                period_start=datetime.now(UTC) - timedelta(hours=1),
+                period_end=datetime.now(UTC),
+                metrics_count=0
+            )
+            mock_estimator.return_value = mock_estimator_instance
             
             response = handler(event, None)
             
