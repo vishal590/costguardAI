@@ -445,27 +445,33 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
         pricing_manager = PricingManager()
         cost_estimator = CostEstimator()
         
-        # Collect metrics for all services
-        all_metrics = metrics_collector.collect_metrics(
+        # Collect service-specific metrics (returns original metric objects)
+        all_service_metrics = metrics_collector.collect_service_metrics(
             services=['ec2', 'lambda', 'dynamodb', 's3', 'rds'],
             start_time=start_time,
             end_time=end_time
         )
         
-        # Calculate estimates for each service
+        # Calculate estimates for each service using service-specific methods
         estimates = []
         total_cost = 0.0
         
-        for service, metrics in all_metrics.items():
-            if not metrics:
+        for service, service_metrics in all_service_metrics.items():
+            if not service_metrics:
                 continue
             
             # Get pricing data
             region = query_params.get('region', 'us-east-1')
             pricing_data = pricing_manager.get_pricing_data(service, region)
             
-            # Calculate estimate
-            estimate = cost_estimator.estimate_cost(service, metrics, pricing_data)
+            # Calculate estimate using service-specific method
+            estimate = cost_estimator.estimate_cost_with_service_method(
+                service=service,
+                service_metrics=service_metrics,
+                pricing_data=pricing_data,
+                start_time=start_time,
+                end_time=end_time
+            )
             estimates.append(estimate)
             total_cost += float(estimate.estimated_cost)
         
@@ -584,16 +590,16 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
         pricing_manager = PricingManager()
         cost_estimator = CostEstimator()
         
-        # Collect metrics for specified service
-        all_metrics = metrics_collector.collect_metrics(
+        # Collect service-specific metrics for specified service
+        all_service_metrics = metrics_collector.collect_service_metrics(
             services=[service],
             start_time=start_time,
             end_time=end_time
         )
         
-        metrics = all_metrics.get(service, [])
+        service_metrics = all_service_metrics.get(service, [])
         
-        if not metrics:
+        if not service_metrics:
             logger.info(f"No metrics found for {service}")
             return {
                 'statusCode': 200,
@@ -614,8 +620,14 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
         region = query_params.get('region', 'us-east-1')
         pricing_data = pricing_manager.get_pricing_data(service, region)
         
-        # Calculate estimate
-        estimate = cost_estimator.estimate_cost(service, metrics, pricing_data)
+        # Calculate estimate using service-specific method
+        estimate = cost_estimator.estimate_cost_with_service_method(
+            service=service,
+            service_metrics=service_metrics,
+            pricing_data=pricing_data,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         logger.info(f"Estimation completed for {service}: ${float(estimate.estimated_cost):.2f}")
         
