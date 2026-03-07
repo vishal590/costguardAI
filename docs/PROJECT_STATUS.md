@@ -332,7 +332,11 @@ Coverage:
 - Multi-account GPU cost aggregation
 
 ### Metrics
-- **Tests:** 161 passing (40 unit + 121 property) + 39 integration tests
+- **Tests:** 41 unit tests passing (verified March 2026)
+  - Error handling: 14 tests
+  - GPU cost tracker: 4 tests
+  - Idle detector: 15 tests
+  - Workload classifier: 8 tests
 - **Coverage:** 60-96% on core modules (91% on idle_detector.py)
 - **API Endpoints:** 20 operational
 - **Monthly Cost:** ~$0.50
@@ -349,7 +353,7 @@ Coverage:
 
 ### What's Done ✅
 - ✅ All 7 service modules implemented
-- ✅ All 200 tests passing (161 unit/property + 39 integration)
+- ✅ All 41 unit tests passing (verified March 2026)
 - ✅ Infrastructure deployed as separate stack
 - ✅ All 20 endpoints tested and operational
 - ✅ Integration with Phases 2-5 verified
@@ -368,13 +372,11 @@ Coverage:
 
 ### Test Results Summary
 ```
-Total Tests: 200 (100% passing)
-├── Unit Tests: 40 passing
-├── Property Tests: 121 passing
-└── Integration Tests: 39 passing
-    ├── AI Advisor Integration: 13 passing
-    ├── Multi-Account Integration: 13 passing
-    └── Prevention Integration: 13 passing
+Unit Tests: 41 tests (100% passing) - Verified March 2026
+├── Error handling: 14 tests
+├── GPU cost tracker: 4 tests
+├── Idle detector: 15 tests
+└── Workload classifier: 8 tests
 
 Endpoint Tests: 20/20 operational
 ├── 2 endpoints: 200 OK (no parameters)
@@ -382,9 +384,6 @@ Endpoint Tests: 20/20 operational
 └── 2 endpoints: 501 (not yet implemented)
 
 Coverage:
-├── ai_advisor_integration.py: 96%
-├── multi_account_gpu_integration.py: 95%
-├── prevention_integration.py: 86%
 ├── idle_detector.py: 91%
 └── Overall Phase 6: 60-96%
 ```
