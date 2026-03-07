@@ -223,11 +223,13 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 
 ## Phase 5: Multi-Account Cost Management
 
-**Status:** ✅ **DEPLOYED & FULLY TESTED**
+**Status:** ✅ **DEPLOYED & FULLY TESTED** (Updated January 2026)
 
 ### Features
 - AWS Organizations integration and discovery
 - Cross-account cost collection (up to 100 accounts)
+- Parallel processing: Configurable via `MAX_PARALLEL_ACCOUNTS` environment variable (default: 10)
+- Periodic sync: Configurable via CDK context `org-sync-hours` (default: 4 hours)
 - Consolidated billing views (organization/OU/account)
 - Tag-based cost allocation (Team, Project, Environment)
 - Custom allocation rules engine
@@ -238,6 +240,15 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 - Multi-account AI advisor context
 - API authentication with rate limiting
 - Backward compatibility with single-account mode
+
+### Recent Updates (January 2026)
+- ✅ Fixed misleading claims: Made parallel processing configurable (was "100 accounts simultaneously", now configurable via MAX_PARALLEL_ACCOUNTS)
+- ✅ Fixed misleading claims: Changed "Real-time Sync" to "Periodic Sync" and made sync frequency configurable
+- ✅ Made max_workers configurable via MAX_PARALLEL_ACCOUNTS environment variable (default: 10)
+- ✅ Made organization sync frequency configurable via CDK context org-sync-hours (default: 4 hours)
+- ✅ Made cache TTL configurable via ORG_CACHE_TTL_HOURS environment variable (default: 24 hours)
+- ✅ Added comprehensive tests for configurable behavior (6 new tests)
+- ✅ Updated documentation with Limitations section and configuration details
 
 ### Metrics
 - **Tests:** 263 passing (146 unit + 30 property + 87 integration)

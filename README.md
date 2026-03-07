@@ -60,7 +60,8 @@
   - Markdown-formatted responses with cost tables and highlights
 - **Multi-Account Cost Management (Phase 5):** Enterprise-grade multi-account support:
   - AWS Organizations integration
-  - Cross-account cost aggregation
+  - Cross-account cost aggregation (configurable parallel processing via MAX_PARALLEL_ACCOUNTS)
+  - Periodic organization sync (configurable via CDK context org-sync-hours)
   - Tag-based cost allocation
   - Chargeback and showback reports
   - Hierarchical budgets
