@@ -66,11 +66,11 @@
   - Chargeback and showback reports
   - Hierarchical budgets
 - **AI/ML Workload Cost Management (Phase 6):** GPU cost tracking and optimization:
-  - GPU cost tracking by workload type (training, inference, idle)
-  - Cost-per-inference and cost-per-training calculations
-  - Spot instance recommendations (up to 70% savings)
+  - GPU cost tracking by workload type (training, inference, idle) - **Real Cost Explorer integration**
+  - Cost-per-inference and cost-per-training calculations - **Real CloudWatch and Cost Explorer data**
+  - Spot instance recommendations (up to 70% savings) - **AWS Pricing API integration**
   - SageMaker and Bedrock cost optimization
-  - Automated workload classification
+  - Automated workload classification - **CloudWatch metrics and EC2 tags**
 - **Autonomous Action Loops (Phase 6 Extension):** Self-optimizing AI/ML cost management:
   - 5-phase autonomous loop: Analyze → Decide → Act → Verify → Learn
   - Intelligent GPU scheduling based on cost patterns
