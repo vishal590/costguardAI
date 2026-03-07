@@ -3,7 +3,7 @@ CloudWatch Metrics Collector for Phase 1.5.
 
 This module collects usage metrics from CloudWatch for cost estimation.
 """
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 from decimal import Decimal
 import boto3
@@ -79,6 +79,53 @@ class CloudWatchMetricsCollector:
                     metrics = self.collect_rds_metrics(start_time, end_time)
                     results['rds'] = self._convert_to_datapoints(metrics, 'rds')
                     
+                else:
+                    # Skip unsupported services
+                    continue
+                    
+            except Exception as e:
+                # Log error but continue with other services
+                print(f"Error collecting metrics for {service}: {str(e)}")
+                results[service_lower] = []
+        
+        return results
+    
+    def collect_service_metrics(
+        self,
+        services: List[str],
+        start_time: datetime,
+        end_time: datetime,
+        period: int = 300
+    ) -> Dict[str, Any]:
+        """
+        Collect service-specific metrics (returns original metric objects, not just datapoints).
+        
+        Args:
+            services: List of service names to collect metrics for
+            start_time: Start of time range
+            end_time: End of time range
+            period: Metric aggregation period in seconds (default: 300 = 5 minutes)
+            
+        Returns:
+            Dictionary mapping service names to lists of service-specific metric objects
+            (EC2Metrics, LambdaMetrics, etc.)
+        """
+        results = {}
+        
+        for service in services:
+            service_lower = service.lower()
+            
+            try:
+                if service_lower == 'ec2':
+                    results['ec2'] = self.collect_ec2_metrics(start_time, end_time)
+                elif service_lower == 'lambda':
+                    results['lambda'] = self.collect_lambda_metrics(start_time, end_time)
+                elif service_lower == 'dynamodb':
+                    results['dynamodb'] = self.collect_dynamodb_metrics(start_time, end_time)
+                elif service_lower == 's3':
+                    results['s3'] = self.collect_s3_metrics(start_time, end_time)
+                elif service_lower == 'rds':
+                    results['rds'] = self.collect_rds_metrics(start_time, end_time)
                 else:
                     # Skip unsupported services
                     continue
@@ -557,3 +604,57 @@ class CloudWatchMetricsCollector:
         except ClientError as e:
             error_info = format_error(e)
             raise Exception(f"Failed to collect RDS metrics: {error_info['message']}")
+    
+    def store_metrics(
+        self,
+        service: str,
+        service_metrics: List[Any],
+        start_time: datetime,
+        end_time: datetime
+    ) -> None:
+        """
+        Store collected metrics in DynamoDB (optional feature).
+        
+        Args:
+            service: Service name
+            service_metrics: List of service-specific metrics
+            start_time: Collection start time
+            end_time: Collection end time
+        """
+        try:
+            import json
+            from datetime import datetime, timezone, timedelta
+            
+            # Get table (may not exist yet)
+            table = self.dynamodb_resource.Table(self.metrics_table_name)
+            
+            # Store each metric
+            for metric in service_metrics:
+                # Create metric record
+                metric_id = f"{service}#{metric.instance_id if hasattr(metric, 'instance_id') else metric.function_name if hasattr(metric, 'function_name') else metric.table_name if hasattr(metric, 'table_name') else metric.bucket_name if hasattr(metric, 'bucket_name') else 'unknown'}"
+                timestamp = datetime.now(timezone.utc).isoformat()
+                
+                # Convert metric to dict
+                metric_dict = {
+                    'metric_id': metric_id,
+                    'service': service,
+                    'timestamp': timestamp,
+                    'period_start': start_time.isoformat(),
+                    'period_end': end_time.isoformat(),
+                    'metric_data': json.dumps({
+                        k: str(v) if isinstance(v, Decimal) else v
+                        for k, v in metric.__dict__.items()
+                    }),
+                    'ttl': int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())  # Keep for 30 days
+                }
+                
+                # Write to DynamoDB
+                table.put_item(Item=metric_dict)
+                
+        except ClientError as e:
+            # Table might not exist yet - log but don't fail
+            if e.response['Error']['Code'] != 'ResourceNotFoundException':
+                print(f"Failed to store metrics: {str(e)}")
+        except Exception as e:
+            # Log error but don't fail - metrics storage is optional
+            print(f"Failed to store metrics: {str(e)}")

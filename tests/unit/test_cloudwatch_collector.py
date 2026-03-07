@@ -381,3 +381,272 @@ class TestCollectMetrics:
         assert result['ec2'] == []
         # Lambda should still work
         assert 'lambda' in result
+
+
+class TestCollectServiceMetrics:
+    """Test collect_service_metrics method."""
+    
+    @patch('boto3.client')
+    def test_collect_service_metrics_returns_service_specific_objects(self, mock_boto_client):
+        """Test that collect_service_metrics returns service-specific metric objects."""
+        # Mock EC2 client
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instances.return_value = {
+            'Reservations': [{
+                'Instances': [{
+                    'InstanceId': 'i-123',
+                    'InstanceType': 't2.micro',
+                    'State': {'Name': 'running'}
+                }]
+            }]
+        }
+        
+        # Mock CloudWatch client
+        mock_cw_client = Mock()
+        mock_cw_client.get_metric_statistics.return_value = {
+            'Datapoints': [{'Average': 50.0}]
+        }
+        
+        # Configure boto3.client to return appropriate clients
+        def client_side_effect(service_name, **kwargs):
+            if service_name == 'ec2':
+                return mock_ec2_client
+            elif service_name == 'cloudwatch':
+                return mock_cw_client
+            return Mock()
+        
+        mock_boto_client.side_effect = client_side_effect
+        
+        collector = CloudWatchMetricsCollector(region='us-east-1')
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        result = collector.collect_service_metrics(
+            services=['ec2'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Verify result structure
+        assert 'ec2' in result
+        assert isinstance(result['ec2'], list)
+        
+        # Verify EC2Metrics objects are returned (not MetricDataPoint)
+        if len(result['ec2']) > 0:
+            from src.utils.types import EC2Metrics
+            assert isinstance(result['ec2'][0], EC2Metrics)
+            assert result['ec2'][0].instance_id == 'i-123'
+            assert result['ec2'][0].instance_type == 't2.micro'
+    
+    @patch('boto3.client')
+    def test_collect_service_metrics_handles_multiple_services(self, mock_boto_client):
+        """Test collecting metrics for multiple services."""
+        # Mock clients
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instances.return_value = {'Reservations': []}
+        
+        mock_lambda_client = Mock()
+        mock_lambda_client.list_functions.return_value = {'Functions': []}
+        
+        mock_cw_client = Mock()
+        mock_cw_client.get_metric_statistics.return_value = {'Datapoints': []}
+        
+        def client_side_effect(service_name, **kwargs):
+            if service_name == 'ec2':
+                return mock_ec2_client
+            elif service_name == 'lambda':
+                return mock_lambda_client
+            elif service_name == 'cloudwatch':
+                return mock_cw_client
+            return Mock()
+        
+        mock_boto_client.side_effect = client_side_effect
+        
+        collector = CloudWatchMetricsCollector(region='us-east-1')
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        result = collector.collect_service_metrics(
+            services=['ec2', 'lambda'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Verify both services are in result
+        assert 'ec2' in result
+        assert 'lambda' in result
+        assert isinstance(result['ec2'], list)
+        assert isinstance(result['lambda'], list)
+    
+    @patch('boto3.client')
+    def test_collect_service_metrics_handles_errors_gracefully(self, mock_boto_client):
+        """Test that errors in one service don't break others."""
+        # Mock EC2 to raise error
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instances.side_effect = Exception("EC2 error")
+        
+        # Mock Lambda to work
+        mock_lambda_client = Mock()
+        mock_lambda_client.list_functions.return_value = {'Functions': []}
+        
+        mock_cw_client = Mock()
+        mock_cw_client.get_metric_statistics.return_value = {'Datapoints': []}
+        
+        def client_side_effect(service_name, **kwargs):
+            if service_name == 'ec2':
+                return mock_ec2_client
+            elif service_name == 'lambda':
+                return mock_lambda_client
+            elif service_name == 'cloudwatch':
+                return mock_cw_client
+            return Mock()
+        
+        mock_boto_client.side_effect = client_side_effect
+        
+        collector = CloudWatchMetricsCollector(region='us-east-1')
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        result = collector.collect_service_metrics(
+            services=['ec2', 'lambda'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # EC2 should have empty list due to error
+        assert result['ec2'] == []
+        # Lambda should still work
+        assert 'lambda' in result
+
+
+class TestStoreMetrics:
+    """Test store_metrics method."""
+    
+    def test_store_metrics_stores_ec2_metrics(self):
+        """Test storing EC2 metrics in DynamoDB."""
+        from unittest.mock import MagicMock, Mock
+        from datetime import timedelta
+        
+        mock_client = Mock()
+        mock_dynamodb_resource = MagicMock()
+        mock_table = MagicMock()
+        mock_dynamodb_resource.Table.return_value = mock_table
+        
+        collector = CloudWatchMetricsCollector(client=mock_client)
+        collector.dynamodb_resource = mock_dynamodb_resource
+        collector.metrics_table_name = 'test-metrics-table'
+        
+        ec2_metrics = [
+            EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1')
+            )
+        ]
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        collector.store_metrics('ec2', ec2_metrics, start_time, end_time)
+        
+        # Verify put_item was called
+        assert mock_table.put_item.called
+        call_args = mock_table.put_item.call_args
+        
+        # Verify item structure
+        item = call_args[1]['Item']
+        assert item['service'] == 'ec2'
+        assert item['metric_id'] == 'ec2#i-123'
+        assert 'metric_data' in item
+        assert 'ttl' in item
+    
+    def test_store_metrics_handles_missing_table_gracefully(self):
+        """Test that missing table doesn't raise exception."""
+        from unittest.mock import MagicMock, Mock
+        from botocore.exceptions import ClientError
+        
+        mock_client = Mock()
+        mock_dynamodb_resource = MagicMock()
+        mock_table = MagicMock()
+        mock_dynamodb_resource.Table.return_value = mock_table
+        
+        # Mock ResourceNotFoundException
+        error_response = {
+            'Error': {'Code': 'ResourceNotFoundException', 'Message': 'Table not found'},
+            'ResponseMetadata': {'RequestId': 'test-request-id'}
+        }
+        mock_table.put_item.side_effect = ClientError(error_response, 'put_item')
+        
+        collector = CloudWatchMetricsCollector(client=mock_client)
+        collector.dynamodb_resource = mock_dynamodb_resource
+        collector.metrics_table_name = 'test-metrics-table'
+        
+        ec2_metrics = [
+            EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1')
+            )
+        ]
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        # Should not raise exception
+        collector.store_metrics('ec2', ec2_metrics, start_time, end_time)
+        
+        # Verify put_item was called (even though it failed)
+        assert mock_table.put_item.called
+    
+    def test_store_metrics_handles_other_errors_gracefully(self):
+        """Test that other errors are handled gracefully."""
+        from unittest.mock import MagicMock, Mock
+        from botocore.exceptions import ClientError
+        
+        mock_client = Mock()
+        mock_dynamodb_resource = MagicMock()
+        mock_table = MagicMock()
+        mock_dynamodb_resource.Table.return_value = mock_table
+        
+        # Mock other error
+        error_response = {
+            'Error': {'Code': 'ProvisionedThroughputExceededException', 'Message': 'Throughput exceeded'},
+            'ResponseMetadata': {'RequestId': 'test-request-id'}
+        }
+        mock_table.put_item.side_effect = ClientError(error_response, 'put_item')
+        
+        collector = CloudWatchMetricsCollector(client=mock_client)
+        collector.dynamodb_resource = mock_dynamodb_resource
+        collector.metrics_table_name = 'test-metrics-table'
+        
+        ec2_metrics = [
+            EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1')
+            )
+        ]
+        
+        start_time = datetime(2024, 1, 1, 0, 0, 0)
+        end_time = datetime(2024, 1, 1, 1, 0, 0)
+        
+        # Should not raise exception
+        collector.store_metrics('ec2', ec2_metrics, start_time, end_time)
+        
+        # Verify put_item was called
+        assert mock_table.put_item.called

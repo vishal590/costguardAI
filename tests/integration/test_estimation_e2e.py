@@ -17,7 +17,7 @@ from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
 from src.lambda_handler import handler
-from src.utils.types import CostEstimate, PricingData
+from src.utils.types import CostEstimate, PricingData, EC2Metrics, LambdaMetrics
 
 
 class TestEstimationEndToEnd(unittest.TestCase):
@@ -36,10 +36,24 @@ class TestEstimationEndToEnd(unittest.TestCase):
         mock_collector = MagicMock()
         mock_collector_class.return_value = mock_collector
         
-        # Mock collect_metrics to return sample metrics
-        mock_collector.collect_metrics.return_value = {
-            'ec2': [MagicMock(instance_id='i-123', instance_type='t2.micro', running_hours=Decimal('1.0'))],
-            'lambda': [MagicMock(function_name='my-func', invocations=100, duration_ms=Decimal('500'), memory_mb=128)],
+        # Mock collect_service_metrics to return service-specific metrics
+        mock_collector.collect_service_metrics.return_value = {
+            'ec2': [EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),  # 1 GB
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1.0')
+            )],
+            'lambda': [LambdaMetrics(
+                function_name='my-func',
+                invocations=100,
+                duration_ms=Decimal('500'),
+                memory_mb=128,
+                errors=0
+            )],
         }
         
         # Mock pricing manager
@@ -48,26 +62,56 @@ class TestEstimationEndToEnd(unittest.TestCase):
         mock_pricing.get_pricing_data.return_value = PricingData(
             service='ec2',
             region='us-east-1',
-            prices={'instance_hour': Decimal('0.0116')},
+            prices={'t2.micro': Decimal('0.0116'), 'data_transfer_out': Decimal('0.09')},
             currency='USD',
             last_updated=datetime.now(UTC),
             ttl=int((datetime.now(UTC) + timedelta(days=1)).timestamp())
         )
         
-        # Mock cost estimator
+        # Mock cost estimator - use estimate_cost_with_service_method
         mock_estimator = MagicMock()
         mock_estimator_class.return_value = mock_estimator
-        mock_estimator.estimate_cost.return_value = CostEstimate(
-            service='ec2',
-            estimated_cost=Decimal('0.0116'),
-            currency='USD',
-            confidence_lower=Decimal('0.0104'),
-            confidence_upper=Decimal('0.0128'),
-            timestamp=datetime.now(UTC),
-            period_start=datetime.now(UTC) - timedelta(hours=1),
-            period_end=datetime.now(UTC),
-            metrics_count=1
-        )
+        
+        # Mock estimate_cost_with_service_method to return CostEstimate for each service
+        def mock_estimate_cost_with_service_method(service, service_metrics, pricing_data, start_time, end_time):
+            if service == 'ec2':
+                return CostEstimate(
+                    service='ec2',
+                    estimated_cost=Decimal('0.0116'),
+                    currency='USD',
+                    confidence_lower=Decimal('0.0104'),
+                    confidence_upper=Decimal('0.0128'),
+                    timestamp=datetime.now(UTC),
+                    period_start=start_time,
+                    period_end=end_time,
+                    metrics_count=len(service_metrics) if service_metrics else 0
+                )
+            elif service == 'lambda':
+                return CostEstimate(
+                    service='lambda',
+                    estimated_cost=Decimal('0.001'),
+                    currency='USD',
+                    confidence_lower=Decimal('0.0009'),
+                    confidence_upper=Decimal('0.0011'),
+                    timestamp=datetime.now(UTC),
+                    period_start=start_time,
+                    period_end=end_time,
+                    metrics_count=len(service_metrics) if service_metrics else 0
+                )
+            else:
+                return CostEstimate(
+                    service=service,
+                    estimated_cost=Decimal('0'),
+                    currency='USD',
+                    confidence_lower=Decimal('0'),
+                    confidence_upper=Decimal('0'),
+                    timestamp=datetime.now(UTC),
+                    period_start=start_time,
+                    period_end=end_time,
+                    metrics_count=0
+                )
+        
+        mock_estimator.estimate_cost_with_service_method.side_effect = mock_estimate_cost_with_service_method
         mock_estimator.calculate_total_estimate.return_value = Decimal('0.0232')
         
         # Create API Gateway event
@@ -118,9 +162,9 @@ class TestEstimationEndToEnd(unittest.TestCase):
         self.assertGreaterEqual(total_cost, Decimal('0'))
         
         # Verify methods were called
-        self.assertTrue(mock_collector.collect_metrics.called)
+        self.assertTrue(mock_collector.collect_service_metrics.called)
         self.assertTrue(mock_pricing.get_pricing_data.called)
-        self.assertTrue(mock_estimator.estimate_cost.called)
+        self.assertTrue(mock_estimator.estimate_cost_with_service_method.called)
 
     @patch('src.lambda_handler.CloudWatchMetricsCollector')
     @patch('src.lambda_handler.PricingManager')
@@ -130,8 +174,16 @@ class TestEstimationEndToEnd(unittest.TestCase):
         # Mock CloudWatch collector
         mock_collector = MagicMock()
         mock_collector_class.return_value = mock_collector
-        mock_collector.collect_metrics.return_value = {
-            'ec2': [MagicMock(instance_id='i-123', instance_type='t2.micro', running_hours=Decimal('1.0'))]
+        mock_collector.collect_service_metrics.return_value = {
+            'ec2': [EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),  # 1 GB
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1.0')
+            )]
         }
         
         # Mock pricing manager
@@ -140,24 +192,26 @@ class TestEstimationEndToEnd(unittest.TestCase):
         mock_pricing.get_pricing_data.return_value = PricingData(
             service='ec2',
             region='us-east-1',
-            prices={'instance_hour': Decimal('0.0116')},
+            prices={'t2.micro': Decimal('0.0116'), 'data_transfer_out': Decimal('0.09')},
             currency='USD',
             last_updated=datetime.now(UTC),
             ttl=int((datetime.now(UTC) + timedelta(days=1)).timestamp())
         )
         
-        # Mock cost estimator - return proper CostEstimate dataclass
+        # Mock cost estimator - use estimate_cost_with_service_method
         mock_estimator = MagicMock()
         mock_estimator_class.return_value = mock_estimator
-        mock_estimator.estimate_cost.return_value = CostEstimate(
+        start_time = datetime.now(UTC) - timedelta(hours=24)
+        end_time = datetime.now(UTC)
+        mock_estimator.estimate_cost_with_service_method.return_value = CostEstimate(
             service='ec2',
             estimated_cost=Decimal('0.0116'),
             currency='USD',
             confidence_lower=Decimal('0.0104'),
             confidence_upper=Decimal('0.0128'),
             timestamp=datetime.now(UTC),
-            period_start=datetime.now(UTC) - timedelta(hours=24),
-            period_end=datetime.now(UTC),
+            period_start=start_time,
+            period_end=end_time,
             metrics_count=1
         )
         
@@ -190,9 +244,9 @@ class TestEstimationEndToEnd(unittest.TestCase):
         self.assertGreaterEqual(estimated_cost, Decimal('0'))
         
         # Verify methods were called
-        self.assertTrue(mock_collector.collect_metrics.called)
+        self.assertTrue(mock_collector.collect_service_metrics.called)
         self.assertTrue(mock_pricing.get_pricing_data.called)
-        self.assertTrue(mock_estimator.estimate_cost.called)
+        self.assertTrue(mock_estimator.estimate_cost_with_service_method.called)
 
     @patch('src.lambda_handler.CloudWatchMetricsCollector')
     @patch('src.lambda_handler.PricingManager')
@@ -202,7 +256,7 @@ class TestEstimationEndToEnd(unittest.TestCase):
         # Mock CloudWatch collector to raise error
         mock_collector = MagicMock()
         mock_collector_class.return_value = mock_collector
-        mock_collector.collect_metrics.side_effect = Exception("CloudWatch API error")
+        mock_collector.collect_service_metrics.side_effect = Exception("CloudWatch API error")
         
         # Create API Gateway event
         event = {
@@ -229,7 +283,7 @@ class TestEstimationEndToEnd(unittest.TestCase):
         # Mock CloudWatch collector to return empty metrics
         mock_collector = MagicMock()
         mock_collector_class.return_value = mock_collector
-        mock_collector.collect_metrics.return_value = {'ec2': []}
+        mock_collector.collect_service_metrics.return_value = {'ec2': []}
         
         # Mock pricing manager
         mock_pricing = MagicMock()

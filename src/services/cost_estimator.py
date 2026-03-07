@@ -3,7 +3,7 @@ Cost Estimator for Phase 1.5.
 
 This module calculates cost estimates based on metrics and pricing data.
 """
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from decimal import Decimal
 from datetime import datetime, timezone
 import math
@@ -50,10 +50,12 @@ class CostEstimator:
             Cost estimate with confidence interval
         """
         # Calculate base estimate (sum of all metric values as a simple estimate)
+        # NOTE: This is a fallback method. The primary path uses estimate_cost_with_service_method()
+        # which calls service-specific methods (estimate_ec2_cost, estimate_lambda_cost, etc.)
         if not metrics:
             estimated_cost = Decimal('0')
         else:
-            # Simple aggregation - in real implementation, this would use service-specific logic
+            # Simple aggregation - fallback for unsupported services
             estimated_cost = sum(m.value for m in metrics)
         
         # Calculate confidence interval
@@ -309,3 +311,115 @@ class CostEstimator:
         
         total = sum(est.estimated_cost for est in estimates)
         return total
+    
+    def estimate_cost_with_service_method(
+        self,
+        service: str,
+        service_metrics: Any,
+        pricing_data: PricingData,
+        start_time: datetime,
+        end_time: datetime
+    ) -> CostEstimate:
+        """
+        Estimate cost using service-specific methods.
+        
+        Args:
+            service: Service name (ec2, lambda, dynamodb, s3, rds)
+            service_metrics: Service-specific metrics (EC2Metrics, LambdaMetrics, etc.)
+            pricing_data: Generic pricing data
+            start_time: Period start time
+            end_time: Period end time
+            
+        Returns:
+            Cost estimate with confidence interval
+        """
+        from src.utils.types import EC2Metrics, LambdaMetrics, DynamoDBMetrics, S3Metrics, RDSMetrics
+        
+        estimated_cost = Decimal('0')
+        metrics_count = 0
+        
+        if service == 'ec2' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], EC2Metrics):
+            # Convert PricingData to EC2Pricing
+            ec2_pricing = EC2Pricing(
+                instance_prices={k: v for k, v in pricing_data.prices.items() if not k.startswith('data_transfer')},
+                data_transfer_out=pricing_data.prices.get('data_transfer_out', Decimal('0.09')),
+                currency=pricing_data.currency
+            )
+            estimated_cost = self.estimate_ec2_cost(service_metrics, ec2_pricing)
+            metrics_count = len(service_metrics)
+            
+        elif service == 'lambda' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], LambdaMetrics):
+            # Convert PricingData to LambdaPricing
+            lambda_pricing = LambdaPricing(
+                price_per_request=pricing_data.prices.get('request', Decimal('0.0000002')),
+                price_per_gb_second=pricing_data.prices.get('gb_second', Decimal('0.0000166667')),
+                currency=pricing_data.currency
+            )
+            estimated_cost = self.estimate_lambda_cost(service_metrics, lambda_pricing)
+            metrics_count = len(service_metrics)
+            
+        elif service == 'dynamodb' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], DynamoDBMetrics):
+            # Convert PricingData to DynamoDBPricing
+            dynamodb_pricing = DynamoDBPricing(
+                price_per_read_unit=pricing_data.prices.get('read_unit', Decimal('0.00025')),
+                price_per_write_unit=pricing_data.prices.get('write_unit', Decimal('0.00125')),
+                currency=pricing_data.currency
+            )
+            estimated_cost = self.estimate_dynamodb_cost(service_metrics, dynamodb_pricing)
+            metrics_count = len(service_metrics)
+            
+        elif service == 's3' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], S3Metrics):
+            # Convert PricingData to S3Pricing
+            s3_pricing = S3Pricing(
+                price_per_gb_storage=pricing_data.prices.get('storage_gb', Decimal('0.023')),
+                price_per_get_request=pricing_data.prices.get('get_request', Decimal('0.0004')),
+                price_per_put_request=pricing_data.prices.get('put_request', Decimal('0.005')),
+                currency=pricing_data.currency
+            )
+            estimated_cost = self.estimate_s3_cost(service_metrics, s3_pricing)
+            metrics_count = len(service_metrics)
+            
+        elif service == 'rds' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], RDSMetrics):
+            # Convert PricingData to RDSPricing
+            rds_pricing = RDSPricing(
+                instance_prices={k: v for k, v in pricing_data.prices.items() if k.startswith('db.')},
+                storage_price_per_gb=pricing_data.prices.get('storage_gb', Decimal('0.115')),
+                iops_price=pricing_data.prices.get('iops', Decimal('0.10')),
+                currency=pricing_data.currency
+            )
+            estimated_cost = self.estimate_rds_cost(service_metrics, rds_pricing)
+            metrics_count = len(service_metrics)
+        else:
+            # Fallback to generic method if service-specific method not available
+            # Convert service_metrics to MetricDataPoint list for generic method
+            from src.utils.types import MetricDataPoint
+            metric_datapoints = []
+            if isinstance(service_metrics, list):
+                for metric in service_metrics:
+                    # Create a simple datapoint (this is a fallback, not ideal)
+                    metric_datapoints.append(MetricDataPoint(
+                        timestamp=datetime.now(timezone.utc),
+                        value=Decimal('1'),  # Placeholder
+                        unit='Count',
+                        metric_name=f'{service}_metric'
+                    ))
+            return self.estimate_cost(service, metric_datapoints, pricing_data)
+        
+        # Calculate confidence interval
+        lower, upper = self.calculate_confidence_interval(estimated_cost, metrics_count)
+        
+        # Create estimate
+        now = datetime.now(timezone.utc)
+        estimate = CostEstimate(
+            service=service,
+            estimated_cost=estimated_cost,
+            currency=pricing_data.currency,
+            confidence_lower=lower,
+            confidence_upper=upper,
+            timestamp=now,
+            period_start=start_time,
+            period_end=end_time,
+            metrics_count=metrics_count
+        )
+        
+        return estimate

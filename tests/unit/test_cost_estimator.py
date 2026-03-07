@@ -2,7 +2,7 @@
 Unit tests for Cost Estimator.
 """
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from src.services.cost_estimator import CostEstimator
@@ -417,3 +417,156 @@ class TestEstimateCost:
         assert result.service == 'ec2'
         assert result.currency == 'USD'
         assert result.metrics_count == 1
+
+
+class TestEstimateCostWithServiceMethod:
+    """Test estimate_cost_with_service_method method."""
+    
+    def test_estimate_cost_with_service_method_for_ec2(self):
+        """Test EC2 cost estimation using service-specific method."""
+        estimator = CostEstimator()
+        
+        ec2_metrics = [
+            EC2Metrics(
+                instance_id='i-123',
+                instance_type='t2.micro',
+                cpu_utilization=Decimal('50'),
+                network_in=Decimal('1000'),
+                network_out=Decimal('1073741824'),  # 1 GB
+                disk_read_bytes=Decimal('1000'),
+                running_hours=Decimal('1')
+            )
+        ]
+        
+        pricing_data = PricingData(
+            service='ec2',
+            region='us-east-1',
+            prices={'t2.micro': Decimal('0.0116'), 'data_transfer_out': Decimal('0.09')},
+            currency='USD',
+            last_updated=datetime.now(timezone.utc),
+            ttl=86400
+        )
+        
+        start_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        end_time = datetime.now(timezone.utc)
+        
+        result = estimator.estimate_cost_with_service_method(
+            service='ec2',
+            service_metrics=ec2_metrics,
+            pricing_data=pricing_data,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        assert isinstance(result, CostEstimate)
+        assert result.service == 'ec2'
+        assert result.estimated_cost > Decimal('0')
+        assert result.period_start == start_time
+        assert result.period_end == end_time
+        assert result.metrics_count == 1
+    
+    def test_estimate_cost_with_service_method_for_lambda(self):
+        """Test Lambda cost estimation using service-specific method."""
+        estimator = CostEstimator()
+        
+        lambda_metrics = [
+            LambdaMetrics(
+                function_name='my-function',
+                invocations=1000,
+                duration_ms=Decimal('250'),
+                memory_mb=128,
+                errors=0
+            )
+        ]
+        
+        pricing_data = PricingData(
+            service='lambda',
+            region='us-east-1',
+            prices={'request': Decimal('0.0000002'), 'gb_second': Decimal('0.0000166667')},
+            currency='USD',
+            last_updated=datetime.now(timezone.utc),
+            ttl=86400
+        )
+        
+        start_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        end_time = datetime.now(timezone.utc)
+        
+        result = estimator.estimate_cost_with_service_method(
+            service='lambda',
+            service_metrics=lambda_metrics,
+            pricing_data=pricing_data,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        assert isinstance(result, CostEstimate)
+        assert result.service == 'lambda'
+        assert result.estimated_cost > Decimal('0')
+        assert result.metrics_count == 1
+    
+    def test_estimate_cost_with_service_method_with_empty_metrics(self):
+        """Test that empty metrics return zero cost."""
+        estimator = CostEstimator()
+        
+        pricing_data = PricingData(
+            service='ec2',
+            region='us-east-1',
+            prices={'t2.micro': Decimal('0.0116')},
+            currency='USD',
+            last_updated=datetime.now(timezone.utc),
+            ttl=86400
+        )
+        
+        start_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        end_time = datetime.now(timezone.utc)
+        
+        result = estimator.estimate_cost_with_service_method(
+            service='ec2',
+            service_metrics=[],
+            pricing_data=pricing_data,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        assert isinstance(result, CostEstimate)
+        assert result.estimated_cost == Decimal('0')
+        assert result.metrics_count == 0
+    
+    def test_estimate_cost_with_service_method_falls_back_for_unknown_service(self):
+        """Test that unknown services fall back to generic method."""
+        estimator = CostEstimator()
+        
+        # Use MetricDataPoint for unknown service
+        from src.utils.types import MetricDataPoint
+        metrics = [
+            MetricDataPoint(
+                timestamp=datetime.now(timezone.utc),
+                value=Decimal('1'),
+                unit='Count',
+                metric_name='test_metric'
+            )
+        ]
+        
+        pricing_data = PricingData(
+            service='unknown',
+            region='us-east-1',
+            prices={},
+            currency='USD',
+            last_updated=datetime.now(timezone.utc),
+            ttl=86400
+        )
+        
+        start_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        end_time = datetime.now(timezone.utc)
+        
+        result = estimator.estimate_cost_with_service_method(
+            service='unknown',
+            service_metrics=metrics,
+            pricing_data=pricing_data,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Should still return a CostEstimate (fallback method)
+        assert isinstance(result, CostEstimate)
+        assert result.service == 'unknown'
