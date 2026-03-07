@@ -350,6 +350,76 @@ def identify_patterns(action_type: str) -> List[Dict[str, Any]]:
                     "success_count": instance_transitions[best_transition],
                 })
         
+        # Pattern 3: Utilization ranges (for right-sizing)
+        if action_type == "right_sizing":
+            utilization_ranges = {}
+            for action in successful_actions:
+                params = action.get("parameters", {})
+                utilization = params.get("utilization", 0)
+                # Group into ranges
+                if utilization < 0.3:
+                    range_key = "low_0-30"
+                elif utilization < 0.5:
+                    range_key = "medium_30-50"
+                elif utilization < 0.7:
+                    range_key = "high_50-70"
+                else:
+                    range_key = "very_high_70+"
+                
+                utilization_ranges[range_key] = utilization_ranges.get(range_key, 0) + 1
+            
+            if utilization_ranges:
+                best_range = max(utilization_ranges, key=utilization_ranges.get)
+                patterns.append({
+                    "type": "utilization_range",
+                    "best_range": best_range,
+                    "success_count": utilization_ranges[best_range],
+                })
+        
+        # Pattern 4: Cost savings correlation (for all action types)
+        savings_correlations = []
+        for action in successful_actions:
+            cost_impact = action.get("actual_cost_impact", 0)
+            if cost_impact < 0:  # Negative = savings
+                savings_correlations.append({
+                    "action_id": action.get("action_id"),
+                    "savings": abs(cost_impact),
+                    "parameters": action.get("parameters", {})
+                })
+        
+        if savings_correlations:
+            # Find parameters that correlate with highest savings
+            avg_savings = sum(s["savings"] for s in savings_correlations) / len(savings_correlations)
+            high_savings_actions = [s for s in savings_correlations if s["savings"] > avg_savings * 1.5]
+            
+            if high_savings_actions:
+                patterns.append({
+                    "type": "high_savings_correlation",
+                    "high_savings_count": len(high_savings_actions),
+                    "avg_savings": avg_savings,
+                    "top_savings": max(s["savings"] for s in savings_correlations),
+                })
+        
+        # Pattern 5: Day of week patterns
+        day_of_week_distribution = {}
+        for action in successful_actions:
+            timestamp = action.get("timestamp", "")
+            if timestamp:
+                try:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    day_name = dt.strftime('%A')
+                    day_of_week_distribution[day_name] = day_of_week_distribution.get(day_name, 0) + 1
+                except:
+                    pass
+        
+        if day_of_week_distribution:
+            best_day = max(day_of_week_distribution, key=day_of_week_distribution.get)
+            patterns.append({
+                "type": "day_of_week",
+                "best_day": best_day,
+                "success_count": day_of_week_distribution[best_day],
+            })
+        
         print(f"Identified {len(patterns)} patterns for '{action_type}'")
         
         return patterns
@@ -426,6 +496,82 @@ def adjust_thresholds(action_type: str, success_rate: float) -> None:
         print(f"ERROR: Failed to adjust thresholds: {e}")
 
 
+def calculate_actual_savings_percentage(days: int = 30) -> float:
+    """
+    Calculate actual cost savings percentage by comparing before/after costs from Cost Explorer.
+    
+    Args:
+        days: Number of days to analyze (default: 30)
+        
+    Returns:
+        Actual savings percentage (0-100)
+    """
+    try:
+        end_date = datetime.utcnow().date()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get current period costs (after optimizations)
+        current_response = ce_client.get_cost_and_usage(
+            TimePeriod={
+                'Start': start_date.strftime('%Y-%m-%d'),
+                'End': end_date.strftime('%Y-%m-%d')
+            },
+            Granularity='DAILY',
+            Metrics=['UnblendedCost'],
+            Filter={
+                'Dimensions': {
+                    'Key': 'SERVICE',
+                    'Values': ['Amazon Elastic Compute Cloud - Compute']
+                }
+            }
+        )
+        
+        current_total = sum(
+            float(day['Total']['UnblendedCost']['Amount'])
+            for day in current_response.get('ResultsByTime', [])
+        )
+        
+        # Get baseline period costs (before optimizations started)
+        # Use period from (days*2) to (days) ago as baseline
+        baseline_start = start_date - timedelta(days=days)
+        baseline_end = start_date
+        
+        baseline_response = ce_client.get_cost_and_usage(
+            TimePeriod={
+                'Start': baseline_start.strftime('%Y-%m-%d'),
+                'End': baseline_end.strftime('%Y-%m-%d')
+            },
+            Granularity='DAILY',
+            Metrics=['UnblendedCost'],
+            Filter={
+                'Dimensions': {
+                    'Key': 'SERVICE',
+                    'Values': ['Amazon Elastic Compute Cloud - Compute']
+                }
+            }
+        )
+        
+        baseline_total = sum(
+            float(day['Total']['UnblendedCost']['Amount'])
+            for day in baseline_response.get('ResultsByTime', [])
+        )
+        
+        if baseline_total == 0:
+            return 0.0
+        
+        # Calculate savings percentage
+        savings = baseline_total - current_total
+        savings_percent = (savings / baseline_total) * 100
+        
+        print(f"Actual savings: {savings_percent:.2f}% (${savings:.2f} saved over {days} days)")
+        
+        return max(0.0, savings_percent)
+        
+    except Exception as e:
+        print(f"ERROR: Failed to calculate actual savings percentage: {e}")
+        return 0.0
+
+
 def calculate_cumulative_roi() -> float:
     """
     Calculate cumulative ROI from all completed actions.
@@ -469,6 +615,9 @@ def generate_success_report() -> Dict[str, Any]:
     """
     try:
         cumulative_roi = calculate_cumulative_roi()
+        
+        # Calculate actual savings percentage from Cost Explorer
+        actual_savings_percent = calculate_actual_savings_percentage(days=30)
         
         if cumulative_roi < -100:  # Negative = savings
             # Query action counts by type
@@ -623,15 +772,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Calculate cumulative ROI
             cumulative_roi = calculate_cumulative_roi()
             
+            # Calculate actual savings percentage
+            actual_savings_percent = calculate_actual_savings_percentage(days=30)
+            
             # Publish cumulative savings metric
             if cumulative_roi < 0:  # Negative = savings
                 metrics.publish_cumulative_savings(abs(cumulative_roi))
+            
+            # Publish actual savings percentage metric
+            if actual_savings_percent > 0:
+                try:
+                    metrics.client.put_metric_data(
+                        Namespace='CostGuard/Autonomous',
+                        MetricData=[{
+                            'MetricName': 'ActualSavingsPercentage',
+                            'Value': actual_savings_percent,
+                            'Unit': 'Percent',
+                            'Timestamp': datetime.utcnow(),
+                        }]
+                    )
+                except Exception as e:
+                    print(f"ERROR: Failed to publish savings percentage: {e}")
             
             # Publish average confidence score
             avg_confidence = total_success_rate / len(action_types) if action_types else 0.5
             metrics.publish_confidence_score(avg_confidence)
             
-            print(f"Published batch metrics: avg_confidence={avg_confidence:.2f}, cumulative_roi=${cumulative_roi:.2f}")
+            print(f"Published batch metrics: avg_confidence={avg_confidence:.2f}, cumulative_roi=${cumulative_roi:.2f}, actual_savings={actual_savings_percent:.2f}%")
             
             return {
                 "statusCode": 200,
