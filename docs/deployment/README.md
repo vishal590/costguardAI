@@ -1,236 +1,132 @@
-# CostGuard Deployment Documentation
+# Deployment Documentation
 
-**Last Updated:** March 2, 2026
-
-**Tags:** `deployment` `documentation` `cdk` `cloudformation` `troubleshooting` `quick-reference` `phase-1` `phase-2` `phase-3` `phase-4` `phase-5`
-
-**Purpose:** Central hub for all CostGuard deployment documentation, troubleshooting guides, and quick references.
-
-**Keywords for Search:** deployment documentation, CDK deployment, CloudFormation stacks, troubleshooting guide, quick reference, deployment checklist, AWS infrastructure, multi-account deployment
-
-This directory contains comprehensive deployment documentation for CostGuard AWS infrastructure.
+**Purpose:** All deployment-related documentation, guides, troubleshooting, and bug fixes.
 
 ---
 
 ## 📚 Documentation Index
 
-### 🎉 What's New
-- **[What's New](./WHATS_NEW.md)** - Latest documentation improvements ✨
-  - Semantic search support
-  - Cross-reference network
-  - AI optimization
-  - Quick start guide
+### 🚀 Deployment Guides
 
-### Quick Start
-- **[CDK Quick Reference](./CDK_QUICK_REFERENCE.md)** - Fast solutions for common issues ⚡
-  - Error messages with instant fixes
-  - Pre-deployment checklist
-  - Useful commands
+1. **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
+   - Step-by-step production deployment instructions
+   - Prerequisites, setup, and verification
+   - **Use this for:** First-time deployment or new environment setup
 
-- **[Documentation Index](./DOCUMENTATION_INDEX.md)** - Comprehensive search & navigation 🔍
-  - Search by error message, symptom, phase, or tag
-  - Cross-reference map between issues
-  - AI/Kiro search optimization guide
-  - Learning paths for developers
+2. **[REDEPLOYMENT_GUIDE.md](REDEPLOYMENT_GUIDE.md)**
+   - Redeployment process avoiding previous issues
+   - Prevention measures for known problems
+   - **Use this for:** Redeploying after code changes
 
-- **[Semantic Search Guide](./SEMANTIC_SEARCH_GUIDE.md)** - How to use search features 📖
-  - 5 search methods explained
-  - Tag categories and usage
-  - AI/Kiro automated search strategy
-  - Real-world examples
+3. **[DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md)**
+   - Pre-deployment checklist
+   - Phase completion status
+   - Test coverage and verification
+   - **Use this for:** Verifying readiness before deployment
 
-- **[Enhancements Summary](./ENHANCEMENTS_SUMMARY.md)** - What's new in documentation 🎉
-  - All enhancements listed
-  - How to use new features
-  - Benefits and impact metrics
-  - Quick start guide
-
-- **[Documentation Structure](./DOCUMENTATION_STRUCTURE.md)** - Visual guide to docs 📊
-  - File structure and navigation map
-  - Use case navigation paths
-  - Search strategy by user type
-  - Learning paths and pro tips
-
-### Deployment Guides
-- **[Phase 5 Deployment Success](../PHASE5_DEPLOYMENT_SUCCESS.md)** - Latest deployment report ✅
-  - What was deployed
-  - API endpoints
-  - Verification steps
-  - Next steps
-
-### Troubleshooting
-- **[Deployment Troubleshooting Guide](./DEPLOYMENT_TROUBLESHOOTING.md)** - Complete issue database 🔧
-  - All historical issues and solutions
-  - Searchable by error message
-  - Step-by-step fixes
-  
-- **[Phase 5 Deployment Troubleshooting](../PHASE5_DEPLOYMENT_TROUBLESHOOTING.md)** - Phase 5 specific issues
-  - Timeline of deployment attempts
-  - Root cause analysis
-  - Final solution
-
-- **[CDK Output Directory Fix](../CDK_OUTPUT_DIRECTORY_FIX.md)** - Output directory configuration
-  - Why `cdk.out` location matters
-  - How to fix it
-  - Prevention strategies
+4. **[DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md)**
+   - Quick reference for production deployment
+   - Links to all deployment docs
+   - **Use this for:** Quick overview and navigation
 
 ---
 
-## 🚀 Quick Deployment
+### 🐛 Troubleshooting & Bug Fixes
 
-### Prerequisites
-```powershell
-# 1. Activate virtual environment
-.\venv\Scripts\Activate.ps1
+5. **[DEPLOYMENT_TROUBLESHOOTING.md](DEPLOYMENT_TROUBLESHOOTING.md)**
+   - Common deployment issues and solutions
+   - Quick issue finder
+   - **Use this for:** When deployment fails or has errors
 
-# 2. Navigate to infrastructure directory
-cd infrastructure
+6. **[DEPLOYMENT_BUGS_AND_FIXES.md](DEPLOYMENT_BUGS_AND_FIXES.md)**
+   - Complete history of all deployment bugs
+   - Root cause analysis and fixes
+   - Phase-by-phase issues (1-6)
+   - **Use this for:** Understanding previous issues and prevention
 
-# 3. Ensure CDK is bootstrapped (first time only)
-cdk bootstrap aws://ACCOUNT-ID/us-east-1
-```
-
-### Deploy Phase 1-4 (Single Account)
-```powershell
-cd infrastructure
-cdk deploy CostGuardStack --require-approval never
-```
-
-### Deploy Phase 5 (Multi-Account)
-```powershell
-cd infrastructure
-cdk deploy CostGuardMultiAccountStack --require-approval never
-```
-
-### Deploy All Stacks
-```powershell
-cd infrastructure
-cdk deploy --all --require-approval never
-```
+7. **[REDEPLOYMENT_ANALYSIS.md](REDEPLOYMENT_ANALYSIS.md)**
+   - Analysis of what needs redeployment
+   - Code changes requiring deployment
+   - Impact assessment
+   - **Use this for:** Deciding if redeployment is needed
 
 ---
 
-## 🔍 Find Solutions Fast
+### 📋 Phase-Specific Deployment Docs
 
-### By Error Message
-Search in [CDK Quick Reference](./CDK_QUICK_REFERENCE.md) or [Deployment Troubleshooting](./DEPLOYMENT_TROUBLESHOOTING.md):
+8. **[PHASE5_DEPLOYMENT_TROUBLESHOOTING.md](../PHASE5_DEPLOYMENT_TROUBLESHOOTING.md)**
+   - Phase 5 specific issues and fixes
+   - Multi-account deployment problems
 
-| Error Message | Document | Section |
-|---------------|----------|---------|
-| `AttributeError: ... 'SnsAction'` | Quick Reference | Python Import Error |
-| `path too long` / `recursive symlink` | Troubleshooting | Issue 1 |
-| `Another CLI is currently synthing` | Quick Reference | Process Lock |
-| `SSM parameter not found` | Troubleshooting | Issue 2 |
-| `'NoneType' object has no attribute` | Troubleshooting | Issue 2 |
-| `key element does not match schema` | Troubleshooting | Issue 3 |
+9. **[PHASE6_DEPLOYMENT_ATTEMPT.md](../PHASE6_DEPLOYMENT_ATTEMPT.md)**
+   - Phase 6 deployment issues
+   - Lambda package size problems
 
-### By Symptom
-| Symptom | Solution |
-|---------|----------|
-| CDK deployment fails | Check [Quick Reference](./CDK_QUICK_REFERENCE.md) |
-| Can't delete `cdk.out` | Run `.\cleanup_cdk_out.ps1` |
-| Lambda crashes on startup | See [Troubleshooting Issue 2](./DEPLOYMENT_TROUBLESHOOTING.md#issue-2-safetyguard-config-initialization-error) |
-| API returns 500 error | See [Troubleshooting Issue 4](./DEPLOYMENT_TROUBLESHOOTING.md#4-lambda-runtime-errors) |
-| Wrong output directory | See [CDK Output Directory Fix](../CDK_OUTPUT_DIRECTORY_FIX.md) |
+10. **[PHASE6_DEPLOYMENT_SUCCESS.md](../PHASE6_DEPLOYMENT_SUCCESS.md)**
+    - Phase 6 successful deployment
+    - Final architecture
 
 ---
 
-## 📊 Current Deployment Status
+## 🎯 Quick Navigation
 
-### CloudFormation Stacks
-| Stack Name | Status | Resources | Phase |
-|------------|--------|-----------|-------|
-| CostGuardStack | UPDATE_COMPLETE | ~50 | 1-4 |
-| CostGuardMultiAccountStack | CREATE_COMPLETE | 105 | 5 |
-| CDKToolkit | CREATE_COMPLETE | ~10 | Bootstrap |
+### I want to...
 
-### API Endpoints
-- **Phase 1-4 API:** `https://5wtnoppajc.execute-api.us-east-1.amazonaws.com/prod/`
-- **Phase 5 API:** `https://7s4ff2lzc6.execute-api.us-east-1.amazonaws.com/prod/`
+**Deploy for the first time:**
+→ Start with [DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md), then [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
-### Last Deployment
-- **Date:** March 2, 2026 10:08 AM
-- **Duration:** 158.34 seconds
-- **Status:** ✅ SUCCESS
+**Redeploy after code changes:**
+→ Read [REDEPLOYMENT_ANALYSIS.md](REDEPLOYMENT_ANALYSIS.md), then [REDEPLOYMENT_GUIDE.md](REDEPLOYMENT_GUIDE.md)
+
+**Fix a deployment error:**
+→ Check [DEPLOYMENT_TROUBLESHOOTING.md](DEPLOYMENT_TROUBLESHOOTING.md) first
+
+**Understand previous bugs:**
+→ Review [DEPLOYMENT_BUGS_AND_FIXES.md](DEPLOYMENT_BUGS_AND_FIXES.md)
+
+**Quick reference:**
+→ See [DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md)
 
 ---
 
-## 🛠️ Common Tasks
+## 📁 File Organization
 
-### Update Existing Stack
-```powershell
-cd infrastructure
-cdk deploy CostGuardStack --require-approval never
 ```
-
-### View Stack Differences
-```powershell
-cd infrastructure
-cdk diff CostGuardStack
-```
-
-### Delete Stack (Careful!)
-```powershell
-cd infrastructure
-cdk destroy CostGuardMultiAccountStack
-```
-
-### Clean Up Output Directory
-```powershell
-.\cleanup_cdk_out.ps1
-```
-
-### View CloudWatch Logs
-```powershell
-# Phase 1-4 Lambda
-aws logs tail /aws/lambda/CostGuardLambda --follow
-
-# Phase 5 Cost Collector
-aws logs tail /aws/lambda/CostGuard-MultiAccountCostCollector --follow
-
-# Phase 5 API Handler
-aws logs tail /aws/lambda/CostGuard-MultiAccountAPIHandler --follow
+docs/deployment/
+├── README.md                          # This file - navigation index
+├── DEPLOYMENT_GUIDE.md                # Main deployment guide
+├── DEPLOYMENT_READINESS.md            # Pre-deployment checklist
+├── DEPLOYMENT_SUMMARY.md              # Quick reference
+├── REDEPLOYMENT_GUIDE.md              # Redeployment process
+├── REDEPLOYMENT_ANALYSIS.md           # Redeployment analysis
+├── DEPLOYMENT_TROUBLESHOOTING.md      # Troubleshooting guide
+├── DEPLOYMENT_BUGS_AND_FIXES.md       # Bug history and fixes
+├── DEPLOYMENT_PLAN.md                 # Deployment planning
+├── DEPLOYMENT_CHECKLIST.md            # Deployment checklist
+└── DEPLOYMENT_SCRIPTS.md              # Deployment scripts
 ```
 
 ---
 
-## 📖 Additional Resources
+## 🔍 Search Keywords
 
-### AWS Documentation
-- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
-- [AWS CloudFormation Documentation](https://docs.aws.amazon.com/cloudformation/)
-- [AWS Organizations Documentation](https://docs.aws.amazon.com/organizations/)
-- [AWS Cost Explorer API](https://docs.aws.amazon.com/cost-management/latest/APIReference/)
+**Common Issues:**
+- Lambda package size
+- CDK bootstrap
+- Asset path errors
+- Import errors
+- Process locks
+- DynamoDB schema
+- CloudFormation errors
 
-### Project Documentation
-- [Project Status](../PROJECT_STATUS.md)
-- [Cost Monitoring Guide](../user-guide/COST_MONITORING_GUIDE.md)
-- [Innovation Strategy](../INNOVATION-STRATEGY.md)
-
----
-
-## 💬 Getting Help
-
-1. **Check Documentation Index first:** [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) - Comprehensive search
-2. **Check Quick Reference:** [CDK_QUICK_REFERENCE.md](./CDK_QUICK_REFERENCE.md) - Fast solutions
-3. **Search error message:** Use Ctrl+F in [DEPLOYMENT_TROUBLESHOOTING.md](./DEPLOYMENT_TROUBLESHOOTING.md)
-4. **Check CloudWatch Logs:** Look for detailed error messages
-5. **Review recent changes:** Check git history for what changed
-
-**Pro Tip:** Use tags and keywords in the Documentation Index for semantic search!
+**Use Cases:**
+- First deployment
+- Redeployment
+- Troubleshooting
+- Bug fixes
+- Phase-specific issues
 
 ---
 
-## 🎯 Best Practices
-
-1. ✅ Always run CDK from `infrastructure/` directory
-2. ✅ Use `cleanup_cdk_out.ps1` if output directory gets corrupted
-3. ✅ Check CloudWatch Logs immediately after deployment
-4. ✅ Test API endpoints right after deployment
-5. ✅ Subscribe to SNS topics for alarm notifications
-6. ✅ Monitor costs in AWS Cost Explorer after 24 hours
-7. ✅ Keep documentation updated with new issues and solutions
-
----
-
-**Need immediate help?** Start with [CDK Quick Reference](./CDK_QUICK_REFERENCE.md) for fast solutions! ⚡
+**Last Updated:** March 2026  
+**Status:** ✅ All deployment docs organized and accessible
