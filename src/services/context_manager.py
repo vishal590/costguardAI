@@ -24,7 +24,8 @@ class ContextManager:
         self,
         cost_explorer_client=None,
         dynamodb_client=None,
-        budgets_client=None
+        budgets_client=None,
+        sts_client=None
     ):
         """
         Initialize context manager.
@@ -33,10 +34,12 @@ class ContextManager:
             cost_explorer_client: AWS Cost Explorer client
             dynamodb_client: DynamoDB client for Phase 2/3 data
             budgets_client: AWS Budgets client
+            sts_client: AWS STS client (optional, defaults to boto3.client('sts'))
         """
         self.cost_explorer_client = cost_explorer_client
         self.dynamodb_client = dynamodb_client
         self.budgets_client = budgets_client
+        self.sts_client = sts_client
         
         logger.info("ContextManager initialized")
     
@@ -262,6 +265,26 @@ class ContextManager:
             logger.error(f"Error retrieving prevention actions: {e}")
             return []
     
+    def _get_account_id(self) -> Optional[str]:
+        """
+        Get AWS account ID from STS.
+        
+        Returns:
+            Account ID string or None if unavailable
+        """
+        try:
+            if not self.sts_client:
+                import boto3
+                sts = boto3.client('sts')
+            else:
+                sts = self.sts_client
+            
+            identity = sts.get_caller_identity()
+            return identity.get('Account')
+        except Exception as e:
+            logger.error(f"Error retrieving account ID: {e}")
+            return None
+    
     def _get_budget_status(self) -> Optional[BudgetStatus]:
         """
         Retrieve current budget status.
@@ -273,9 +296,15 @@ class ContextManager:
             return None
         
         try:
+            # Get account ID from STS
+            account_id = self._get_account_id()
+            if not account_id:
+                logger.warning("Unable to retrieve account ID, cannot fetch budget status")
+                return None
+            
             # Get first budget (simplified)
             response = self.budgets_client.describe_budgets(
-                AccountId='123456789012',  # Placeholder
+                AccountId=account_id,
                 MaxResults=1
             )
             

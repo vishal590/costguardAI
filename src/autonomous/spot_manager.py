@@ -422,7 +422,11 @@ def request_ondemand_approval(training_job_id: str, instance_type: str, region: 
 
 def track_spot_cost(instance_id: str, duration_hours: float) -> Decimal:
     """
-    Track spot instance cost.
+    Track spot instance cost using real AWS Pricing API and EC2 spot price history.
+    
+    Attempts to get actual spot pricing from EC2 API. If that fails, estimates
+    based on on-demand pricing (typically 60% of on-demand). If all API calls fail,
+    falls back to hardcoded pricing for g4dn.xlarge ($0.294/hour).
     
     Args:
         instance_id: Instance ID
@@ -430,7 +434,15 @@ def track_spot_cost(instance_id: str, duration_hours: float) -> Decimal:
         
     Returns:
         Cost in dollars
+        
+    Note:
+        Fallback pricing is used only when AWS API calls fail. The fallback value
+        ($0.294/hour) represents approximate g4dn.xlarge spot pricing in us-east-1.
+        Actual pricing may vary by region and instance type.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         # Get instance type from EC2 API
         ec2_response = ec2_client.describe_instances(InstanceIds=[instance_id])
@@ -456,15 +468,19 @@ def track_spot_cost(instance_id: str, duration_hours: float) -> Decimal:
         return cost
         
     except Exception as e:
-        print(f"ERROR: Failed to track spot cost: {e}")
-        # Fallback to simplified pricing
+        logger.warning(f"Failed to track spot cost via API for {instance_id}: {e}. Using fallback pricing.")
+        # Fallback to simplified pricing (g4dn.xlarge spot ~$0.294/hour in us-east-1)
+        # This is a last resort when all API calls fail
         spot_price_per_hour = Decimal("0.294")
         return spot_price_per_hour * Decimal(str(duration_hours))
 
 
 def track_ondemand_cost(instance_id: str, duration_hours: float) -> Decimal:
     """
-    Track on-demand instance cost.
+    Track on-demand instance cost using real AWS Pricing API.
+    
+    Attempts to get actual on-demand pricing from AWS Pricing API. If the API call
+    fails, falls back to hardcoded pricing for g4dn.xlarge ($0.526/hour).
     
     Args:
         instance_id: Instance ID
@@ -472,7 +488,15 @@ def track_ondemand_cost(instance_id: str, duration_hours: float) -> Decimal:
         
     Returns:
         Cost in dollars
+        
+    Note:
+        Fallback pricing is used only when AWS Pricing API calls fail. The fallback
+        value ($0.526/hour) represents approximate g4dn.xlarge on-demand pricing
+        in us-east-1. Actual pricing may vary by region and instance type.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         # Get actual on-demand price from Pricing API
         instance_type = instance_id.split('.')[0] if '.' in instance_id else 'g4dn.xlarge'
@@ -481,8 +505,9 @@ def track_ondemand_cost(instance_id: str, duration_hours: float) -> Decimal:
         return cost
         
     except Exception as e:
-        print(f"ERROR: Failed to track on-demand cost: {e}")
-        # Fallback to simplified pricing
+        logger.warning(f"Failed to track on-demand cost via API for {instance_id}: {e}. Using fallback pricing.")
+        # Fallback to simplified pricing (g4dn.xlarge on-demand $0.526/hour in us-east-1)
+        # This is a last resort when Pricing API calls fail
         ondemand_price_per_hour = Decimal("0.526")
         return ondemand_price_per_hour * Decimal(str(duration_hours))
 

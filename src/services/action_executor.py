@@ -10,7 +10,7 @@ Actions by service:
 - NAT Gateway: Delete (with documentation)
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, UTC
 import logging
 
@@ -20,16 +20,18 @@ logger = logging.getLogger(__name__)
 class ActionExecutor:
     """Execute automated actions on resources."""
     
-    def __init__(self, aws_clients: Dict[str, Any], audit_logger):
+    def __init__(self, aws_clients: Dict[str, Any], audit_logger, pricing_manager=None):
         """
         Initialize action executor.
         
         Args:
             aws_clients: Dict of boto3 clients by service name
             audit_logger: Logger for audit trail
+            pricing_manager: Optional PricingManager instance for savings estimation
         """
         self.clients = aws_clients
         self.audit_logger = audit_logger
+        self.pricing_manager = pricing_manager
     
     def execute_action(self, resource, action: str) -> Any:
         """
@@ -253,7 +255,169 @@ class ActionExecutor:
         }
     
     def _estimate_savings(self, resource) -> float:
-        """Estimate monthly savings from stopping resource."""
-        # Placeholder - would use actual pricing data
-        # Assume $0.10/hour as default
-        return 0.10 * 24 * 30  # $72/month
+        """
+        Estimate monthly savings from stopping resource using real pricing data.
+        
+        Args:
+            resource: Resource object with service, region, resource_id
+            
+        Returns:
+            Estimated monthly savings in USD
+        """
+        try:
+            # Initialize PricingManager if not provided
+            if not self.pricing_manager:
+                from ..services.pricing_manager import PricingManager
+                self.pricing_manager = PricingManager(region=resource.region)
+            
+            # Service-specific pricing logic
+            if resource.service == 'ec2':
+                return self._estimate_ec2_savings(resource)
+            elif resource.service == 'rds':
+                return self._estimate_rds_savings(resource)
+            elif resource.service == 'lambda':
+                return self._estimate_lambda_savings(resource)
+            elif resource.service == 'dynamodb':
+                return self._estimate_dynamodb_savings(resource)
+            elif resource.service == 'ebs':
+                return self._estimate_ebs_savings(resource)
+            elif resource.service == 'nat_gateway':
+                return self._estimate_nat_gateway_savings(resource)
+            else:
+                # Fallback for unknown services
+                logger.warning(f"Unknown service for savings estimation: {resource.service}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.error(f"Error estimating savings for {resource.resource_id}: {e}")
+            # Fallback to default
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_ec2_savings(self, resource) -> float:
+        """Estimate EC2 instance savings."""
+        try:
+            ec2 = self.clients.get('ec2')
+            if not ec2:
+                return self._estimate_default_savings(resource)
+            
+            # Get instance type
+            response = ec2.describe_instances(InstanceIds=[resource.resource_id])
+            if not response.get('Reservations'):
+                return self._estimate_default_savings(resource)
+            
+            instance = response['Reservations'][0]['Instances'][0]
+            instance_type = instance.get('InstanceType', 't3.micro')
+            
+            # Get pricing for instance type
+            pricing_data = self.pricing_manager.get_pricing_data('ec2', resource.region)
+            hourly_price = pricing_data.prices.get(instance_type)
+            
+            if hourly_price:
+                # Calculate monthly savings (24 hours * 30 days)
+                monthly_savings = float(hourly_price) * 24 * 30
+                logger.info(f"EC2 savings estimate: ${monthly_savings:.2f}/month for {instance_type}")
+                return monthly_savings
+            else:
+                logger.warning(f"Pricing not found for instance type: {instance_type}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.error(f"Error estimating EC2 savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_rds_savings(self, resource) -> float:
+        """Estimate RDS instance savings."""
+        try:
+            rds = self.clients.get('rds')
+            if not rds:
+                return self._estimate_default_savings(resource)
+            
+            # Get DB instance class
+            response = rds.describe_db_instances(DBInstanceIdentifier=resource.resource_id)
+            if not response.get('DBInstances'):
+                return self._estimate_default_savings(resource)
+            
+            db_instance = response['DBInstances'][0]
+            instance_class = db_instance.get('DBInstanceClass', 'db.t3.micro')
+            
+            # Get pricing for instance class
+            pricing_data = self.pricing_manager.get_pricing_data('rds', resource.region)
+            # RDS pricing keys may include instance class
+            hourly_price = pricing_data.prices.get(instance_class)
+            
+            if hourly_price:
+                monthly_savings = float(hourly_price) * 24 * 30
+                logger.info(f"RDS savings estimate: ${monthly_savings:.2f}/month for {instance_class}")
+                return monthly_savings
+            else:
+                logger.warning(f"Pricing not found for DB instance class: {instance_class}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.error(f"Error estimating RDS savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_lambda_savings(self, resource) -> float:
+        """Estimate Lambda savings (complex - uses average pricing)."""
+        try:
+            # Lambda pricing is per-request and per-GB-second
+            # For stopping (concurrency=0), estimate based on average usage
+            # Use service-level pricing or default
+            pricing_data = self.pricing_manager.get_pricing_data('lambda', resource.region)
+            
+            # Lambda pricing is complex, use conservative estimate
+            # Average small function: ~$5-10/month
+            # Use default for now, could be enhanced with CloudWatch metrics
+            return self._estimate_default_savings(resource)
+            
+        except Exception as e:
+            logger.error(f"Error estimating Lambda savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_dynamodb_savings(self, resource) -> float:
+        """Estimate DynamoDB savings (switching to on-demand)."""
+        try:
+            # DynamoDB on-demand vs provisioned savings
+            # Use service-level pricing or default
+            pricing_data = self.pricing_manager.get_pricing_data('dynamodb', resource.region)
+            
+            # DynamoDB savings depend on provisioned capacity
+            # Use default for now, could be enhanced with table metadata
+            return self._estimate_default_savings(resource)
+            
+        except Exception as e:
+            logger.error(f"Error estimating DynamoDB savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_ebs_savings(self, resource) -> float:
+        """Estimate EBS volume savings."""
+        try:
+            # EBS pricing depends on volume type and size
+            # Use default for now, could be enhanced with volume metadata
+            return self._estimate_default_savings(resource)
+            
+        except Exception as e:
+            logger.error(f"Error estimating EBS savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_nat_gateway_savings(self, resource) -> float:
+        """Estimate NAT Gateway savings (fixed hourly pricing)."""
+        try:
+            # NAT Gateway: $0.045/hour + data processing
+            # Use fixed pricing
+            hourly_price = 0.045  # Base NAT Gateway price
+            monthly_savings = hourly_price * 24 * 30  # ~$32.40/month
+            logger.info(f"NAT Gateway savings estimate: ${monthly_savings:.2f}/month")
+            return monthly_savings
+            
+        except Exception as e:
+            logger.error(f"Error estimating NAT Gateway savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_default_savings(self, resource) -> float:
+        """Default savings estimation fallback."""
+        # Conservative default: $0.10/hour = $72/month
+        default_hourly = 0.10
+        monthly_savings = default_hourly * 24 * 30
+        logger.warning(f"Using default savings estimate for {resource.service}: ${monthly_savings:.2f}/month")
+        return monthly_savings
