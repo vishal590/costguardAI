@@ -27,7 +27,8 @@ class InsightGenerator:
         resource_manager=None,
         idle_detector=None,
         budget_monitor=None,
-        budgets_client=None
+        budgets_client=None,
+        pricing_manager=None
     ):
         """
         Initialize insight generator.
@@ -39,6 +40,7 @@ class InsightGenerator:
             idle_detector: IdleDetector instance for Phase 3 integration
             budget_monitor: BudgetMonitor instance for budget data
             budgets_client: AWS Budgets client for budget queries
+            pricing_manager: PricingManager instance for savings estimation (optional)
         """
         self.cost_explorer_client = cost_explorer_client
         self.dynamodb_client = dynamodb_client
@@ -46,6 +48,7 @@ class InsightGenerator:
         self.idle_detector = idle_detector
         self.budget_monitor = budget_monitor
         self.budgets_client = budgets_client
+        self.pricing_manager = pricing_manager
         
         logger.info("InsightGenerator initialized")
     
@@ -246,8 +249,8 @@ class InsightGenerator:
                         if service not in idle_resources_by_service:
                             idle_resources_by_service[service] = []
                         
-                        # Estimate monthly savings (simplified: $0.10/hour per resource)
-                        estimated_monthly_savings = 0.10 * 24 * 30  # $72/month per resource
+                        # Estimate monthly savings using real pricing
+                        estimated_monthly_savings = self._estimate_resource_savings(resource)
                         total_estimated_savings += estimated_monthly_savings
                         
                         idle_resources_by_service[service].append({
@@ -262,9 +265,12 @@ class InsightGenerator:
             
             # Create insights grouped by service
             for service, idle_resources in idle_resources_by_service.items():
+                if not idle_resources:  # Skip empty lists
+                    continue
+                    
                 count = len(idle_resources)
                 service_savings = sum(r['estimated_savings'] for r in idle_resources)
-                avg_duration = sum(r['idle_duration_days'] for r in idle_resources) / count
+                avg_duration = sum(r['idle_duration_days'] for r in idle_resources) / count if count > 0 else 0.0
                 
                 resource_list = ", ".join([r['resource_id'] for r in idle_resources[:5]])  # Show first 5
                 if count > 5:
@@ -402,3 +408,153 @@ class InsightGenerator:
         except Exception as e:
             logger.error(f"Error checking forecast alerts: {e}")
             return []
+    
+    def _estimate_resource_savings(self, resource) -> float:
+        """
+        Estimate monthly savings from stopping/optimizing resource using real pricing.
+        
+        Args:
+            resource: Resource object with service, region, resource_id
+            
+        Returns:
+            Estimated monthly savings in USD
+        """
+        try:
+            # Initialize PricingManager if not provided
+            if not self.pricing_manager:
+                from ..pricing_manager import PricingManager
+                import os
+                region = resource.region if hasattr(resource, 'region') else os.environ.get('AWS_REGION', 'us-east-1')
+                self.pricing_manager = PricingManager(region=region)
+            
+            region = resource.region if hasattr(resource, 'region') else 'us-east-1'
+            
+            # Service-specific pricing logic (similar to action_executor)
+            if resource.service == 'ec2':
+                return self._estimate_ec2_savings(resource, region)
+            elif resource.service == 'rds':
+                return self._estimate_rds_savings(resource, region)
+            elif resource.service == 'lambda':
+                return self._estimate_lambda_savings(resource, region)
+            elif resource.service == 'dynamodb':
+                return self._estimate_dynamodb_savings(resource, region)
+            elif resource.service == 'ebs':
+                return self._estimate_ebs_savings(resource, region)
+            elif resource.service == 'nat_gateway':
+                return self._estimate_nat_gateway_savings(resource, region)
+            else:
+                # Fallback for unknown services
+                logger.debug(f"Unknown service for savings estimation: {resource.service}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.warning(f"Error estimating savings for {resource.resource_id}: {e}")
+            # Fallback to default
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_ec2_savings(self, resource, region: str) -> float:
+        """Estimate EC2 instance savings."""
+        try:
+            import boto3
+            
+            # Get EC2 client from resource_manager or create new
+            ec2 = None
+            if self.resource_manager and hasattr(self.resource_manager, 'clients'):
+                ec2 = self.resource_manager.clients.get('ec2')
+            
+            if not ec2:
+                ec2 = boto3.client('ec2', region_name=region)
+            
+            # Get instance type
+            response = ec2.describe_instances(InstanceIds=[resource.resource_id])
+            if not response.get('Reservations'):
+                return self._estimate_default_savings(resource)
+            
+            instance = response['Reservations'][0]['Instances'][0]
+            instance_type = instance.get('InstanceType', 't3.micro')
+            
+            # Get pricing for instance type
+            pricing_data = self.pricing_manager.get_pricing_data('ec2', region)
+            hourly_price = pricing_data.prices.get(instance_type)
+            
+            if hourly_price:
+                monthly_savings = float(hourly_price) * 24 * 30
+                logger.debug(f"EC2 savings estimate: ${monthly_savings:.2f}/month for {instance_type}")
+                return monthly_savings
+            else:
+                logger.debug(f"Pricing not found for instance type: {instance_type}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.debug(f"Error estimating EC2 savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_rds_savings(self, resource, region: str) -> float:
+        """Estimate RDS instance savings."""
+        try:
+            import boto3
+            
+            rds = None
+            if self.resource_manager and hasattr(self.resource_manager, 'clients'):
+                rds = self.resource_manager.clients.get('rds')
+            
+            if not rds:
+                rds = boto3.client('rds', region_name=region)
+            
+            # Get DB instance class
+            response = rds.describe_db_instances(DBInstanceIdentifier=resource.resource_id)
+            if not response.get('DBInstances'):
+                return self._estimate_default_savings(resource)
+            
+            db_instance = response['DBInstances'][0]
+            instance_class = db_instance.get('DBInstanceClass', 'db.t3.micro')
+            
+            # Get pricing for instance class
+            pricing_data = self.pricing_manager.get_pricing_data('rds', region)
+            hourly_price = pricing_data.prices.get(instance_class)
+            
+            if hourly_price:
+                monthly_savings = float(hourly_price) * 24 * 30
+                logger.debug(f"RDS savings estimate: ${monthly_savings:.2f}/month for {instance_class}")
+                return monthly_savings
+            else:
+                logger.debug(f"Pricing not found for DB instance class: {instance_class}")
+                return self._estimate_default_savings(resource)
+                
+        except Exception as e:
+            logger.debug(f"Error estimating RDS savings: {e}")
+            return self._estimate_default_savings(resource)
+    
+    def _estimate_lambda_savings(self, resource, region: str) -> float:
+        """Estimate Lambda savings (complex - uses average pricing)."""
+        # Lambda pricing is per-request and per-GB-second
+        # Use default for now, could be enhanced with CloudWatch metrics
+        return self._estimate_default_savings(resource)
+    
+    def _estimate_dynamodb_savings(self, resource, region: str) -> float:
+        """Estimate DynamoDB savings (switching to on-demand)."""
+        # DynamoDB on-demand vs provisioned savings
+        # Use default for now, could be enhanced with table metadata
+        return self._estimate_default_savings(resource)
+    
+    def _estimate_ebs_savings(self, resource, region: str) -> float:
+        """Estimate EBS volume savings."""
+        # EBS pricing depends on volume type and size
+        # Use default for now, could be enhanced with volume metadata
+        return self._estimate_default_savings(resource)
+    
+    def _estimate_nat_gateway_savings(self, resource, region: str) -> float:
+        """Estimate NAT Gateway savings (fixed hourly pricing)."""
+        # NAT Gateway: $0.045/hour
+        hourly_price = 0.045
+        monthly_savings = hourly_price * 24 * 30  # ~$32.40/month
+        logger.debug(f"NAT Gateway savings estimate: ${monthly_savings:.2f}/month")
+        return monthly_savings
+    
+    def _estimate_default_savings(self, resource) -> float:
+        """Default savings estimation fallback."""
+        # Conservative default: $0.10/hour = $72/month
+        default_hourly = 0.10
+        monthly_savings = default_hourly * 24 * 30
+        logger.debug(f"Using default savings estimate for {resource.service}: ${monthly_savings:.2f}/month")
+        return monthly_savings
