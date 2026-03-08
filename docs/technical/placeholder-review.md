@@ -248,19 +248,19 @@ spot_duration = 1.0  # Simplified: 1 hour
 
 ## 🎯 Issues Requiring Attention
 
-### ⚠️ Issue #1: Insight Generator Savings Estimation
+### ✅ Issue #1: Insight Generator Savings Estimation - FIXED
 **File:** `src/services/insight_generator.py:249`
 **Issue:** Uses hardcoded $0.10/hour instead of real pricing
 **Severity:** 🟡 MEDIUM
-**Recommendation:** Should use PricingManager like action_executor does
+**Status:** ✅ **FIXED** - Now uses real PricingManager with service-specific logic
 
 ---
 
 ## 📊 Summary
 
 ### Status Breakdown
-- ✅ **17 items:** Acceptable documented simplifications
-- ⚠️ **1 item:** Should be fixed (insight_generator savings estimation)
+- ✅ **18 items:** All acceptable documented simplifications or fixed
+- ✅ **1 item:** Fixed (insight_generator savings estimation)
 
 ### All Placeholders Are:
 - ✅ Documented as simplifications
