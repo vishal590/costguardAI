@@ -7,14 +7,16 @@ and alert generation.
 Requirements: FR-1.5
 """
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from src.services.ai_ml.idle_detector import IdleGPUDetector, IdleGPU, IdleGPUAlert
+from decimal import Decimal
 
 
 class TestIdleGPUDetector:
     """Unit tests for IdleGPUDetector."""
     
-    def test_identify_idle_gpus_with_low_utilization(self):
+    @patch('src.services.pricing_manager.PricingManager')
+    def test_identify_idle_gpus_with_low_utilization(self, mock_pricing_manager_class):
         """
         Test identification of idle GPUs with low utilization.
         Requirements: FR-1.5
@@ -22,6 +24,14 @@ class TestIdleGPUDetector:
         # Setup
         mock_dynamodb = Mock()
         detector = IdleGPUDetector(mock_dynamodb)
+        
+        # Mock PricingManager
+        mock_pricing_manager = Mock()
+        mock_pricing_data = Mock()
+        mock_pricing_data.prices = {'p3.2xlarge': Decimal('3.06')}
+        mock_pricing_manager.get_pricing_data.return_value = mock_pricing_data
+        mock_pricing_manager_class.return_value = mock_pricing_manager
+        detector.pricing_manager = mock_pricing_manager
         
         # Mock GPU instances
         detector._get_gpu_instances = Mock(return_value=[
@@ -87,7 +97,8 @@ class TestIdleGPUDetector:
         # Verify (50% of 4 hours = 2 hours)
         assert idle_hours == pytest.approx(2.0, rel=0.1)
     
-    def test_calculate_wasted_cost(self):
+    @patch('src.services.pricing_manager.PricingManager')
+    def test_calculate_wasted_cost(self, mock_pricing_manager_class):
         """
         Test wasted cost calculation.
         Requirements: FR-1.5
@@ -95,6 +106,14 @@ class TestIdleGPUDetector:
         # Setup
         mock_dynamodb = Mock()
         detector = IdleGPUDetector(mock_dynamodb)
+        
+        # Mock PricingManager
+        mock_pricing_manager = Mock()
+        mock_pricing_data = Mock()
+        mock_pricing_data.prices = {'p3.2xlarge': Decimal('3.06')}
+        mock_pricing_manager.get_pricing_data.return_value = mock_pricing_data
+        mock_pricing_manager_class.return_value = mock_pricing_manager
+        detector.pricing_manager = mock_pricing_manager
         
         # Mock utilization data (all idle)
         detector._get_gpu_utilization = Mock(return_value=[5.0, 3.0, 7.0, 4.0])
@@ -298,7 +317,8 @@ class TestIdleGPUDetector:
         # Verify (0% idle = 0 hours)
         assert idle_hours == pytest.approx(0.0, rel=0.01)
     
-    def test_get_instance_cost_per_hour_known_types(self):
+    @patch('src.services.pricing_manager.PricingManager')
+    def test_get_instance_cost_per_hour_known_types(self, mock_pricing_manager_class):
         """
         Test cost per hour retrieval for known instance types.
         Requirements: FR-1.5
@@ -307,6 +327,20 @@ class TestIdleGPUDetector:
         mock_dynamodb = Mock()
         detector = IdleGPUDetector(mock_dynamodb)
         
+        # Mock PricingManager
+        mock_pricing_manager = Mock()
+        mock_pricing_data = Mock()
+        mock_pricing_data.prices = {
+            'p3.2xlarge': Decimal('3.06'),
+            'p4d.24xlarge': Decimal('32.77'),
+            'p5.48xlarge': Decimal('98.32'),
+            'g4dn.xlarge': Decimal('0.526'),
+            'g5.xlarge': Decimal('1.006')
+        }
+        mock_pricing_manager.get_pricing_data.return_value = mock_pricing_data
+        mock_pricing_manager_class.return_value = mock_pricing_manager
+        detector.pricing_manager = mock_pricing_manager
+        
         # Test known instance types
         assert detector._get_instance_cost_per_hour('p3.2xlarge') == 3.06
         assert detector._get_instance_cost_per_hour('p4d.24xlarge') == 32.77
@@ -314,7 +348,8 @@ class TestIdleGPUDetector:
         assert detector._get_instance_cost_per_hour('g4dn.xlarge') == 0.526
         assert detector._get_instance_cost_per_hour('g5.xlarge') == 1.006
     
-    def test_get_instance_cost_per_hour_unknown_type(self):
+    @patch('src.services.pricing_manager.PricingManager')
+    def test_get_instance_cost_per_hour_unknown_type(self, mock_pricing_manager_class):
         """
         Test cost per hour retrieval for unknown instance types.
         Requirements: FR-1.5
@@ -323,5 +358,19 @@ class TestIdleGPUDetector:
         mock_dynamodb = Mock()
         detector = IdleGPUDetector(mock_dynamodb)
         
-        # Test unknown instance type (should return default)
-        assert detector._get_instance_cost_per_hour('unknown.type') == 5.0
+        # Mock PricingManager to return empty prices (simulating unknown type)
+        mock_pricing_manager = Mock()
+        mock_pricing_data = Mock()
+        mock_pricing_data.prices = {}  # Empty - unknown type
+        mock_pricing_manager.get_pricing_data.return_value = mock_pricing_data
+        mock_pricing_manager_class.return_value = mock_pricing_manager
+        detector.pricing_manager = mock_pricing_manager
+        
+        # Mock boto3 pricing client to raise exception (simulating API failure)
+        with patch('src.services.ai_ml.idle_detector.boto3.client') as mock_boto3:
+            mock_pricing_client = Mock()
+            mock_pricing_client.get_products.side_effect = Exception("API error")
+            mock_boto3.return_value = mock_pricing_client
+            
+            # Test unknown instance type (should return default fallback)
+            assert detector._get_instance_cost_per_hour('unknown.type') == 5.0
