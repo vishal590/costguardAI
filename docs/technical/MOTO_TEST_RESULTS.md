@@ -143,6 +143,8 @@ def test_something():
 
 **Verdict:** ✅ **PRODUCTION-READY** - Core functionality verified, repository test mismatches are non-blocking
 
+**Recommendation:** See `REPOSITORY_TESTS_RECOMMENDATION.md` for detailed recommendation to leave repository tests for later maintenance cycle.
+
 ---
 
 **Installation Date:** March 2026  
