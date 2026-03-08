@@ -39,7 +39,7 @@ def _estimate_savings(self, resource) -> float:
 ```
 **Impact:** Savings estimates are not accurate  
 **Severity:** 🟡 MEDIUM  
-**Status:** ❌ **NOT FIXED**
+**Status:** ✅ **FIXED** - Now uses real Pricing API with service-specific logic
 
 ---
 
@@ -51,7 +51,7 @@ AccountId='123456789012',  # Placeholder
 ```
 **Impact:** Won't work for real accounts  
 **Severity:** 🔴 HIGH  
-**Status:** ❌ **NOT FIXED**
+**Status:** ✅ **FIXED** - Now uses STS get_caller_identity() to get real account ID
 
 ---
 
@@ -65,7 +65,7 @@ ondemand_price_per_hour = Decimal("0.526")
 ```
 **Impact:** Uses hardcoded fallback prices when API fails  
 **Severity:** 🟡 MEDIUM (fallback is acceptable, but should be documented)  
-**Status:** ⚠️ **PARTIALLY ACCEPTABLE** (fallback is intentional, but claim says "real pricing" always)
+**Status:** ✅ **FIXED** - Now properly documented with logging, fallback behavior clarified
 
 ---
 
@@ -87,9 +87,9 @@ if not data:
 ### Issues Confirmed
 - ✅ Phase 1.5 Pricing Cache: **FIXED** (other AI reviewed old version)
 - ✅ Phase 6 Cost Explorer: **FIXED** (fully implemented)
-- ❌ Phase 3 Savings Estimation: **NOT FIXED** (placeholder remains)
-- ❌ Phase 4 Account ID: **NOT FIXED** (hardcoded placeholder)
-- ⚠️ Phase 6 Extension Pricing: **FALLBACK** (intentional, but overstated)
+- ✅ Phase 3 Savings Estimation: **FIXED** (real pricing API integration)
+- ✅ Phase 4 Account ID: **FIXED** (STS get_caller_identity)
+- ✅ Phase 6 Extension Pricing: **FIXED** (documentation and logging improved)
 
 ### Severity Breakdown
 - 🔴 **HIGH:** 1 issue (Phase 4 hardcoded account ID)
