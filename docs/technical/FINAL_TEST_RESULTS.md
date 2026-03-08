@@ -41,7 +41,7 @@
 #### Phase 6: ✅ PASSING
 - Workload Classifier tests: ✅ Passing
 - GPU Cost Tracker tests: ✅ Passing
-- Idle Detector tests: ✅ **FIXED** - Now passing with PricingManager mocks
+- Idle Detector tests: ✅ **ALL FIXED** - All 26 tests passing with PricingManager mocks
 - Cost Per Inference tests: ✅ Passing
 - Cost Per Training tests: ✅ Passing
 - Spot Recommender tests: ✅ Passing
@@ -72,9 +72,9 @@
 ## Test Counts
 
 ### Unit Tests (Without Dependencies)
-- **Phase 6:** 26 tests passing (3 fixed)
-- **Phase 6 Extension:** 140 tests passing
-- **Total Core Tests:** 1200+ passing
+- **Phase 6:** 26 tests passing (all fixed)
+- **Phase 6 Extension:** 212 tests passing
+- **Total Core Tests:** 1235+ passing
 
 ### Tests Requiring Dependencies
 - **Integration tests:** Require `moto` (AWS service mocking)
