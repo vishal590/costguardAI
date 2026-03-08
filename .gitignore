@@ -18,3 +18,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# CDK
+cdk.out/
+*.cdk.out
+infrastructure/cdk.out/
