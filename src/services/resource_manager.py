@@ -1057,19 +1057,208 @@ class ResourceManager:
         return resources
     
     def _get_cloudwatch_metrics(self, resource) -> Dict[str, float]:
-        """Get CloudWatch metrics for a resource."""
-        # Placeholder - would query CloudWatch
-        return {}
+        """
+        Get CloudWatch metrics for a resource.
+        
+        Args:
+            resource: Resource object
+            
+        Returns:
+            Dictionary of metric names to values
+        """
+        try:
+            import boto3
+            from datetime import timedelta
+            
+            cloudwatch = self.clients.get('cloudwatch')
+            if not cloudwatch:
+                cloudwatch = boto3.client('cloudwatch')
+            
+            metrics = {}
+            end_time = datetime.now(UTC)
+            start_time = end_time - timedelta(hours=24)  # Last 24 hours
+            
+            # Service-specific metric queries
+            if resource.service == 'ec2':
+                # Get CPU utilization
+                try:
+                    response = cloudwatch.get_metric_statistics(
+                        Namespace='AWS/EC2',
+                        MetricName='CPUUtilization',
+                        Dimensions=[{'Name': 'InstanceId', 'Value': resource.resource_id}],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                        Period=3600,  # 1 hour periods
+                        Statistics=['Average']
+                    )
+                    if response.get('Datapoints'):
+                        # Get most recent average
+                        latest = max(response['Datapoints'], key=lambda x: x['Timestamp'])
+                        metrics['cpu_utilization'] = latest['Average']
+                except Exception as e:
+                    logger.debug(f"Could not get CPU metrics for {resource.resource_id}: {e}")
+            
+            elif resource.service == 'lambda':
+                # Get invocation count
+                try:
+                    response = cloudwatch.get_metric_statistics(
+                        Namespace='AWS/Lambda',
+                        MetricName='Invocations',
+                        Dimensions=[{'Name': 'FunctionName', 'Value': resource.resource_id}],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                        Period=3600,
+                        Statistics=['Sum']
+                    )
+                    if response.get('Datapoints'):
+                        latest = max(response['Datapoints'], key=lambda x: x['Timestamp'])
+                        metrics['invocations'] = latest['Sum']
+                except Exception as e:
+                    logger.debug(f"Could not get Lambda metrics for {resource.resource_id}: {e}")
+            
+            elif resource.service == 'rds':
+                # Get CPU utilization
+                try:
+                    response = cloudwatch.get_metric_statistics(
+                        Namespace='AWS/RDS',
+                        MetricName='CPUUtilization',
+                        Dimensions=[{'Name': 'DBInstanceIdentifier', 'Value': resource.resource_id}],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                        Period=3600,
+                        Statistics=['Average']
+                    )
+                    if response.get('Datapoints'):
+                        latest = max(response['Datapoints'], key=lambda x: x['Timestamp'])
+                        metrics['cpu_utilization'] = latest['Average']
+                except Exception as e:
+                    logger.debug(f"Could not get RDS metrics for {resource.resource_id}: {e}")
+            
+            return metrics
+            
+        except Exception as e:
+            logger.warning(f"Error getting CloudWatch metrics for {resource.resource_id}: {e}")
+            return {}
     
     def _estimate_resource_cost(self, resource) -> float:
-        """Estimate hourly cost for a resource."""
-        # Placeholder - would use pricing data
-        return 0.0
+        """
+        Estimate hourly cost for a resource using Pricing API.
+        
+        Args:
+            resource: Resource object
+            
+        Returns:
+            Estimated hourly cost in USD
+        """
+        try:
+            from ..pricing_manager import PricingManager
+            import os
+            
+            region = resource.region if hasattr(resource, 'region') else os.environ.get('AWS_REGION', 'us-east-1')
+            pricing_manager = PricingManager(region=region)
+            
+            # Get pricing for the service
+            pricing_data = pricing_manager.get_pricing_data(resource.service, region)
+            
+            # Service-specific cost estimation
+            if resource.service == 'ec2':
+                # Try to get instance type from resource metadata or tags
+                instance_type = None
+                if hasattr(resource, 'tags') and resource.tags:
+                    instance_type = resource.tags.get('InstanceType')
+                
+                if instance_type and instance_type in pricing_data.prices:
+                    return float(pricing_data.prices[instance_type])
+            
+            elif resource.service == 'rds':
+                # RDS pricing is more complex, use average or default
+                if pricing_data.prices:
+                    # Use average of available prices
+                    avg_price = sum(float(p) for p in pricing_data.prices.values()) / len(pricing_data.prices)
+                    return avg_price
+            
+            elif resource.service == 'nat_gateway':
+                # NAT Gateway has fixed pricing
+                return 0.045  # $0.045/hour
+            
+            # Default: use first available price or 0.10/hour
+            if pricing_data.prices:
+                return float(list(pricing_data.prices.values())[0])
+            
+            return 0.10  # Default fallback
+            
+        except Exception as e:
+            logger.warning(f"Error estimating cost for {resource.resource_id}: {e}")
+            return 0.0
     
     def _get_last_activity(self, resource, metrics: Dict[str, float]) -> str:
-        """Get last activity timestamp for a resource."""
-        # Placeholder - would analyze metrics
-        return datetime.now(UTC).isoformat()
+        """
+        Get last activity timestamp for a resource based on metrics.
+        
+        Args:
+            resource: Resource object
+            metrics: Dictionary of CloudWatch metrics
+            
+        Returns:
+            ISO timestamp string of last activity
+        """
+        try:
+            import boto3
+            from datetime import timedelta
+            
+            cloudwatch = self.clients.get('cloudwatch')
+            if not cloudwatch:
+                cloudwatch = boto3.client('cloudwatch')
+            
+            end_time = datetime.now(UTC)
+            start_time = end_time - timedelta(days=7)  # Check last 7 days
+            
+            # Service-specific activity detection
+            if resource.service == 'ec2':
+                try:
+                    response = cloudwatch.get_metric_statistics(
+                        Namespace='AWS/EC2',
+                        MetricName='NetworkIn',
+                        Dimensions=[{'Name': 'InstanceId', 'Value': resource.resource_id}],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                        Period=3600,
+                        Statistics=['Sum']
+                    )
+                    if response.get('Datapoints'):
+                        # Get most recent datapoint with activity
+                        active_points = [dp for dp in response['Datapoints'] if dp['Sum'] > 0]
+                        if active_points:
+                            latest = max(active_points, key=lambda x: x['Timestamp'])
+                            return latest['Timestamp'].isoformat()
+                except Exception as e:
+                    logger.debug(f"Could not get activity timestamp for {resource.resource_id}: {e}")
+            
+            elif resource.service == 'lambda':
+                try:
+                    response = cloudwatch.get_metric_statistics(
+                        Namespace='AWS/Lambda',
+                        MetricName='Invocations',
+                        Dimensions=[{'Name': 'FunctionName', 'Value': resource.resource_id}],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                        Period=3600,
+                        Statistics=['Sum']
+                    )
+                    if response.get('Datapoints'):
+                        active_points = [dp for dp in response['Datapoints'] if dp['Sum'] > 0]
+                        if active_points:
+                            latest = max(active_points, key=lambda x: x['Timestamp'])
+                            return latest['Timestamp'].isoformat()
+                except Exception as e:
+                    logger.debug(f"Could not get Lambda activity timestamp: {e}")
+            
+            # Fallback: use current time if no activity found
+            return datetime.now(UTC).isoformat()
+            
+        except Exception as e:
+            logger.warning(f"Error getting last activity for {resource.resource_id}: {e}")
+            return datetime.now(UTC).isoformat()
     
     def _extract_tags(self, tag_list: List[Dict[str, str]]) -> Dict[str, str]:
         """Extract tags from AWS tag list format."""

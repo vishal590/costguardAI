@@ -81,8 +81,8 @@ class ContextManager:
         # Retrieve budget status
         current_budget = self._get_budget_status()
         
-        # Detect anomalies (placeholder)
-        anomalies = []
+        # Detect anomalies in cost data
+        anomalies = self._detect_anomalies(historical_costs)
         
         return CostContext(
             historical_costs=historical_costs,
@@ -264,6 +264,89 @@ class ContextManager:
         except Exception as e:
             logger.error(f"Error retrieving prevention actions: {e}")
             return []
+    
+    def _detect_anomalies(self, historical_costs: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """
+        Detect anomalies in historical cost data.
+        
+        Uses statistical analysis to identify unusual cost spikes or drops.
+        
+        Args:
+            historical_costs: Dictionary of service names to cost data lists
+            
+        Returns:
+            List of anomaly dictionaries with service, date, and description
+        """
+        anomalies = []
+        
+        try:
+            import statistics
+            
+            for service, cost_data in historical_costs.items():
+                if not cost_data or len(cost_data) < 3:
+                    # Need at least 3 data points for anomaly detection
+                    continue
+                
+                # Extract cost values
+                costs = []
+                for item in cost_data:
+                    if isinstance(item, dict):
+                        cost = item.get('cost') or item.get('amount') or item.get('unblended_cost', 0)
+                        if isinstance(cost, (int, float)):
+                            costs.append(float(cost))
+                
+                if len(costs) < 3:
+                    continue
+                
+                # Calculate mean and standard deviation
+                mean_cost = statistics.mean(costs)
+                if len(costs) > 1:
+                    stdev_cost = statistics.stdev(costs)
+                else:
+                    stdev_cost = 0
+                
+                # Define anomaly threshold (2 standard deviations)
+                threshold = 2 * stdev_cost if stdev_cost > 0 else mean_cost * 0.5
+                
+                # Check each data point for anomalies
+                for i, item in enumerate(cost_data):
+                    if isinstance(item, dict):
+                        cost = item.get('cost') or item.get('amount') or item.get('unblended_cost', 0)
+                        if isinstance(cost, (int, float)):
+                            cost_value = float(cost)
+                            
+                            # Detect spike (cost significantly higher than mean)
+                            if cost_value > mean_cost + threshold:
+                                anomalies.append({
+                                    'service': service,
+                                    'date': item.get('date') or item.get('time_period', {}).get('start', 'unknown'),
+                                    'cost': cost_value,
+                                    'expected_range': f"${mean_cost - threshold:.2f} - ${mean_cost + threshold:.2f}",
+                                    'type': 'spike',
+                                    'severity': 'high' if cost_value > mean_cost + (3 * stdev_cost) else 'medium',
+                                    'description': f"Cost spike detected: ${cost_value:.2f} (expected: ${mean_cost:.2f} ± ${threshold:.2f})"
+                                })
+                            
+                            # Detect drop (cost significantly lower than mean) - less critical
+                            elif cost_value < mean_cost - threshold and mean_cost > 0:
+                                anomalies.append({
+                                    'service': service,
+                                    'date': item.get('date') or item.get('time_period', {}).get('start', 'unknown'),
+                                    'cost': cost_value,
+                                    'expected_range': f"${mean_cost - threshold:.2f} - ${mean_cost + threshold:.2f}",
+                                    'type': 'drop',
+                                    'severity': 'low',
+                                    'description': f"Cost drop detected: ${cost_value:.2f} (expected: ${mean_cost:.2f} ± ${threshold:.2f})"
+                                })
+            
+            if anomalies:
+                logger.info(f"Detected {len(anomalies)} cost anomalies")
+            
+        except Exception as e:
+            logger.warning(f"Error detecting anomalies: {e}")
+            # Return empty list on error rather than failing
+        
+        return anomalies
     
     def _get_account_id(self) -> Optional[str]:
         """

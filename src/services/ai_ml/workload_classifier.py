@@ -329,6 +329,41 @@ class WorkloadClassifier:
             
         Requirements: FR-2.6
         """
-        # TODO: Implement DynamoDB storage
-        logger.info(f"Storing classification for {instance_id}: {classification.workload_type}")
-        pass
+        try:
+            import boto3
+            import os
+            from datetime import datetime, timezone, timedelta
+            
+            # Get table name from environment or use default
+            table_name = os.environ.get('WORKLOAD_CLASSIFICATIONS_TABLE', 'costguard-workload-classifications')
+            
+            # Use DynamoDB resource for easier item operations
+            if not hasattr(self, 'dynamodb_resource'):
+                self.dynamodb_resource = boto3.resource('dynamodb')
+            
+            table = self.dynamodb_resource.Table(table_name)
+            
+            # Calculate TTL (30 days from now)
+            ttl = int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())
+            
+            # Prepare item for DynamoDB
+            item = {
+                'instance_id': instance_id,
+                'timestamp': classification.timestamp,
+                'workload_type': classification.workload_type,
+                'confidence': classification.confidence,
+                'classification_method': classification.classification_method,
+                'gpu_utilization_avg': classification.gpu_utilization_avg,
+                'gpu_utilization_pattern': classification.gpu_utilization_pattern,
+                'ttl': ttl
+            }
+            
+            # Store in DynamoDB
+            table.put_item(Item=item)
+            
+            logger.info(f"Stored classification for {instance_id}: {classification.workload_type} (confidence: {classification.confidence:.2f})")
+            
+        except Exception as e:
+            # Log error but don't fail - storage is optional
+            logger.warning(f"Failed to store classification for {instance_id}: {e}")
+            # Continue execution even if storage fails

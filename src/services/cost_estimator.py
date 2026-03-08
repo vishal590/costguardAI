@@ -393,17 +393,37 @@ class CostEstimator:
             # Fallback to generic method if service-specific method not available
             # Convert service_metrics to MetricDataPoint list for generic method
             from src.utils.types import MetricDataPoint
+            import logging
+            logger = logging.getLogger(__name__)
+            
             metric_datapoints = []
             if isinstance(service_metrics, list):
                 for metric in service_metrics:
-                    # Create a simple datapoint (this is a fallback, not ideal)
+                    # Create a simple datapoint for unsupported services
+                    # Use 0.0 instead of 1.0 to indicate no cost data available
                     metric_datapoints.append(MetricDataPoint(
                         timestamp=datetime.now(timezone.utc),
-                        value=Decimal('1'),  # Placeholder
+                        value=Decimal('0'),  # Zero cost for unsupported services (better than placeholder $1)
                         unit='Count',
                         metric_name=f'{service}_metric'
                     ))
-            return self.estimate_cost(service, metric_datapoints, pricing_data)
+            
+            # Log warning for unsupported service
+            logger.warning(f"Service '{service}' is not fully supported for cost estimation. Returning zero cost estimate.")
+            
+            # Return zero cost estimate with low confidence
+            # CostEstimate is already imported at module level
+            return CostEstimate(
+                service=service,
+                estimated_cost=Decimal('0'),
+                currency='USD',
+                confidence_lower=Decimal('0'),
+                confidence_upper=Decimal('0'),
+                timestamp=datetime.now(timezone.utc),
+                period_start=datetime.now(timezone.utc),
+                period_end=datetime.now(timezone.utc),
+                metrics_count=len(metric_datapoints) if metric_datapoints else 0
+            )
         
         # Calculate confidence interval
         lower, upper = self.calculate_confidence_interval(estimated_cost, metrics_count)

@@ -7,6 +7,7 @@ idle time and wasted cost, and generates idle GPU alerts.
 Requirements: FR-1.5
 """
 import logging
+import os
 from typing import List, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
@@ -455,7 +456,7 @@ class IdleGPUDetector:
     
     def _get_instance_cost_per_hour(self, instance_type: str) -> float:
         """
-        Get hourly cost for an instance type.
+        Get hourly cost for an instance type using AWS Pricing API.
         
         Args:
             instance_type: EC2 instance type
@@ -463,8 +464,59 @@ class IdleGPUDetector:
         Returns:
             Cost per hour in USD
         """
-        # TODO: Implement Pricing API integration
-        # For now, use approximate costs for common GPU instances
+        try:
+            # Try to use Pricing API for accurate pricing
+            from ..pricing_manager import PricingManager
+            import boto3
+            
+            # Get region from environment or use default
+            region = os.environ.get('AWS_REGION', 'us-east-1')
+            
+            # Initialize PricingManager
+            pricing_manager = PricingManager(region=region)
+            
+            # Get pricing data for EC2
+            pricing_data = pricing_manager.get_pricing_data('ec2', region)
+            
+            # Look up instance type in pricing data
+            if instance_type in pricing_data.prices:
+                hourly_price = float(pricing_data.prices[instance_type])
+                logger.debug(f"Retrieved pricing for {instance_type}: ${hourly_price}/hour from Pricing API")
+                return hourly_price
+            
+            # If not found in pricing data, try direct Pricing API query
+            pricing_client = boto3.client('pricing', region_name='us-east-1')
+            
+            response = pricing_client.get_products(
+                ServiceCode='AmazonEC2',
+                Filters=[
+                    {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
+                    {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+                    {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+                    {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+                ],
+                MaxResults=1
+            )
+            
+            if response.get('PriceList'):
+                import json
+                price_data = json.loads(response['PriceList'][0])
+                terms = price_data.get('terms', {}).get('OnDemand', {})
+                
+                for term_key, term_value in terms.items():
+                    price_dimensions = term_value.get('priceDimensions', {})
+                    for dim_key, dim_value in price_dimensions.items():
+                        price_per_unit = dim_value.get('pricePerUnit', {})
+                        usd_price = price_per_unit.get('USD')
+                        if usd_price:
+                            hourly_price = float(usd_price)
+                            logger.debug(f"Retrieved pricing for {instance_type}: ${hourly_price}/hour from Pricing API")
+                            return hourly_price
+            
+        except Exception as e:
+            logger.warning(f"Failed to get pricing from Pricing API for {instance_type}: {e}. Using fallback pricing.")
+        
+        # Fallback to approximate costs if Pricing API fails
         approximate_costs = {
             'p3.2xlarge': 3.06,
             'p3.8xlarge': 12.24,
@@ -487,7 +539,9 @@ class IdleGPUDetector:
             'g5.48xlarge': 16.288,
         }
         
-        return approximate_costs.get(instance_type, 5.0)  # Default $5/hour
+        fallback_price = approximate_costs.get(instance_type, 5.0)
+        logger.info(f"Using fallback pricing for {instance_type}: ${fallback_price}/hour")
+        return fallback_price
     
     def _generate_recommendation(
         self,
