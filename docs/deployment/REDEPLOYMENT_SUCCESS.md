@@ -126,6 +126,15 @@ All stacks show `UPDATE_COMPLETE`:
 - CostGuardAIMLStack
 - CostGuardAutonomousStack
 
+### Update Times (Verified in AWS Console)
+All stacks show "Updated time" in CloudFormation console:
+- **CostGuardStack:** 2026-03-08 23:55:20 UTC+05 ✅
+- **CostGuardMultiAccountStack:** 2026-03-08 23:44:40 UTC+05 ✅
+- **CostGuardAIMLStack:** 2026-03-08 23:52:03 UTC+05 ✅
+- **CostGuardAutonomousStack:** 2026-03-08 23:56:38 UTC+05 ✅
+
+**Note:** The "Created time" column shows original creation dates, but "Updated time" column confirms all stacks were updated today.
+
 ### Lambda Functions
 All 13 Lambda functions deployed and updated:
 - CostGuardLambda (main handler)
