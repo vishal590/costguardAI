@@ -367,7 +367,7 @@ class TestIdleGPUDetector:
         detector.pricing_manager = mock_pricing_manager
         
         # Mock boto3 pricing client to raise exception (simulating API failure)
-        with patch('src.services.ai_ml.idle_detector.boto3.client') as mock_boto3:
+        with patch('boto3.client') as mock_boto3:
             mock_pricing_client = Mock()
             mock_pricing_client.get_products.side_effect = Exception("API error")
             mock_boto3.return_value = mock_pricing_client
