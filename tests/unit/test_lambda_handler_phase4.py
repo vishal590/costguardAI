@@ -274,9 +274,9 @@ class TestAdvisorClearHistoryEndpoint:
         event = {
             'httpMethod': 'DELETE',
             'path': '/api/advisor/history',
-            'body': json.dumps({
+            'queryStringParameters': {
                 'session_id': 'session123'
-            })
+            }
         }
         
         response = handle_advisor_clear_history(event)
