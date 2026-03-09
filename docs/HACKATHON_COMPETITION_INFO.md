@@ -1,8 +1,16 @@
 # AWS 10,000 AIdeas Competition - Official Information
 
-**Source:** https://builder.aws.com/connect/events/10000aideas  
-**Last Updated:** March 5, 2026  
+**Source:** [10,000 AIdeas Competition | AWS Builder Center](https://builder.aws.com/connect/events/10000aideas)  
+**Last Updated:** March 9, 2026  
 **Current Status:** Semi-Finalist (Top 1,000)
+
+**Official AWS / Builder Center links:**
+- [Competition event page](https://builder.aws.com/connect/events/10000aideas)
+- [Semi-finalist phase clarification](https://builder.aws.com/post/3A68zhq8XMxk3zl3nX51eSjJL47_p/clarification-regarding-the-aws-10000-aideas-semi-finalist-phase)
+- [How to find your idea for the competition](https://builder.aws.com/content/38HKfhwHowJEBkSgv75KW9t7Wwh/how-to-find-your-idea-for-the-10000-aideas-competition)
+- [AWS Free Tier overview for 10,000 AIdeas](https://builder.aws.com/content/37w84YKUe59ltomhhsxiB3rbEyJ/aws-free-tier-overview-for-10000-aideas)
+- [10,000 AIdeas competition space](https://builder.aws.com/connect/space/3a92613a-ce41-30a7-bc0d-6067611fbd09/10000-aideas-competition)
+- [AWS News Blog – 10,000 AIdeas roundup](https://aws.amazon.com/blogs/aws/happy-new-year-aws-weekly-roundup-10000-aideas-competition-amazon-ec2-amazon-ecs-managed-instances-and-more-january-5-2026/)
 
 **Related Strategy Documents:**
 - **[HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md)** - Our complete winning strategy
@@ -50,7 +58,7 @@ If selected as a semi-finalist, that's when you'll build your app.
   - Your app overview
   - AWS services used
   - Team name
-  - Demo of your app
+  - Demo of your app (format not specified—video, screenshots, or interactive demo are all acceptable; a web frontend is not required)
 
 ---
 
@@ -61,7 +69,7 @@ If selected as a semi-finalist, that's when you'll build your app.
 | December 5, 2025 | Competition starts | ✅ Done |
 | January 21, 2026 | Initial competition submissions due | ✅ Done |
 | February 11, 2026 | Top 1,000 semi-finalists announced | ✅ **WE ARE HERE** |
-| **March 13, 2026** | **Semi-finalists share prototype articles; community voting begins** | ⏰ **8 DAYS** |
+| **March 13, 2026** | **Semi-finalists share prototype articles; community voting begins** | ⏰ **DEADLINE** |
 | March 20, 2026 | Top 300 advance to next stage | 🎯 Target |
 | April 3, 2026 | AWS Experts select 50 finalists | 🎯 Target |
 | April 17, 2026 | Finalists submit revised articles; final community voting begins | 🎯 Target |
@@ -106,7 +114,7 @@ AWS reviewed, ranked, and scored all submissions to identify the top 1,000 semi-
 ### Stage 3: Semi-Finalist Voting (Current Stage 🎯)
 **March 13-19, 2026**
 
-Semi-finalists share an article on AWS Builder Center to explain their application. Community will vote on articles to determine 300 semi-finalists.
+Semi-finalists share an article on AWS Builder Center to explain their application. Community will vote (e.g. by likes) on articles to determine the top 300 semi-finalists. Official guidance: the sooner you publish, the more time you have to earn likes.
 
 ### Stage 4: AWS Experts Review
 **March 20 - April 3, 2026**
@@ -192,7 +200,7 @@ The five competition tracks target key opportunity areas:
 1. Overview of your application and why it matters
 2. What AWS services you used
 3. Your team name
-4. Demo of your app
+4. Demo of your app (e.g. video, screenshots, or interactive link—no specific format or frontend required)
 
 ---
 
@@ -257,7 +265,7 @@ No. Applications are judged on innovation, efficiency, and practical impact—no
 - [x] Submit initial pitch (January 21, 2026)
 - [x] Selected as semi-finalist (February 11, 2026)
 - [ ] Build application using Kiro
-- [ ] Publish Builder Center article (March 13, 2026) ⏰ **8 DAYS**
+- [ ] Publish Builder Center article (March 13, 2026) ⏰ **DEADLINE** — *the sooner you publish, the more time to earn likes*
 - [ ] Community voting (March 13-19, 2026)
 - [ ] Advance to Top 300 (March 20, 2026)
 - [ ] AWS Expert review (March 20 - April 3, 2026)
@@ -272,7 +280,7 @@ No. Applications are judged on innovation, efficiency, and practical impact—no
 
 **Current Phase:** Semi-Finalist (Top 1,000) ✅  
 **Next Deadline:** March 13, 2026 - Article submission  
-**Days Remaining:** 8 days
+**Days Remaining:** 4 days (as of March 9, 2026)
 
 **Our Compliance:**
 - ✅ Used Kiro for 70%+ of development
@@ -289,6 +297,6 @@ No. Applications are judged on innovation, efficiency, and practical impact—no
 ---
 
 **Competition Website:** https://builder.aws.com/connect/events/10000aideas  
-**Last Updated:** March 5, 2026  
+**Last Updated:** March 9, 2026  
 **Next Review:** March 13, 2026 (After article submission)
 
