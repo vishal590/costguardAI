@@ -15,6 +15,7 @@ Includes:
 Requirements: All Phase 6 AI/ML workload cost management requirements
 """
 
+import os
 from aws_cdk import (
     Stack,
     Duration,
@@ -232,7 +233,7 @@ class AIMLStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.ai_ml_handler.handler",
             code=lambda_.Code.from_asset(
-                ".",  # Current directory (aws-ideas project root)
+                os.path.join(os.path.dirname(__file__), ".."),  # Project root (parent of infrastructure/)
                 exclude=[
                     "cdk.out",
                     "infrastructure",

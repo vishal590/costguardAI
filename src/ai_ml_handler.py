@@ -140,6 +140,19 @@ def handle_gpu_costs(event: Dict[str, Any]) -> Dict[str, Any]:
         if not validate_date_range(start_date, end_date):
             return create_error_response(400, 'INVALID_DATE_RANGE', 'start_date must be before end_date')
         
+        # Cost Explorer often rejects or has no data for "today"; use yesterday as max end_date for the API call
+        today_utc = datetime.now(UTC).strftime('%Y-%m-%d')
+        ce_end_date = end_date
+        if end_date >= today_utc:
+            yesterday = (datetime.now(UTC) - timedelta(days=1)).strftime('%Y-%m-%d')
+            ce_end_date = yesterday
+            if end_date > today_utc:
+                logger.info(f"End date {end_date} is in the future; using {ce_end_date} for Cost Explorer")
+            else:
+                logger.info(f"End date is today; using yesterday {ce_end_date} for Cost Explorer (data not yet available for today)")
+            if start_date > ce_end_date:
+                return create_error_response(400, 'INVALID_DATE_RANGE', 'After clamping to available data, start_date is after end_date. Use an earlier range or end_date yesterday.')
+        
         # Check cache first
         cache_manager = get_cache_manager()
         cached_data = cache_manager.get_cached_data(
@@ -158,8 +171,8 @@ def handle_gpu_costs(event: Dict[str, Any]) -> Dict[str, Any]:
         dynamodb = get_dynamodb_client()
         tracker = GPUCostTracker(dynamodb)
         
-        # Collect GPU costs
-        gpu_costs = tracker.collect_gpu_costs(start_date, end_date, workload_type, instance_type)
+        # Collect GPU costs (use ce_end_date for API; response still describes user-requested range)
+        gpu_costs = tracker.collect_gpu_costs(start_date, ce_end_date, workload_type, instance_type)
         
         response_data = {
             'gpu_costs': [cost.to_dict() for cost in gpu_costs],

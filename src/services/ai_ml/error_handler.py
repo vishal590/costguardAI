@@ -135,7 +135,7 @@ def handle_cost_explorer_error(error: ClientError, cache_data: Optional[Dict] = 
     
     elif error_code == 'ValidationException' or error_code == '400':
         logger.error(f"Invalid request to Cost Explorer: {error_message}")
-        raise AIMLError("Unable to retrieve GPU costs: Invalid request parameters")
+        raise AIMLError(f"Unable to retrieve GPU costs: Invalid request parameters. Cost Explorer: {error_message}")
     
     elif error_code == 'RequestTimeout' or 'timeout' in error_message.lower():
         raise APITimeoutError(f"Cost Explorer request timed out: {error_message}")

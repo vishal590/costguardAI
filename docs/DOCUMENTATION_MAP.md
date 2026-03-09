@@ -215,6 +215,7 @@
 - [Safety Guards](#autonomous-safety-guards)
 
 **Technical Documentation:**
+- 📘 [Phase 6 & Extension Backend Review](./technical/phase6-and-extension-backend-review.md) - What we built, why, how to integrate (backend vs frontend), use cases
 - 📋 [Misleading Claims Analysis](./technical/phase6-ai-ml-workloads/misleading-claims-analysis.md) - Code review and fixes
 - ✅ [Implementation Fixes Summary](./technical/phase6-ai-ml-workloads/implementation-fixes-summary.md) - AWS API integration fixes
 - 📋 [Phase 6 Extension Misleading Claims](./technical/phase6-extension-autonomous-loops/misleading-claims-analysis.md) - Code review and fixes

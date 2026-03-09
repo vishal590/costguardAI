@@ -98,7 +98,8 @@ class GPUCostTracker:
             else:
                 ce_client = self.cost_explorer
             
-            # Query Cost Explorer for EC2 costs grouped by instance type
+            # Query Cost Explorer for EC2 costs grouped by instance type.
+            # Cost Explorer allows at most 2 GroupBy dimensions; we use SERVICE and INSTANCE_TYPE.
             response = ce_client.get_cost_and_usage(
                 TimePeriod={
                     'Start': start_date,
@@ -108,8 +109,7 @@ class GPUCostTracker:
                 Metrics=['UnblendedCost', 'UsageQuantity'],
                 GroupBy=[
                     {'Type': 'DIMENSION', 'Key': 'SERVICE'},
-                    {'Type': 'DIMENSION', 'Key': 'INSTANCE_TYPE'},
-                    {'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}
+                    {'Type': 'DIMENSION', 'Key': 'INSTANCE_TYPE'}
                 ],
                 Filter={
                     'Dimensions': {
@@ -131,7 +131,6 @@ class GPUCostTracker:
                     
                     service = keys[0]  # Should be EC2
                     instance_type = keys[1] if len(keys) > 1 else ''
-                    usage_type = keys[2] if len(keys) > 2 else ''
                     
                     # Filter for GPU instance types
                     if not any(pattern in instance_type for pattern in GPU_INSTANCE_PATTERNS):
@@ -152,10 +151,8 @@ class GPUCostTracker:
                     utilization = 0.0
                     classification_confidence = 0.0
                     
-                    # Extract instance ID from usage type if available (e.g., "BoxUsage:i-1234567890abcdef0")
+                    # Instance ID not available when grouping only by SERVICE+INSTANCE_TYPE (no USAGE_TYPE)
                     instance_id = "unknown"
-                    if "BoxUsage:" in usage_type:
-                        instance_id = usage_type.split("BoxUsage:")[-1]
                     
                     gpu_cost_data = GPUCostData(
                         date=date,
