@@ -71,7 +71,7 @@ class BedrockClient:
                 }
             ],
             "inferenceConfig": {
-                "maxTokens": 2000,
+                "maxTokens": 1024,  # Enough for 30-day forecast JSON; lower helps stay under API Gateway 29s
                 "temperature": 0.1,  # Low temperature for consistent predictions
                 "topP": 0.9
             }

@@ -160,7 +160,7 @@ class TestResourceManager:
         mock_dynamodb.put_item.assert_called_once()
         call_args = mock_dynamodb.put_item.call_args[1]
         
-        assert call_args['TableName'] == 'resource-inventory'
+        assert call_args['TableName'] == 'costguard-resource-inventory'
         assert call_args['Item']['resource_id']['S'] == 'i-test'
         assert call_args['Item']['service']['S'] == 'ec2'
         assert call_args['Item']['state']['S'] == 'running'

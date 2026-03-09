@@ -9,6 +9,18 @@
 **Test Coverage:** 724 tests passing (579 unit + 75 property + 70 integration)  
 **Note:** Overall project coverage is 25% due to lambda_handler.py (11% coverage). Phase 3 service modules have 80%+ coverage.
 
+## Innovation & market position
+
+Phase 3 is **innovative** as an **integrated** cost-prevention pipeline (budget + idle detection + actions + approval + audit + **per-action rollback**). Community and forum research (AWS re:Post, Reddit, Stack Overflow, FinOps guidance) show a gap for solutions that combine cost monitoring, automated remediation, and rollback in one system. Phase 3’s **per-action rollback by `action_id`** (e.g. restart a specific EC2 that was auto-stopped) is a **breakthrough**: native AWS Budget Actions allow reversing an action at the policy level but do not restart stopped instances. Phase 3 is **meaningful** because it aligns with reversibility best practice and gives operators explicit undo. Known **drawbacks** (rollback only for EC2, RDS, Lambda; 24h window; polling-based approval) are documented in [Limitations](#limitations).
+
+**Details:** [Innovation & market position](./innovation-and-market-position.md) | [INNOVATION-STRATEGY](../../INNOVATION-STRATEGY.md) | [HACKATHON_FEATURE_ALIGNMENT](../../HACKATHON_FEATURE_ALIGNMENT.md).
+
+## Recent updates (March 2026)
+
+- **Rollback:** RollbackManager uses `PREVENTION_AUDIT_TABLE` (same as history) and receives `dynamodb_client` from Lambda. EC2/RDS/Lambda clients are created **lazily** when rollback runs (avoids 500s on status/resources/history). Rollback returns clear error messages: no rollback state, invalid state format, outside 24h, restore failed (e.g. resource not found). Optional env **`ROLLBACK_WINDOW_HOURS`** (default 24) can be set for testing (e.g. 168 for 7 days). Audit item `timestamp` can be Number (Unix) or ISO string; state string supports regex fallback if `eval` fails.
+- **Resources:** ResourceManager receives `dynamodb_client`; AWS clients are created **lazily** per service when GET /api/prevention/resources runs. Table name from **`RESOURCE_INVENTORY_TABLE`** (default `costguard-resource-inventory`). Discovery now populates the Resources tab (Lambda, S3, DynamoDB, API Gateway, SNS, etc.).
+- **Frontend:** History tab has a per-row **Rollback** button (for actions within 24h). Rollback tab uses a **Select** dropdown populated from history instead of manual Action ID entry. Resources tab: **service filter** dropdown, shortened display of long IDs (e.g. Lambda function name), and short description of what the list represents.
+
 ## Overview
 
 Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proactive cost management through budget monitoring, idle resource detection, and automated cost-saving actions. The system continuously monitors AWS budgets and automatically takes action when thresholds are breached, with comprehensive safety mechanisms to prevent unintended disruptions.

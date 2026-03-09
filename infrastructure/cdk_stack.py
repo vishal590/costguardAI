@@ -12,6 +12,7 @@ This CDK stack defines all infrastructure for CostGuard Phases 1, 1.5, 2, and 3:
 Requirements: All infrastructure requirements across all phases
 """
 
+import os
 from aws_cdk import (
     Stack,
     Duration,
@@ -42,17 +43,17 @@ class CostGuardStack(Stack):
         # DynamoDB Tables
         # =====================================================================
 
-        # Phase 1: Cost data storage
+        # Phase 1: Cost data storage (pk=COST#YYYY-MM, sk=SERVICE#name per dynamodb.py)
+        # Table name is -v2 because the original costguard-cost-data had wrong key schema (date_service, no sk).
         cost_data_table = dynamodb.Table(
             self, "CostDataTable",
-            table_name="costguard-cost-data",
-            partition_key=dynamodb.Attribute(
-                name="date_service",
-                type=dynamodb.AttributeType.STRING
-            ),
+            table_name="costguard-cost-data-v2",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="sk", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.RETAIN,
             point_in_time_recovery=True,
+            time_to_live_attribute="ttl",
         )
 
         # Phase 2: Forecast cache
@@ -366,7 +367,7 @@ class CostGuardStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.lambda_handler.handler",
             code=lambda_.Code.from_asset(
-                ".",
+                os.path.join(os.path.dirname(__file__), ".."),
                 exclude=[
                     "cdk.out/*",
                     "infrastructure/cdk.out/*",
@@ -443,13 +444,16 @@ class CostGuardStack(Stack):
             default_cors_preflight_options=apigateway.CorsOptions(
                 allow_origins=apigateway.Cors.ALL_ORIGINS,
                 allow_methods=apigateway.Cors.ALL_METHODS,
+                allow_headers=["Content-Type", "X-API-Key", "Authorization"],
             ),
         )
 
-        # Lambda integration (disable test invoke permissions to avoid policy size limit)
+        # Lambda integration (disable test invoke permissions to avoid policy size limit).
+        # Integration timeout max 29s (API Gateway limit); advisor/query must complete within this or use async pattern.
         lambda_integration = apigateway.LambdaIntegration(
             costguard_lambda,
-            allow_test_invoke=False  # Prevents creation of test invoke permissions
+            allow_test_invoke=False,
+            timeout=Duration.seconds(29),
         )
 
         # Create /api resource
@@ -461,6 +465,11 @@ class CostGuardStack(Stack):
 
         cost_data_resource = api_resource.add_resource("cost-data")
         cost_data_resource.add_method("GET", lambda_integration)
+        # POST /api/cost-data/fetch (frontend uses this path; CORS OPTIONS auto-added)
+        cost_data_fetch = cost_data_resource.add_resource("fetch")
+        cost_data_fetch.add_method("POST", lambda_integration)
+        # OPTIONS must not require API key so browser preflight succeeds (browsers don't send x-api-key on OPTIONS)
+        self._disable_api_key_on_options(cost_data_fetch)
 
         # Phase 1.5 endpoints
         cost_estimation_resource = api_resource.add_resource("cost-estimation")
@@ -512,6 +521,34 @@ class CostGuardStack(Stack):
 
         advisor_suggestions = advisor_resource.add_resource("suggestions")
         advisor_suggestions.add_method("GET", lambda_integration)
+
+        # Phase 5: Multi-account stub (full implementation is in MultiAccountStack; stub avoids 403 when using single API URL)
+        organizations_resource = api_resource.add_resource("organizations")
+        organizations_resource.add_method("GET", lambda_integration)
+        self._disable_api_key_on_options(organizations_resource)
+        org_accounts_resource = organizations_resource.add_resource("{org_id}").add_resource("accounts")
+        org_accounts_resource.add_method("GET", lambda_integration)
+        self._disable_api_key_on_options(org_accounts_resource)
+        costs_resource = api_resource.add_resource("costs")
+        costs_consolidated = costs_resource.add_resource("consolidated")
+        costs_consolidated.add_method("GET", lambda_integration)
+        self._disable_api_key_on_options(costs_consolidated)
+        costs_by_account = costs_resource.add_resource("by-account")
+        costs_by_account.add_method("GET", lambda_integration)
+        self._disable_api_key_on_options(costs_by_account)
+
+        # Phase 6: Autonomous demo (stub when AutonomousStack not deployed; avoids 403 on OPTIONS/GET)
+        autonomous_resource = api_resource.add_resource("autonomous")
+        demo_status_resource = autonomous_resource.add_resource("demo-status")
+        demo_status_resource.add_method("GET", lambda_integration)
+        self._disable_api_key_on_options(demo_status_resource)
+        demo_resource = autonomous_resource.add_resource("demo")
+        demo_start_resource = demo_resource.add_resource("start")
+        demo_start_resource.add_method("POST", lambda_integration)
+        self._disable_api_key_on_options(demo_start_resource)
+        demo_reset_resource = demo_resource.add_resource("reset")
+        demo_reset_resource.add_method("POST", lambda_integration)
+        self._disable_api_key_on_options(demo_reset_resource)
 
         # =====================================================================
         # EventBridge Schedule (Phase 3)
@@ -569,3 +606,12 @@ class CostGuardStack(Stack):
             value=errors_topic.topic_arn,
             description="SNS topic for prevention errors",
         )
+
+    def _disable_api_key_on_options(self, resource: apigateway.Resource) -> None:
+        """Set ApiKeyRequired=false on the OPTIONS method so CORS preflight succeeds without x-api-key."""
+        for child in resource.node.children:
+            if isinstance(child, apigateway.Method) and getattr(child, "http_method", None) == "OPTIONS":
+                cfn = child.node.default_child
+                if cfn is not None:
+                    cfn.add_property_override("ApiKeyRequired", False)
+                break

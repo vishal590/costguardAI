@@ -14,8 +14,20 @@ Supported services:
 from typing import List, Dict, Any
 from datetime import datetime, UTC
 import logging
+import os
 
 logger = logging.getLogger(__name__)
+
+# Service name (config) -> boto3 client name for lazy creation
+_BOTO_SERVICE_MAP = {
+    'ec2': 'ec2', 'rds': 'rds', 'lambda': 'lambda', 's3': 's3', 'dynamodb': 'dynamodb',
+    'elasticache': 'elasticache', 'redshift': 'redshift', 'ecs': 'ecs', 'eks': 'eks',
+    'nat_gateway': 'ec2', 'elastic_ip': 'ec2', 'elb': 'elasticloadbalancing',
+    'alb': 'elasticloadbalancing', 'nlb': 'elasticloadbalancing',
+    'sns': 'sns', 'sqs': 'sqs', 'api_gateway': 'apigateway', 'apigateway': 'apigateway',
+    'step_functions': 'stepfunctions', 'stepfunctions': 'stepfunctions',
+    'glue': 'glue', 'sagemaker': 'sagemaker', 'cloudfront': 'cloudfront',
+}
 
 
 class ResourceManager:
@@ -26,12 +38,24 @@ class ResourceManager:
         Initialize resource manager.
         
         Args:
-            aws_clients: Dict of boto3 clients by service name
+            aws_clients: Dict of boto3 clients by service name (can be empty; clients created lazily)
             dynamodb_client: DynamoDB client for inventory storage
         """
-        self.clients = aws_clients
+        self._clients = dict(aws_clients) if aws_clients else {}
+        self.clients = self._clients  # for tests / backward compat
         self.dynamodb = dynamodb_client
-        self.inventory_table = "resource-inventory"
+        self.inventory_table = os.environ.get("RESOURCE_INVENTORY_TABLE", "costguard-resource-inventory")
+        
+    def _get_client(self, boto_name: str):
+        """Get boto3 client, creating lazily to avoid init-time 500s in Lambda."""
+        if boto_name not in self._clients:
+            try:
+                import boto3
+                self._clients[boto_name] = boto3.client(boto_name)
+            except Exception as e:
+                logger.warning(f"Could not create {boto_name} client: {e}")
+                return None
+        return self._clients.get(boto_name)
         
     def discover_resources(self, services: List[str]) -> List[Any]:
         """
@@ -95,6 +119,8 @@ class ResourceManager:
         Args:
             resources: List of Resource objects
         """
+        if not self.dynamodb:
+            return
         logger.info(f"Updating inventory with {len(resources)} resources")
         
         timestamp = datetime.now(UTC).isoformat()
@@ -157,7 +183,7 @@ class ResourceManager:
         """Discover EC2 instances."""
         from ..utils.types import Resource
         
-        ec2 = self.clients.get('ec2')
+        ec2 = self._get_client('ec2')
         if not ec2:
             return []
         
@@ -182,7 +208,7 @@ class ResourceManager:
         """Discover RDS instances."""
         from ..utils.types import Resource
         
-        rds = self.clients.get('rds')
+        rds = self._get_client('rds')
         if not rds:
             return []
         
@@ -206,7 +232,7 @@ class ResourceManager:
         """Discover Lambda functions."""
         from ..utils.types import Resource
         
-        lambda_client = self.clients.get('lambda')
+        lambda_client = self._get_client('lambda')
         if not lambda_client:
             return []
         
@@ -231,7 +257,7 @@ class ResourceManager:
         """Discover S3 buckets."""
         from ..utils.types import Resource
         
-        s3 = self.clients.get('s3')
+        s3 = self._get_client('s3')
         if not s3:
             return []
         
@@ -289,7 +315,7 @@ class ResourceManager:
         """Discover DynamoDB tables."""
         from ..utils.types import Resource
         
-        dynamodb = self.clients.get('dynamodb')
+        dynamodb = self._get_client('dynamodb')
         if not dynamodb:
             return []
         
@@ -338,7 +364,7 @@ class ResourceManager:
         """Discover EBS volumes."""
         from ..utils.types import Resource
         
-        ec2 = self.clients.get('ec2')
+        ec2 = self._get_client('ec2')
         if not ec2:
             return []
         
@@ -365,7 +391,7 @@ class ResourceManager:
         """Discover ElastiCache clusters."""
         from ..utils.types import Resource
         
-        elasticache = self.clients.get('elasticache')
+        elasticache = self._get_client('elasticache')
         if not elasticache:
             return []
         
@@ -412,7 +438,7 @@ class ResourceManager:
         """Discover Redshift clusters."""
         from ..utils.types import Resource
         
-        redshift = self.clients.get('redshift')
+        redshift = self._get_client('redshift')
         if not redshift:
             return []
         
@@ -459,7 +485,7 @@ class ResourceManager:
         """Discover ECS clusters."""
         from ..utils.types import Resource
         
-        ecs = self.clients.get('ecs')
+        ecs = self._get_client('ecs')
         if not ecs:
             return []
         
@@ -513,7 +539,7 @@ class ResourceManager:
         """Discover EKS clusters."""
         from ..utils.types import Resource
         
-        eks = self.clients.get('eks')
+        eks = self._get_client('eks')
         if not eks:
             return []
         
@@ -555,7 +581,7 @@ class ResourceManager:
         """Discover NAT Gateways."""
         from ..utils.types import Resource
         
-        ec2 = self.clients.get('ec2')
+        ec2 = self._get_client('ec2')
         if not ec2:
             return []
         
@@ -589,7 +615,7 @@ class ResourceManager:
         """Discover Elastic IPs."""
         from ..utils.types import Resource
         
-        ec2 = self.clients.get('ec2')
+        ec2 = self._get_client('ec2')
         if not ec2:
             return []
         
@@ -639,8 +665,8 @@ class ResourceManager:
         """Discover Load Balancers (ALB, NLB, ELB)."""
         from ..utils.types import Resource
         
-        elbv2 = self.clients.get('elbv2')  # ALB and NLB
-        elb = self.clients.get('elb')  # Classic ELB
+        elbv2 = self._get_client('elbv2')  # ALB and NLB
+        elb = self._get_client('elasticloadbalancing')  # Classic ELB
         resources = []
         
         # Discover ALB and NLB (Application and Network Load Balancers)
@@ -726,7 +752,7 @@ class ResourceManager:
         """Discover SNS topics."""
         from ..utils.types import Resource
         
-        sns = self.clients.get('sns')
+        sns = self._get_client('sns')
         if not sns:
             return []
         
@@ -780,7 +806,7 @@ class ResourceManager:
         """Discover SQS queues."""
         from ..utils.types import Resource
         
-        sqs = self.clients.get('sqs')
+        sqs = self._get_client('sqs')
         if not sqs:
             return []
         
@@ -843,7 +869,7 @@ class ResourceManager:
         """Discover API Gateway APIs (REST APIs)."""
         from ..utils.types import Resource
         
-        apigateway = self.clients.get('apigateway')
+        apigateway = self._get_client('apigateway')
         if not apigateway:
             return []
         
@@ -885,7 +911,7 @@ class ResourceManager:
         """Discover Step Functions state machines."""
         from ..utils.types import Resource
         
-        stepfunctions = self.clients.get('stepfunctions')
+        stepfunctions = self._get_client('stepfunctions')
         if not stepfunctions:
             return []
         
@@ -926,7 +952,7 @@ class ResourceManager:
         """Discover Glue jobs."""
         from ..utils.types import Resource
         
-        glue = self.clients.get('glue')
+        glue = self._get_client('glue')
         if not glue:
             return []
         
@@ -966,7 +992,7 @@ class ResourceManager:
         """Discover SageMaker endpoints."""
         from ..utils.types import Resource
         
-        sagemaker = self.clients.get('sagemaker')
+        sagemaker = self._get_client('sagemaker')
         if not sagemaker:
             return []
         
@@ -1015,7 +1041,7 @@ class ResourceManager:
         """Discover CloudFront distributions."""
         from ..utils.types import Resource
         
-        cloudfront = self.clients.get('cloudfront')
+        cloudfront = self._get_client('cloudfront')
         if not cloudfront:
             return []
         
@@ -1070,7 +1096,7 @@ class ResourceManager:
             import boto3
             from datetime import timedelta
             
-            cloudwatch = self.clients.get('cloudwatch')
+            cloudwatch = self._get_client('cloudwatch')
             if not cloudwatch:
                 cloudwatch = boto3.client('cloudwatch')
             
@@ -1206,7 +1232,7 @@ class ResourceManager:
             import boto3
             from datetime import timedelta
             
-            cloudwatch = self.clients.get('cloudwatch')
+            cloudwatch = self._get_client('cloudwatch')
             if not cloudwatch:
                 cloudwatch = boto3.client('cloudwatch')
             

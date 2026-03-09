@@ -79,7 +79,7 @@ class TestRollbackManager:
         """Test RollbackManager initialization."""
         assert rollback_manager.clients == mock_clients
         assert rollback_manager.dynamodb == mock_dynamodb_client
-        assert rollback_manager.audit_table == "prevention-audit"
+        assert rollback_manager.audit_table == "costguard-prevention-audit"
         assert rollback_manager.rollback_window_hours == 24
     
     def test_store_pre_action_state_success(self, rollback_manager, ec2_resource, mock_dynamodb_client):
@@ -90,7 +90,7 @@ class TestRollbackManager:
         mock_dynamodb_client.put_item.assert_called_once()
         call_args = mock_dynamodb_client.put_item.call_args
         
-        assert call_args[1]['TableName'] == 'prevention-audit'
+        assert call_args[1]['TableName'] == 'costguard-prevention-audit'
         item = call_args[1]['Item']
         assert item['resource_id']['S'] == 'i-test123'
         assert item['action']['S'] == 'stop'
@@ -426,7 +426,7 @@ class TestRollbackManager:
         mock_dynamodb_client.put_item.assert_called_once()
         call_args = mock_dynamodb_client.put_item.call_args
         
-        assert call_args[1]['TableName'] == 'prevention-audit'
+        assert call_args[1]['TableName'] == 'costguard-prevention-audit'
         item = call_args[1]['Item']
         assert item['event_type']['S'] == 'rollback'
         assert item['resource_id']['S'] == 'i-test123'

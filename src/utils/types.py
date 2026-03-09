@@ -447,6 +447,7 @@ class RollbackResult:
     success: bool
     restored_state: Dict[str, Any]
     timestamp: str
+    error_message: Optional[str] = None
 
 
 @dataclass

@@ -14,6 +14,7 @@ This module orchestrates the automated cost prevention process by:
 from typing import Optional, List, Dict, Any
 from datetime import datetime, UTC
 import logging
+import os
 from dataclasses import asdict
 
 from ..utils.types import (
@@ -75,7 +76,20 @@ class PreventionEngine:
             self.config = self._get_default_config()
             
         logger.info(f"PreventionEngine initialized with config: {self.config}")
-        
+
+    def monitor_budgets(self) -> Dict[str, Any]:
+        """
+        Run budget monitoring (poll budgets and optionally run prevention workflow).
+        Called by EventBridge scheduler for the budget-monitoring event.
+        Delegates to run_prevention_cycle() and returns a result with 'status' for compatibility.
+        """
+        result = self.run_prevention_cycle()
+        # Scheduler expects a 'status' key for logging
+        result["status"] = "ok" if result.get("success") else "error"
+        if result.get("skipped"):
+            result["status"] = "skipped"
+        return result
+
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default configuration."""
         return {
@@ -159,16 +173,19 @@ class PreventionEngine:
     def _load_config_from_dynamodb(self) -> Dict[str, Any]:
         """Load configuration from DynamoDB."""
         try:
-            table_name = "prevention-config"
+            table_name = os.environ.get("PREVENTION_CONFIG_TABLE", "costguard-prevention-config")
             response = self.dynamodb_client.get_item(
                 TableName=table_name,
                 Key={"config_key": {"S": "main"}}
             )
             
             if "Item" in response:
-                # Parse DynamoDB item to dict
+                # Parse DynamoDB item to dict (config_value is stored as {"M": {...}})
                 config_value = response["Item"].get("config_value", {})
                 config = self._parse_dynamodb_item(config_value)
+                # Unwrap top-level "M" so config is {enabled: True, ...} not {M: {enabled: True, ...}}
+                if isinstance(config, dict) and "M" in config and len(config) == 1:
+                    config = config["M"]
                 logger.info("Configuration loaded from DynamoDB")
                 return self._validate_config(config)
             else:
@@ -218,9 +235,9 @@ class PreventionEngine:
         if not self.dynamodb_client:
             logger.warning("No DynamoDB client, cannot save configuration")
             return
-        
+
         try:
-            table_name = "prevention-config"
+            table_name = os.environ.get("PREVENTION_CONFIG_TABLE", "costguard-prevention-config")
             item = {
                 "config_key": {"S": "main"},
                 "config_value": self._to_dynamodb_item(self.config),
@@ -722,7 +739,7 @@ class PreventionEngine:
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
-        Get action history from audit logs.
+        Get action history from audit logs (costguard-prevention-audit table).
         
         Args:
             start_date: Optional start date (ISO format)
@@ -730,12 +747,53 @@ class PreventionEngine:
             limit: Maximum number of records to return
             
         Returns:
-            List of action history records
+            List of action history records with action_id, timestamp, resource_id, action, etc.
         """
-        # In real implementation, would query DynamoDB prevention-audit table
-        # For now, return empty list
+        if not self.dynamodb_client:
+            logger.warning("No DynamoDB client, cannot load action history")
+            return []
+        table_name = os.environ.get("PREVENTION_AUDIT_TABLE", "costguard-prevention-audit")
         logger.info(f"Querying action history: start={start_date}, end={end_date}, limit={limit}")
-        return []
+        items = []
+        try:
+            scan_kwargs = {"TableName": table_name}
+            while True:
+                response = self.dynamodb_client.scan(**scan_kwargs)
+                for item in response.get("Items", []):
+                    rec = self._parse_audit_item(item)
+                    if rec:
+                        items.append(rec)
+                if "LastEvaluatedKey" not in response or len(items) >= limit:
+                    break
+                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            # Sort by timestamp descending and apply date filter
+            items.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
+            if start_date or end_date:
+                items = [
+                    r for r in items
+                    if (not start_date or (r.get("timestamp") or "") >= start_date)
+                    and (not end_date or (r.get("timestamp") or "") <= end_date)
+                ]
+            return items[:limit]
+        except Exception as e:
+            logger.warning(f"Failed to load action history: {e}")
+            return []
+
+    def _parse_audit_item(self, item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Convert DynamoDB audit item to plain dict."""
+        if not item:
+            return None
+        result = {}
+        for key, val in item.items():
+            if "S" in val:
+                result[key] = val["S"]
+            elif "N" in val:
+                result[key] = int(val["N"]) if "." not in val["N"] else float(val["N"])
+            elif "BOOL" in val:
+                result[key] = val["BOOL"]
+            else:
+                result[key] = val
+        return result
     
     def execute_rollback(self, action_id: str) -> Dict[str, Any]:
         """
@@ -764,7 +822,7 @@ class PreventionEngine:
                 return {
                     "success": False,
                     "action_id": action_id,
-                    "error": "Rollback failed"
+                    "error": getattr(result, "error_message", None) or "Rollback failed"
                 }
                 
         except Exception as e:

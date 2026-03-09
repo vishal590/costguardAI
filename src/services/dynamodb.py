@@ -74,9 +74,10 @@ def transform_to_dynamodb_record(record: CostRecord, ttl_days: int = 365) -> Dyn
     # Create partition key: COST#YYYY-MM
     pk = f"COST#{year_month}"
     
-    # Create sort key: SERVICE#normalized-service-name
+    # Sort key must be unique per (month, service, date) to avoid DynamoDB "duplicate keys" in batch write.
+    # Cost Explorer returns daily records, so multiple days in same month share the same pk; include date in sk.
     normalized_service = normalize_service_name(record.service)
-    sk = f"SERVICE#{normalized_service}"
+    sk = f"SERVICE#{normalized_service}#{record.date}"
     
     # Calculate TTL
     ttl = calculate_ttl(ttl_days)
@@ -253,10 +254,10 @@ def query_cost_data(
                     }
                 }
                 
-                # Add service filter using sort key begins_with
+                # Add service filter using sort key begins_with (sk format: SERVICE#name#YYYY-MM-DD)
                 if params.service:
                     normalized_service = normalize_service_name(params.service)
-                    sk_prefix = f"SERVICE#{normalized_service}"
+                    sk_prefix = f"SERVICE#{normalized_service}#"
                     query_params['KeyConditionExpression'] += ' AND begins_with(sk, :sk_prefix)'
                     query_params['ExpressionAttributeValues'][':sk_prefix'] = sk_prefix
                 

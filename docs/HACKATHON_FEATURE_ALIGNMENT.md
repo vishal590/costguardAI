@@ -174,6 +174,17 @@ From HACKATHON_COMPETITION_INFO.md:
 
 ## 📋 What We Built (Phase 6 + Autonomous Extension)
 
+### Phase 3: Automated Cost Prevention – Innovation & Positioning ⭐ MEANINGFUL
+
+1. **Integrated pipeline** – Budget monitoring + idle detection (20+ services) + safety guards + actions + approval + single audit trail + **per-action rollback** in one system. Forum/Stack Overflow research identifies a gap for "cost monitoring + remediation + rollback in a coordinated manner"; Phase 3 addresses it.
+2. **Per-action rollback (breakthrough)** – Rollback by `action_id` (e.g. restart a specific EC2 that was auto-stopped). AWS Budget Actions support *reversing* an action (policy-level) but do not restart stopped instances; Phase 3 does.
+3. **Reversibility best practice** – Aligns with FinOps/reversibility guidance (e.g. "resource shutdown with ability to restart"). See [Phase 3 innovation-and-market-position](technical/phase3-automated-prevention/innovation-and-market-position.md).
+4. **Drawbacks (honest)** – Rollback only for EC2, RDS, Lambda (not EBS, DynamoDB, NAT Gateway); 24h window; approval is polling-based. Documented in Phase 3 README Limitations.
+
+**Hackathon fit:** Breakthrough technical implementation (integrated pipeline + per-action rollback), practical impact (cost prevention with undo), efficiency (Free Tier). Use for article/pitch when emphasizing cost prevention and rollback.
+
+---
+
 ### Core Phase 6: AI/ML Workload Cost Management
 1. **GPU Cost Tracking** - Track costs by workload type (training/inference/idle)
 2. **Cost-Per-Inference** - Unit economics for AI products

@@ -12,6 +12,8 @@ from typing import Optional, List, Dict
 from datetime import datetime, timedelta, UTC
 from decimal import Decimal
 from src.utils.types import InsufficientDataError, ProcessedData
+from src.utils.helpers import normalize_service_name
+from src.services.dynamodb import _generate_year_months
 
 
 class HistoricalDataRetriever:
@@ -103,35 +105,45 @@ class HistoricalDataRetriever:
         end_date,
         service: Optional[str]
     ) -> List[Dict]:
-        """Query DynamoDB for cost data within date range."""
+        """
+        Query DynamoDB for cost data within date range.
+        Uses Query by pk (COST#YYYY-MM) to match table schema; avoids full table Scan.
+        """
+        start_ym = f"{start_date.year:04d}-{start_date.month:02d}"
+        end_ym = f"{end_date.year:04d}-{end_date.month:02d}"
+        year_months = _generate_year_months(start_ym, end_ym)
+        start_str = start_date.isoformat()
+        end_str = end_date.isoformat()
         items = []
-        
-        # Query by date range
-        # Assuming table structure: PK=date, SK=service, cost attribute
-        # Use filter expression instead of Key condition for scan
-        from boto3.dynamodb.conditions import Attr
-        
-        filter_expr = Attr('date').between(
-            start_date.isoformat(),
-            end_date.isoformat()
-        )
-        
-        response = self.table.scan(FilterExpression=filter_expr)
-        
-        items.extend(response.get('Items', []))
-        
-        # Handle pagination
-        while 'LastEvaluatedKey' in response:
-            response = self.table.scan(
-                FilterExpression=filter_expr,
-                ExclusiveStartKey=response['LastEvaluatedKey']
-            )
-            items.extend(response.get('Items', []))
-        
-        # Filter by service if specified
-        if service:
-            items = [item for item in items if item.get('service') == service]
-        
+
+        for year_month in year_months:
+            pk_value = f"COST#{year_month}"
+            expr_values = {
+                ':pk': pk_value,
+                ':start_date': start_str,
+                ':end_date': end_str,
+            }
+            key_condition = 'pk = :pk'
+            if service:
+                sk_prefix = f"SERVICE#{normalize_service_name(service)}#"
+                key_condition += ' AND begins_with(sk, :sk_prefix)'
+                expr_values[':sk_prefix'] = sk_prefix
+
+            last_key = None
+            while True:
+                query_params = {
+                    'KeyConditionExpression': key_condition,
+                    'ExpressionAttributeValues': expr_values,
+                    'ExpressionAttributeNames': {'#dt': 'date'},
+                    'FilterExpression': '#dt between :start_date and :end_date',
+                }
+                if last_key:
+                    query_params['ExclusiveStartKey'] = last_key
+                response = self.table.query(**query_params)
+                items.extend(response.get('Items', []))
+                last_key = response.get('LastEvaluatedKey')
+                if not last_key:
+                    break
         return items
         
     def aggregate_by_service_and_date(
@@ -152,7 +164,8 @@ class HistoricalDataRetriever:
         for item in data:
             service = item.get('service', 'Unknown')
             date = item.get('date')
-            cost = item.get('cost', Decimal('0'))
+            cost = item.get('cost') or item.get('blendedCost') or item.get('unblendedCost') or Decimal('0')
+            cost = Decimal(str(cost)) if not isinstance(cost, Decimal) else cost
             
             if service not in aggregated:
                 aggregated[service] = {}

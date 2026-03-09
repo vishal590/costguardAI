@@ -10,6 +10,8 @@ Supports:
 from typing import Dict, Any
 from datetime import datetime, timedelta, UTC
 import logging
+import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +24,30 @@ class RollbackManager:
         Initialize rollback manager.
         
         Args:
-            aws_clients: Dict of boto3 clients by service name
+            aws_clients: Dict of boto3 clients by service name (can be empty; clients created lazily on rollback)
             dynamodb_client: boto3 DynamoDB client
         """
-        self.clients = aws_clients
+        self._clients = dict(aws_clients) if aws_clients else {}
         self.dynamodb = dynamodb_client
-        self.audit_table = "prevention-audit"
-        self.rollback_window_hours = 24
+        # Expose for tests; rollback code uses _get_client()
+        self.clients = self._clients
+        # Use same table as prevention_engine.get_action_history (PREVENTION_AUDIT_TABLE)
+        self.audit_table = os.environ.get("PREVENTION_AUDIT_TABLE", "costguard-prevention-audit")
+        try:
+            self.rollback_window_hours = int(os.environ.get("ROLLBACK_WINDOW_HOURS", "24"))
+        except (TypeError, ValueError):
+            self.rollback_window_hours = 24
+
+    def _get_client(self, service: str):
+        """Get boto3 client for service, creating lazily if not in _clients (avoids creating clients on every prevention request)."""
+        if service not in self._clients:
+            try:
+                import boto3
+                self._clients[service] = boto3.client(service)
+            except Exception as e:
+                logger.warning(f"Could not create {service} client for rollback: {e}")
+                return None
+        return self._clients.get(service)
     
     def store_pre_action_state(self, resource, action: str):
         """
@@ -67,6 +86,40 @@ class RollbackManager:
         except Exception as e:
             logger.error(f"Failed to store pre-action state: {e}")
     
+    def _get_str(self, item: Dict[str, Any], key: str) -> str:
+        """Get string value from DynamoDB item attribute."""
+        if key not in item:
+            return ""
+        val = item[key]
+        if "S" in val:
+            return val["S"]
+        if "N" in val:
+            return val["N"]
+        return ""
+
+    def _parse_state_string(self, state_str: str, action_id: str) -> Dict[str, Any]:
+        """Parse state string from audit item into a dict. Tries eval, then regex fallback for service/action."""
+        if not state_str or not state_str.strip():
+            return {}
+        s = state_str.replace("...", "None").strip()
+        try:
+            parsed = eval(s)
+            if isinstance(parsed, dict) and parsed.get("service") and parsed.get("action"):
+                return parsed
+            if isinstance(parsed, str):
+                inner = parsed.replace("...", "None").strip()
+                parsed = eval(inner)
+                if isinstance(parsed, dict) and parsed.get("service") and parsed.get("action"):
+                    return parsed
+        except Exception as e:
+            logger.debug(f"eval state failed for {action_id}: {e}")
+        # Fallback: extract 'service' and 'action' from string (e.g. "'service': 'ec2'" or "service': 'ec2")
+        m_service = re.search(r"['\"]?service['\"]?\s*:\s*['\"]([^'\"]+)['\"]", state_str, re.I)
+        m_action = re.search(r"['\"]?action['\"]?\s*:\s*['\"]([^'\"]+)['\"]", state_str, re.I)
+        if m_service and m_action:
+            return {"service": m_service.group(1).strip(), "action": m_action.group(1).strip(), "resource_id": ""}
+        return {}
+
     def execute_rollback(self, action_id: str) -> Any:
         """
         Rollback a specific action.
@@ -81,8 +134,19 @@ class RollbackManager:
         
         logger.info(f"Executing rollback for action: {action_id}")
         
+        if not self.dynamodb:
+            logger.error("DynamoDB client not configured for rollback")
+            return RollbackResult(
+                action_id=action_id,
+                resource_id="unknown",
+                success=False,
+                restored_state={},
+                timestamp=datetime.now(UTC).isoformat(),
+                error_message="Rollback not configured (no database connection)."
+            )
+        
         try:
-            # Get pre-action state
+            # Get pre-action state (same table as get_action_history)
             response = self.dynamodb.get_item(
                 TableName=self.audit_table,
                 Key={'action_id': {'S': action_id}}
@@ -96,35 +160,69 @@ class RollbackManager:
                     resource_id="unknown",
                     success=False,
                     restored_state={},
-                    timestamp=datetime.now(UTC).isoformat()
+                    timestamp=datetime.now(UTC).isoformat(),
+                    error_message="Action not found."
                 )
             
-            # Parse state
-            resource_id = item['resource_id']['S']
-            action = item['action']['S']
-            state_str = item['state']['S']
+            # Parse required fields (written by store_pre_action_state)
+            resource_id = self._get_str(item, 'resource_id')
+            action = self._get_str(item, 'action')
+            state_str = self._get_str(item, 'state')
+            timestamp_str = self._get_str(item, 'timestamp')
             
-            # Check if within rollback window
-            action_timestamp = datetime.fromisoformat(item['timestamp']['S'])
+            if not resource_id or not action or not state_str:
+                logger.warning(f"Action {action_id} has no rollback state (e.g. manually added record)")
+                return RollbackResult(
+                    action_id=action_id,
+                    resource_id=resource_id or "unknown",
+                    success=False,
+                    restored_state={},
+                    timestamp=datetime.now(UTC).isoformat(),
+                    error_message="This action cannot be rolled back (no rollback state; e.g. manually added record)."
+                )
+            
+            # Check if within rollback window (timestamp may be ISO string or Unix epoch string from DynamoDB N type)
+            try:
+                if timestamp_str and timestamp_str.strip().isdigit():
+                    action_timestamp = datetime.fromtimestamp(int(timestamp_str), tz=UTC)
+                else:
+                    action_timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                action_timestamp = datetime.now(UTC)
             if datetime.now(UTC) - action_timestamp > timedelta(hours=self.rollback_window_hours):
-                logger.error(f"Action {action_id} is outside rollback window")
+                logger.error(f"Action {action_id} is outside rollback window ({self.rollback_window_hours}h)")
                 return RollbackResult(
                     action_id=action_id,
                     resource_id=resource_id,
                     success=False,
                     restored_state={},
-                    timestamp=datetime.now(UTC).isoformat()
+                    timestamp=datetime.now(UTC).isoformat(),
+                    error_message=f"Rollback only available for actions in the last {self.rollback_window_hours} hours."
                 )
             
-            # Execute rollback based on action type
-            success = self.restore_resource_state(resource_id, eval(state_str))
-            
+            # Execute rollback based on action type (state may be dict string; "..." can break eval in some envs)
+            state_dict = self._parse_state_string(state_str, action_id)
+            if not state_dict:
+                return RollbackResult(
+                    action_id=action_id,
+                    resource_id=resource_id,
+                    success=False,
+                    restored_state={},
+                    timestamp=datetime.now(UTC).isoformat(),
+                    error_message="This action cannot be rolled back (invalid state format)."
+                )
+            success = self.restore_resource_state(resource_id, state_dict)
+            restore_error = None if success else (
+                "Restore failed. The resource may not exist (e.g. placeholder i-xxxxx), "
+                "or the Lambda role may lack permission to start it."
+            )
             result = RollbackResult(
                 action_id=action_id,
                 resource_id=resource_id,
                 success=success,
-                restored_state=eval(state_str),
-                timestamp=datetime.now(UTC).isoformat()
+                restored_state=state_dict,
+                timestamp=datetime.now(UTC).isoformat(),
+                error_message=restore_error
             )
             
             # Log rollback
@@ -139,7 +237,8 @@ class RollbackManager:
                 resource_id="unknown",
                 success=False,
                 restored_state={},
-                timestamp=datetime.now(UTC).isoformat()
+                timestamp=datetime.now(UTC).isoformat(),
+                error_message=f"Rollback failed: {e}"
             )
     
     def restore_resource_state(self, resource_id: str, state: Dict[str, Any]) -> bool:
@@ -176,7 +275,7 @@ class RollbackManager:
     def _rollback_ec2_stop(self, instance_id: str) -> bool:
         """Rollback EC2 stop by restarting instance."""
         try:
-            ec2 = self.clients.get('ec2')
+            ec2 = self._get_client('ec2')
             if not ec2:
                 return False
             
@@ -191,7 +290,7 @@ class RollbackManager:
     def _rollback_rds_stop(self, db_identifier: str) -> bool:
         """Rollback RDS stop by restarting database."""
         try:
-            rds = self.clients.get('rds')
+            rds = self._get_client('rds')
             if not rds:
                 return False
             
@@ -206,7 +305,7 @@ class RollbackManager:
     def _rollback_lambda_concurrency(self, function_name: str, state: Dict[str, Any]) -> bool:
         """Rollback Lambda concurrency limit."""
         try:
-            lambda_client = self.clients.get('lambda')
+            lambda_client = self._get_client('lambda')
             if not lambda_client:
                 return False
             

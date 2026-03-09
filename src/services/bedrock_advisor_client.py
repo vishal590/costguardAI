@@ -223,45 +223,60 @@ class BedrockAdvisorClient:
     
     def _invoke_bedrock(self, prompt: str) -> str:
         """
-        Invoke Bedrock API.
-        
-        Args:
-            prompt: Formatted prompt
-            
-        Returns:
-            AI response text
+        Invoke Bedrock API using Nova messages-v1 schema.
+        Nova (Lite, Nova 2 Lite, etc.) require messages format, not legacy prompt/completion.
         """
         if not self.bedrock_client:
             logger.warning("No Bedrock client, returning mock response")
             return "I apologize, but I'm unable to access the AI service at this time."
-        
+
         try:
-            # Prepare request body
+            # Nova models use messages-v1 schema (required for amazon.nova-lite, amazon.nova-2-lite, etc.)
+            system_text = (
+                "You are an AWS cost optimization advisor. Analyze the provided cost data "
+                "and answer the user's question with clear, actionable insights. "
+                "Format your response in markdown with bullet points and tables where appropriate."
+            )
             request_body = {
-                "prompt": prompt,
-                "max_tokens": 1000,
-                "temperature": 0.7,
-                "top_p": 0.9
+                "schemaVersion": "messages-v1",
+                "messages": [{"role": "user", "content": [{"text": prompt}]}],
+                "system": [{"text": system_text}],
+                "inferenceConfig": {
+                    "maxTokens": 1000,
+                    "temperature": 0.7,
+                    "topP": 0.9,
+                    "topK": 20,
+                },
             }
-            
-            # Invoke model
+
             response = self.bedrock_client.invoke_model(
                 modelId=self.model_id,
-                body=json.dumps(request_body)
+                contentType="application/json",
+                accept="application/json",
+                body=json.dumps(request_body),
             )
-            
-            # Parse response
-            response_body = json.loads(response['body'].read())
-            
-            # Extract text (format varies by model)
-            if 'completion' in response_body:
-                return response_body['completion']
-            elif 'output' in response_body:
-                return response_body['output']
-            else:
-                logger.error(f"Unexpected response format: {response_body.keys()}")
-                return "I received an unexpected response format from the AI service."
-            
+
+            response_body = json.loads(response["body"].read())
+
+            # Nova messages API response: output.message.content[] with text
+            if "output" in response_body and "message" in response_body["output"]:
+                content_list = response_body["output"]["message"].get("content", [])
+                parts = []
+                for block in content_list:
+                    if isinstance(block, dict) and "text" in block:
+                        parts.append(block["text"])
+                    elif isinstance(block, str):
+                        parts.append(block)
+                if parts:
+                    return "".join(parts)
+            # Fallbacks for other shapes
+            if "completion" in response_body:
+                return response_body["completion"]
+            if "output" in response_body and isinstance(response_body["output"], str):
+                return response_body["output"]
+            logger.error(f"Unexpected response format: {list(response_body.keys())}")
+            return "I received an unexpected response format from the AI service."
+
         except Exception as e:
             logger.error(f"Bedrock invocation failed: {e}")
             raise
@@ -269,25 +284,17 @@ class BedrockAdvisorClient:
     def _is_retryable_error(self, error: Exception) -> bool:
         """
         Check if error is retryable.
-        
-        Args:
-            error: Exception to check
-            
-        Returns:
-            True if retryable
+        ThrottlingException / "too many tokens per day" are not retryable (quota exhausted).
         """
         error_str = str(error).lower()
-        
-        # Retryable errors
+        if "throttl" in error_str and "too many tokens" in error_str:
+            return False  # Daily quota exhausted; retries won't help
         retryable_patterns = [
-            'throttling',
-            'rate limit',
             'service unavailable',
             'timeout',
             '503',
             '429'
         ]
-        
         return any(pattern in error_str for pattern in retryable_patterns)
     
     def _extract_recommendations(self, response: str) -> List[Recommendation]:

@@ -35,6 +35,8 @@
 - Lambda function crashes on startup → [Issue 2: SafetyGuard Config](#issue-2-safetyguard-config-initialization-error)
 - API returns 500 error → [Issue 4: Lambda Runtime Errors](#4-lambda-runtime-errors)
 - Cost data won't save to DynamoDB → [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
+- Advisor/Forecast: "Too many tokens per day" or ThrottlingException → [Bedrock Quota](#12-bedrock-quota--throttling-phase-2--4)
+- Prevention status/resources/history return 500; rollback 400; Resources tab empty → [Phase 3 Prevention 500s, Rollback & Resources](#13-phase-3-prevention-500s-rollback--resources)
 
 ---
 
@@ -51,6 +53,8 @@
 9. [Issue 2: SafetyGuard Config Initialization Error](#issue-2-safetyguard-config-initialization-error)
 10. [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
 11. [Issue 4: Python Import Error - SnsAction](#issue-4-python-import-error---snsaction-phase-5-deployment)
+12. [Bedrock Quota / Throttling (Phase 2 & 4)](#12-bedrock-quota--throttling-phase-2--4)
+13. [Phase 3: Prevention 500s, Rollback & Resources](#13-phase-3-prevention-500s-rollback--resources)
 
 ---
 
@@ -903,6 +907,99 @@ aws_cloudwatch_logs      # Log groups, Log streams
 
 ---
 
+## 12. Bedrock Quota / Throttling (Phase 2 & 4)
+
+**Status:** To fix when quota is needed  
+**Phases Affected:** Phase 2 (Forecast), Phase 4 (Advisor)  
+**Severity:** High (blocks AI features when quota is 0)  
+**Tags:** `bedrock` `quota` `throttling` `nova` `phase-2` `phase-4`
+
+**Related Docs:** [Phase 4 Bedrock Enablement](../PHASE4_BEDROCK_ENABLEMENT.md)
+
+### Problem
+
+**Symptom:**
+- Advisor or Forecast returns errors: `ThrottlingException`, "Too many tokens per day, please wait before trying again."
+- Lambda logs show the same throttling message.
+
+**Root cause:** Account has **0** (or very low) Bedrock token quota for the model in use. The app uses **Nova Lite** (`amazon.nova-lite-v1:0`) by default for both Advisor and Forecast.
+
+### Models in use (code)
+
+| Feature   | Env variable           | Default model ID              |
+|----------|-------------------------|-------------------------------|
+| Advisor  | `ADVISOR_MODEL_ID`      | `amazon.nova-lite-v1:0`       |
+| Forecast | (none; not wired)       | `amazon.nova-lite-v1:0` in `BedrockClient` |
+
+### How to fix (when you want to enable Bedrock)
+
+1. **Enable model access**  
+   AWS Console → **Amazon Bedrock** → **Model access** → Enable **Nova Lite** (and/or **Nova 2 Lite**) for your region (e.g. `us-east-1`).
+
+2. **Check quotas**  
+   Bedrock → **Labs** → **Quotas** → filter by "Nova Lite" or "Nova 2 Lite". If **TPM** / **RPM** are 0:
+   - **Nova Lite (On-demand):** often shows "Not supported" for increase in console; use **AWS Support** → Create case → Service limit increase → Amazon Bedrock. Ask for initial TPM/RPM for `amazon.nova-lite-v1:0` in your region.
+   - **Nova 2 Lite (Global cross-region):** Service Quotas may show **Applied account-level quota value: 0** and **AWS default: 8,000,000** (TPM) or **2,000** (RPM). The TPM increase form may require a value *greater than* the default (e.g. 8000001); if you need only initial access, open a Support case and ask for the default to be applied or a small allocation.
+
+3. **Optional: use Nova 2 Lite (global inference profile)**  
+   If you get quota for **Nova 2 Lite** only:
+   - Set Lambda env **`ADVISOR_MODEL_ID=global.amazon.nova-2-lite-v1:0`** (or `amazon.nova-2-lite-v1:0` for regional).
+   - Redeploy Lambda. No code change needed; `invoke_model(modelId=...)` accepts inference profile IDs.
+
+4. **Forecast:** To make the forecast model configurable, wire **`BEDROCK_MODEL_ID`** from env into `BedrockClient()` in `lambda_handler.py` where Phase 2 creates the client (same pattern as `ADVISOR_MODEL_ID` for the advisor).
+
+### Quick reference
+
+- **Advisor model:** `src/lambda_handler.py` → `_get_advisor_engine()` → `ADVISOR_MODEL_ID` → `BedrockAdvisorClient(model_id=...)`.
+- **Forecast model:** `src/lambda_handler.py` → `handle_forecast` / `handle_forecast_service` → `BedrockClient()` (no env today); `src/services/bedrock_client.py` default `amazon.nova-lite-v1:0`.
+
+---
+
+## 13. Phase 3: Prevention 500s, Rollback & Resources
+
+**Status:** Fixed (March 2026)  
+**Phases Affected:** Phase 3 (Prevention)  
+**Tags:** `phase-3` `prevention` `rollback` `resources` `500` `lambda`
+
+**Related Docs:** [Phase 3 README](../technical/phase3-automated-prevention/README.md), [Innovation & market position](../technical/phase3-automated-prevention/innovation-and-market-position.md)
+
+### Problems addressed
+
+1. **500 on GET /api/prevention/status, /resources, /history**  
+   Caused by creating boto3 clients (EC2, RDS, Lambda) at Lambda init when building the prevention engine. In some environments this can fail or timeout.
+
+2. **Rollback 400 "Rollback failed" with no detail**  
+   RollbackManager used a hardcoded table name and had no DynamoDB client; state parsing could fail on manual or double-quoted audit items; restore failure did not return a clear message.
+
+3. **Resources tab empty**  
+   ResourceManager was given `aws_clients={}` and `dynamodb_client=None`, so discovery returned no resources.
+
+### Fixes applied
+
+- **Lazy client creation:** RollbackManager and ResourceManager create boto3 clients **on first use** (e.g. when rollback runs or when GET /resources runs), not at init. Status, resources, and history no longer trigger client creation at request time for unrelated paths.
+- **Rollback:** Uses `PREVENTION_AUDIT_TABLE` (same as history); receives `dynamodb_client` from Lambda. State parsing supports Unix timestamp, `...` replacement, and regex fallback. Clear error messages: no rollback state, invalid state format, outside 24h, restore failed.
+- **Optional env `ROLLBACK_WINDOW_HOURS`:** Default 24. Set to e.g. 168 for 7-day rollback window (testing only).
+- **Resources:** ResourceManager receives `dynamodb_client`; table from **`RESOURCE_INVENTORY_TABLE`** (default `costguard-resource-inventory`). Discovery uses lazy `_get_client(service)` so GET /resources can return Lambda, S3, DynamoDB, API Gateway, SNS, etc.
+
+### Environment variables (Phase 3)
+
+| Variable | Default | Purpose |
+|----------|---------|--------|
+| `PREVENTION_AUDIT_TABLE` | `costguard-prevention-audit` | Audit/history and rollback lookup |
+| `RESOURCE_INVENTORY_TABLE` | `costguard-resource-inventory` | Resource inventory (optional write) |
+| `ROLLBACK_WINDOW_HOURS` | `24` | Hours after action during which rollback is allowed (e.g. 168 for testing) |
+
+### Rollback error messages (API)
+
+When rollback returns 400, the `error` field may be:
+
+- "This action cannot be rolled back (no rollback state; e.g. manually added record)."
+- "This action cannot be rolled back (invalid state format)."
+- "Rollback only available for actions in the last N hours."
+- "Restore failed. The resource may not exist (e.g. placeholder i-xxxxx), or the Lambda role may lack permission to start it."
+
+---
+
 ## Summary of All Fixes
 
 | Issue | Status | Files Modified | Deployment Required | Phase 5 Impact |
@@ -911,6 +1008,8 @@ aws_cloudwatch_logs      # Log groups, Log streams
 | SafetyGuard Config Error | ✅ Fixed | `src/services/safety_guard.py` | Yes | N/A (Phase 1-4) |
 | DynamoDB Schema Mismatch | ✅ Fixed | `src/services/dynamodb.py` | Yes | N/A (Phase 1-4) |
 | Python Import Error (SnsAction) | ✅ Fixed | `infrastructure/multi_account_stack.py` | Yes | **ACTUAL BLOCKER** |
+| Bedrock Quota / Throttling | 📋 To fix | None (env/quota only) | Optional (set `ADVISOR_MODEL_ID` after quota) | Phase 2 & 4 – see [§12](#12-bedrock-quota--throttling-phase-2--4) |
+| Phase 3 Prevention 500s / Rollback / Resources | ✅ Fixed | `rollback_manager.py`, `resource_manager.py`, `lambda_handler.py`, frontend | Yes (already in code) | Phase 3 – see [§13](#13-phase-3-prevention-500s-rollback--resources) |
 
 **Phase 5 Deployment Summary:**
 - **Only real issue:** Python import error (`SnsAction` in wrong module)

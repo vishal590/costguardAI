@@ -127,9 +127,17 @@ class AdvisorEngine:
             
         except Exception as e:
             logger.error(f"Error processing query: {e}", exc_info=True)
-            # Return error response
+            err_str = str(e).lower()
+            if "throttl" in err_str or "too many tokens" in err_str or "rate" in err_str and "limit" in err_str:
+                response_text = (
+                    "I’m temporarily limited by my daily usage quota, so I can’t answer right now. "
+                    "You can try again later (quotas reset daily), or your administrator can request a higher "
+                    "Bedrock quota in AWS Service Quotas (Amazon Bedrock → On-demand inference tokens per day)."
+                )
+            else:
+                response_text = f"I ran into a problem answering your question: {str(e)}"
             return AdvisorResponse(
-                response_text=f"I apologize, but I encountered an error processing your query: {str(e)}",
+                response_text=response_text,
                 recommendations=[],
                 cost_data={},
                 confidence=0.0,

@@ -5,6 +5,8 @@ This handler processes API Gateway requests to fetch and query AWS cost data.
 """
 import json
 import logging
+import os
+import threading
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta, UTC
 
@@ -122,6 +124,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_advisor_clear_history(event)
         elif http_method == 'GET' and path.endswith('/advisor/suggestions'):
             return handle_advisor_suggestions(event)
+        # Phase 5: Multi-account stub (full API in MultiAccountStack; stub returns empty data when using main API URL)
+        elif http_method == 'GET' and ('/organizations' in path or path.endswith('/costs/consolidated') or path.endswith('/costs/by-account')):
+            return handle_multi_account_stub(event)
+        # Phase 6: Autonomous demo (stub when AutonomousStack not deployed)
+        elif http_method == 'GET' and path.endswith('/autonomous/demo-status'):
+            return handle_autonomous_demo_stub(event)
+        elif http_method == 'POST' and (path.endswith('/autonomous/demo/start') or path.endswith('/autonomous/demo/reset')):
+            return handle_autonomous_demo_stub(event)
         # Phase 6: AI/ML workload cost management endpoints
         elif '/ai-ml/' in path:
             # Delegate all AI/ML endpoints to the AI/ML handler
@@ -214,7 +224,8 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
         
         # Store in DynamoDB
         if records:
-            store_cost_data(records)
+            table_name = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
+            store_cost_data(records, table_name=table_name)
             logger.info(f"Stored {len(records)} records in DynamoDB")
         
         # Calculate summary
@@ -318,8 +329,8 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
             service=service,
             limit=limit
         )
-        
-        records = query_cost_data(params)
+        table_name = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
+        records = query_cost_data(params, table_name=table_name)
         
         logger.info(f"Query returned {len(records)} records")
         
@@ -359,6 +370,63 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
             error_response.message,
             error_response.details
         )
+
+
+def handle_autonomous_demo_stub(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Stub for Phase 6 autonomous demo endpoints when AutonomousStack is not deployed.
+    Returns a valid demo-status shape so the Demo page renders; start/reset return success with message.
+    """
+    path = event.get('path', '')
+    method = event.get('httpMethod', 'GET')
+    headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+    if method == 'POST':
+        body = {
+            'success': True,
+            'message': 'Deploy AutonomousStack for full autonomous demo. Stub accepted request.',
+        }
+        return {'statusCode': 200, 'headers': headers, 'body': json.dumps(body)}
+    # GET /api/autonomous/demo-status
+    now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    body = {
+        'demo_mode': True,
+        'current_phase': 'idle',
+        'phase_progress_percent': 0.0,
+        'overall_progress_percent': 0.0,
+        'estimated_completion': None,
+        'phases': ['analyze', 'decide', 'act', 'verify', 'learn'],
+        'actions': {'in_progress': 0, 'completed': 0, 'failed': 0, 'total': 0},
+        'actions_in_progress_details': [],
+        'cumulative_savings': 0.0,
+        'savings_percent': 0.0,
+        'recent_completed_actions': [],
+        'timestamp': now,
+    }
+    return {'statusCode': 200, 'headers': headers, 'body': json.dumps(body)}
+
+
+def handle_multi_account_stub(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Stub for Phase 5 multi-account endpoints when using the main API URL.
+    Full implementation requires deploying MultiAccountStack and setting VITE_MULTI_ACCOUNT_API_BASE_URL.
+    """
+    path = event.get('path', '')
+    if path.endswith('/costs/consolidated'):
+        body = {'success': True, 'consolidated': [], 'message': 'Deploy MultiAccountStack for multi-account costs.'}
+    elif path.endswith('/costs/by-account'):
+        body = {'success': True, 'costs': [], 'message': 'Deploy MultiAccountStack for per-account costs.'}
+    elif '/organizations' in path and '/accounts' in path:
+        body = {'success': True, 'accounts': [], 'message': 'Deploy MultiAccountStack for accounts.'}
+    else:
+        body = {'success': True, 'organizations': [], 'message': 'Deploy MultiAccountStack and set VITE_MULTI_ACCOUNT_API_BASE_URL for Phase 5.'}
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+        },
+        'body': json.dumps(body),
+    }
 
 
 def create_error_response(
@@ -711,54 +779,94 @@ def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
             )
         
         logger.info(f"Generating forecast: days={days}, granularity={granularity}")
-        
-        # Initialize Phase 2 services
-        import boto3
-        dynamodb_resource = boto3.resource('dynamodb')
-        dynamodb_client = boto3.client('dynamodb')
-        bedrock_client = BedrockClient()
-        historical_data_retriever = HistoricalDataRetriever(dynamodb_resource)
-        cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
-        forecast_engine = ForecastEngine(
-            bedrock_client=bedrock_client,
-            historical_data_retriever=historical_data_retriever,
-            cache_manager=cache_manager
-        )
-        
-        # Generate forecast
-        forecast_response = forecast_engine.generate_forecast(
-            service=None,
-            days=days,
-            granularity=granularity
-        )
-        
-        # Format response
-        response_data = {
-            'success': forecast_response.success,
-            'forecast_data': [
-                {
-                    'date': point.date,
-                    'predicted_cost': float(point.predicted_cost),
-                    'confidence_lower': float(point.confidence_lower),
-                    'confidence_upper': float(point.confidence_upper),
-                    'currency': point.currency
+
+        # Run forecast with timeout so we return 200 + message before API Gateway 29s limit (avoid 504)
+        forecast_result = [None]
+        forecast_error = [None]
+
+        def run_forecast():
+            try:
+                import boto3
+                dynamodb_resource = boto3.resource('dynamodb')
+                dynamodb_client = boto3.client('dynamodb')
+                bedrock_client = BedrockClient()
+                cost_data_table = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
+                historical_data_retriever = HistoricalDataRetriever(dynamodb_resource, table_name=cost_data_table)
+                cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+                forecast_engine = ForecastEngine(
+                    bedrock_client=bedrock_client,
+                    historical_data_retriever=historical_data_retriever,
+                    cache_manager=cache_manager
+                )
+                forecast_response = forecast_engine.generate_forecast(
+                    service=None,
+                    days=days,
+                    granularity=granularity
+                )
+                response_data = {
+                    'success': forecast_response.success,
+                    'forecast_data': [
+                        {
+                            'date': point.date,
+                            'predicted_cost': float(point.predicted_cost),
+                            'confidence_lower': float(point.confidence_lower),
+                            'confidence_upper': float(point.confidence_upper),
+                            'currency': point.currency
+                        }
+                        for point in forecast_response.forecast_data
+                    ],
+                    'metadata': {
+                        'timestamp': forecast_response.metadata.timestamp,
+                        'forecast_horizon': forecast_response.metadata.forecast_horizon,
+                        'granularity': forecast_response.metadata.granularity,
+                        'model_used': forecast_response.metadata.model_used,
+                        'service': forecast_response.metadata.service,
+                        'services_included': forecast_response.metadata.services_included,
+                        'cache_hit': forecast_response.metadata.cache_hit,
+                        'historical_data_days': forecast_response.metadata.historical_data_days
+                    }
                 }
-                for point in forecast_response.forecast_data
-            ],
-            'metadata': {
-                'timestamp': forecast_response.metadata.timestamp,
-                'forecast_horizon': forecast_response.metadata.forecast_horizon,
-                'granularity': forecast_response.metadata.granularity,
-                'model_used': forecast_response.metadata.model_used,
-                'service': forecast_response.metadata.service,
-                'services_included': forecast_response.metadata.services_included,
-                'cache_hit': forecast_response.metadata.cache_hit,
-                'historical_data_days': forecast_response.metadata.historical_data_days
+                forecast_result[0] = response_data
+            except Exception as e:
+                forecast_error[0] = e
+
+        thread = threading.Thread(target=run_forecast, daemon=True)
+        thread.start()
+        thread.join(timeout=25.0)
+        if thread.is_alive():
+            logger.warning("Forecast request timed out after 25s")
+            response_data = {
+                'success': False,
+                'forecast_data': [],
+                'metadata': {
+                    'timestamp': datetime.now(UTC).isoformat(),
+                    'forecast_horizon': days,
+                    'granularity': granularity,
+                    'model_used': None,
+                    'service': None,
+                    'services_included': None,
+                    'cache_hit': False,
+                    'historical_data_days': None
+                },
+                'error': 'timeout',
+                'message': (
+                    'Forecast is taking longer than expected (API limit). '
+                    'Try fewer days (e.g. 7 or 14), or try again in a moment. Cached forecasts return instantly.'
+                )
             }
-        }
-        
-        logger.info(f"Forecast generated successfully: {len(forecast_response.forecast_data)} data points, cache_hit={forecast_response.metadata.cache_hit}")
-        
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(response_data)
+            }
+        if forecast_error[0] is not None:
+            raise forecast_error[0]
+        response_data = forecast_result[0]
+        if response_data is None:
+            raise RuntimeError("Forecast completed but no result returned")
+
+        logger.info(f"Forecast generated successfully: {len(response_data['forecast_data'])} data points, cache_hit={response_data['metadata']['cache_hit']}")
+
         return {
             'statusCode': 200,
             'headers': {
@@ -872,54 +980,94 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
             )
         
         logger.info(f"Generating forecast for service {service}: days={days}, granularity={granularity}")
-        
-        # Initialize Phase 2 services
-        import boto3
-        dynamodb_resource = boto3.resource('dynamodb')
-        dynamodb_client = boto3.client('dynamodb')
-        bedrock_client = BedrockClient()
-        historical_data_retriever = HistoricalDataRetriever(dynamodb_resource)
-        cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
-        forecast_engine = ForecastEngine(
-            bedrock_client=bedrock_client,
-            historical_data_retriever=historical_data_retriever,
-            cache_manager=cache_manager
-        )
-        
-        # Generate forecast for specific service
-        forecast_response = forecast_engine.generate_forecast(
-            service=service,
-            days=days,
-            granularity=granularity
-        )
-        
-        # Format response
-        response_data = {
-            'success': forecast_response.success,
-            'forecast_data': [
-                {
-                    'date': point.date,
-                    'predicted_cost': float(point.predicted_cost),
-                    'confidence_lower': float(point.confidence_lower),
-                    'confidence_upper': float(point.confidence_upper),
-                    'currency': point.currency
+
+        # Run forecast with timeout so we return 200 + message before API Gateway 29s limit (avoid 504)
+        forecast_result = [None]
+        forecast_error = [None]
+
+        def run_forecast_service():
+            try:
+                import boto3
+                dynamodb_resource = boto3.resource('dynamodb')
+                dynamodb_client = boto3.client('dynamodb')
+                bedrock_client = BedrockClient()
+                cost_data_table = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
+                historical_data_retriever = HistoricalDataRetriever(dynamodb_resource, table_name=cost_data_table)
+                cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+                forecast_engine = ForecastEngine(
+                    bedrock_client=bedrock_client,
+                    historical_data_retriever=historical_data_retriever,
+                    cache_manager=cache_manager
+                )
+                forecast_response = forecast_engine.generate_forecast(
+                    service=service,
+                    days=days,
+                    granularity=granularity
+                )
+                response_data = {
+                    'success': forecast_response.success,
+                    'forecast_data': [
+                        {
+                            'date': point.date,
+                            'predicted_cost': float(point.predicted_cost),
+                            'confidence_lower': float(point.confidence_lower),
+                            'confidence_upper': float(point.confidence_upper),
+                            'currency': point.currency
+                        }
+                        for point in forecast_response.forecast_data
+                    ],
+                    'metadata': {
+                        'timestamp': forecast_response.metadata.timestamp,
+                        'forecast_horizon': forecast_response.metadata.forecast_horizon,
+                        'granularity': forecast_response.metadata.granularity,
+                        'model_used': forecast_response.metadata.model_used,
+                        'service': forecast_response.metadata.service,
+                        'services_included': forecast_response.metadata.services_included,
+                        'cache_hit': forecast_response.metadata.cache_hit,
+                        'historical_data_days': forecast_response.metadata.historical_data_days
+                    }
                 }
-                for point in forecast_response.forecast_data
-            ],
-            'metadata': {
-                'timestamp': forecast_response.metadata.timestamp,
-                'forecast_horizon': forecast_response.metadata.forecast_horizon,
-                'granularity': forecast_response.metadata.granularity,
-                'model_used': forecast_response.metadata.model_used,
-                'service': forecast_response.metadata.service,
-                'services_included': forecast_response.metadata.services_included,
-                'cache_hit': forecast_response.metadata.cache_hit,
-                'historical_data_days': forecast_response.metadata.historical_data_days
+                forecast_result[0] = response_data
+            except Exception as e:
+                forecast_error[0] = e
+
+        thread = threading.Thread(target=run_forecast_service, daemon=True)
+        thread.start()
+        thread.join(timeout=25.0)
+        if thread.is_alive():
+            logger.warning("Forecast service request timed out after 25s")
+            response_data = {
+                'success': False,
+                'forecast_data': [],
+                'metadata': {
+                    'timestamp': datetime.now(UTC).isoformat(),
+                    'forecast_horizon': days,
+                    'granularity': granularity,
+                    'model_used': None,
+                    'service': service,
+                    'services_included': None,
+                    'cache_hit': False,
+                    'historical_data_days': None
+                },
+                'error': 'timeout',
+                'message': (
+                    'Forecast is taking longer than expected (API limit). '
+                    'Try fewer days (e.g. 7 or 14), or try again in a moment. Cached forecasts return instantly.'
+                )
             }
-        }
-        
-        logger.info(f"Forecast generated successfully for {service}: {len(forecast_response.forecast_data)} data points, cache_hit={forecast_response.metadata.cache_hit}")
-        
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(response_data)
+            }
+        if forecast_error[0] is not None:
+            raise forecast_error[0]
+        response_data = forecast_result[0]
+        if response_data is None:
+            raise RuntimeError("Forecast completed but no result returned")
+
+        logger.info(f"Forecast generated successfully for {service}: {len(response_data['forecast_data'])} data points, cache_hit={response_data['metadata']['cache_hit']}")
+
         return {
             'statusCode': 200,
             'headers': {
@@ -928,7 +1076,7 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
             },
             'body': json.dumps(response_data)
         }
-    
+
     except InsufficientDataError as e:
         logger.warning(f"Insufficient data for forecast: {str(e)}")
         return create_error_response(
@@ -1268,14 +1416,14 @@ def handle_prevention_history(event: Dict[str, Any]) -> Dict[str, Any]:
             )
         
         logger.info(f"Getting prevention history: start={start_date}, end={end_date}, limit={limit}")
-        
-        # Initialize prevention engine
+
         prevention_engine = _get_prevention_engine()
-        
-        # Get history (this would query the audit table)
-        # For now, return a placeholder response
-        history = []
-        
+        history = prevention_engine.get_action_history(
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit
+        )
+
         logger.info(f"Retrieved {len(history)} history records")
         
         return {
@@ -1394,34 +1542,85 @@ def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
             )
         
         logger.info(f"Processing advisor query: user={user_id}, session={session_id}")
-        
-        # Initialize advisor engine
-        advisor_engine = _get_advisor_engine()
-        
-        # Process query
-        response = advisor_engine.process_query(query, user_id, session_id)
-        
-        # Format response
+
+        # Run advisor with timeout so we return 200 + message before API Gateway 29s limit (avoid 504)
+        advisor_result = [None]
+        advisor_error = [None]
+
+        def run_advisor():
+            try:
+                advisor_engine = _get_advisor_engine()
+                advisor_result[0] = advisor_engine.process_query(query, user_id, session_id)
+            except Exception as e:
+                advisor_error[0] = e
+
+        thread = threading.Thread(target=run_advisor, daemon=True)
+        thread.start()
+        thread.join(timeout=25.0)
+        if thread.is_alive():
+            logger.warning("Advisor query timed out after 25s")
+            response_text = (
+                "The advisor is taking longer than expected (API limit). "
+                "Try a shorter or simpler question, or try again in a moment. Cached questions answer instantly."
+            )
+            response_data = {
+                'success': True,
+                'query': query,
+                'response': response_text,
+                'recommendations': [],
+                'cost_data': {},
+                'confidence': 0.0,
+                'cached': False
+            }
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(response_data)
+            }
+        if advisor_error[0] is not None:
+            raise advisor_error[0]
+        response = advisor_result[0]
+        if response is None:
+            response_text = 'Advisor could not generate a response. Please try again.'
+            recommendations = []
+            cost_data = {}
+            confidence = 0.0
+            cached = False
+        else:
+            response_text = response.response_text if response.response_text is not None else 'No answer generated.'
+            recommendations = getattr(response, 'recommendations', []) or []
+            cost_data = getattr(response, 'cost_data', {}) or {}
+            confidence = float(getattr(response, 'confidence', 0.0))
+            cached = getattr(response, 'cached', False)
+
+        # Format response (never echo request params; always return advisor answer shape)
         response_data = {
             'success': True,
-            'response': response.response_text,
+            'query': query,
+            'response': response_text,
             'recommendations': [
                 {
-                    'action': rec.action,
-                    'rationale': rec.rationale,
-                    'estimated_savings': float(rec.estimated_savings),
-                    'priority': rec.priority,
-                    'safe': rec.safe
+                    'action': getattr(rec, 'action', ''),
+                    'rationale': getattr(rec, 'rationale', ''),
+                    'estimated_savings': float(getattr(rec, 'estimated_savings', 0)),
+                    'priority': getattr(rec, 'priority', 'medium'),
+                    'safe': getattr(rec, 'safe', True)
                 }
-                for rec in response.recommendations
+                for rec in recommendations
             ],
-            'cost_data': response.cost_data,
-            'confidence': float(response.confidence),
-            'cached': response.cached
+            'cost_data': cost_data,
+            'confidence': confidence,
+            'cached': cached
         }
-        
-        logger.info(f"Query processed successfully: cached={response.cached}, recommendations={len(response.recommendations)}")
-        
+
+        logger.info(f"Query processed successfully: cached={cached}, recommendations={len(recommendations)}")
+
+        # Never return a body that looks like the request (query/user_id/session_id only)
+        if 'success' not in response_data or 'response' not in response_data:
+            logger.error("Advisor response_data missing success/response")
+            return create_error_response(
+                500, 'INTERNAL_ERROR', 'Advisor response was malformed.', None
+            )
         return {
             'statusCode': 200,
             'headers': {
@@ -1660,8 +1859,10 @@ def _get_advisor_engine() -> AdvisorEngine:
         cost_explorer_client=None,
         dynamodb_client=dynamodb_client
     )
+    advisor_model_id = os.environ.get("ADVISOR_MODEL_ID", "amazon.nova-lite-v1:0")
     bedrock_advisor_client = BedrockAdvisorClient(
-        bedrock_client=bedrock_runtime_client
+        bedrock_client=bedrock_runtime_client,
+        model_id=advisor_model_id,
     )
     response_formatter = ResponseFormatter()
     cache_manager = AdvisorCacheManager(
@@ -1697,49 +1898,47 @@ def _get_prevention_engine() -> PreventionEngine:
     Returns:
         Configured PreventionEngine instance
     """
-    # Initialize all required components
-    # Note: In production, these would use actual AWS clients
-    # For now, we'll use None and let the engine handle initialization
-    
+    dynamodb_client = get_dynamodb_client()
+
     budget_monitor = BudgetMonitor(
         budgets_client=None,
         cost_estimator=None
     )
-    
+
     resource_manager = ResourceManager(
         aws_clients={},
-        dynamodb_client=None
+        dynamodb_client=dynamodb_client
     )
-    
+
     idle_detector = IdleDetector(
         cloudwatch_client=None
     )
-    
+
     safety_guard = SafetyGuard(
         config=None
     )
-    
+
     action_executor = ActionExecutor(
         aws_clients={},
         audit_logger=None
     )
-    
+
     approval_manager = ApprovalManager(
         sns_client=None,
-        dynamodb_client=None
+        dynamodb_client=dynamodb_client
     )
-    
+
+    # Pass empty dict; RollbackManager creates EC2/RDS/Lambda clients only when execute_rollback runs
     rollback_manager = RollbackManager(
         aws_clients={},
-        dynamodb_client=None
+        dynamodb_client=dynamodb_client
     )
-    
+
     notification_service = NotificationService(
         sns_client=None,
         config=None
     )
-    
-    # Create prevention engine
+
     prevention_engine = PreventionEngine(
         budget_monitor=budget_monitor,
         resource_manager=resource_manager,
@@ -1748,7 +1947,8 @@ def _get_prevention_engine() -> PreventionEngine:
         action_executor=action_executor,
         approval_manager=approval_manager,
         rollback_manager=rollback_manager,
-        notification_service=notification_service
+        notification_service=notification_service,
+        dynamodb_client=dynamodb_client
     )
-    
+
     return prevention_engine

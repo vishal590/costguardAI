@@ -154,6 +154,14 @@ Amazon Bedrock free tier has daily token limits:
 - **Functionality:** All other Phase 4 features work (cache, history, suggestions)
 - **Cost:** $0.00 (within free tier)
 
+### How to fix quota (when you need Bedrock working)
+
+If the account has **0** TPM/RPM and you want to use the Advisor (or Forecast) with Bedrock, see **[Deployment Troubleshooting §12: Bedrock Quota / Throttling](deployment/DEPLOYMENT_TROUBLESHOOTING.md#12-bedrock-quota--throttling-phase-2--4)** for:
+
+- Enabling model access (Nova Lite / Nova 2 Lite)
+- Requesting quota (console vs Support)
+- Switching to Nova 2 Lite via `ADVISOR_MODEL_ID=global.amazon.nova-2-lite-v1:0`
+
 ---
 
 ## Verification Checklist

@@ -69,10 +69,10 @@ class ForecastEngine:
             # Return cached forecast with cache_hit=True
             return self._deserialize_cached_forecast(cached_forecast, cache_hit=True)
         
-        # Retrieve historical data (90 days for better predictions)
+        # Retrieve historical data (45 days to stay within API Gateway 29s timeout; cache helps repeat requests)
         historical_data = self.historical_data_retriever.get_historical_data(
             service=service,
-            days_back=90
+            days_back=45
         )
         
         # Validate historical data

@@ -56,6 +56,11 @@ CostGuard AI is now ready for production deployment! This release includes all p
 - Safety guard with approval workflows
 - Real-time cost savings tracking
 
+### Phase 3 updates (March 2026)
+- **Rollback:** Lazy boto3 clients (fixes 500 on status/resources/history); clear API error messages (no rollback state, invalid state, outside window, restore failed); configurable **ROLLBACK_WINDOW_HOURS** (default 24); state parsing supports Unix timestamp and regex fallback.
+- **Resources:** Lazy client creation and DynamoDB client wired; GET `/api/prevention/resources` returns discovered resources (Lambda, S3, DynamoDB, API Gateway, SNS, etc.); table from **RESOURCE_INVENTORY_TABLE**.
+- **Frontend:** History tab per-row Rollback button; Rollback tab Action dropdown from history; Resources tab service filter and shortened IDs (e.g. Lambda function name).
+
 ---
 
 ## 📊 Test Coverage
