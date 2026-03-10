@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from ..utils.types import CostRecord, DynamoDBRecord, QueryParams, RetryConfig
 from ..utils.error_handler import with_retry
-from ..utils.helpers import calculate_ttl, normalize_service_name
+from ..utils.helpers import calculate_ttl, normalize_service_name, cost_explorer_service_to_short
 
 
 def _generate_year_months(start_year_month: str, end_year_month: str) -> List[str]:
@@ -75,9 +75,9 @@ def transform_to_dynamodb_record(record: CostRecord, ttl_days: int = 365) -> Dyn
     pk = f"COST#{year_month}"
     
     # Sort key must be unique per (month, service, date) to avoid DynamoDB "duplicate keys" in batch write.
-    # Cost Explorer returns daily records, so multiple days in same month share the same pk; include date in sk.
-    normalized_service = normalize_service_name(record.service)
-    sk = f"SERVICE#{normalized_service}#{record.date}"
+    # Map Cost Explorer long name to short (ec2, lambda, ...) so Phase 1 query and Phase 2 forecast by service find data.
+    canonical_service = cost_explorer_service_to_short(record.service)
+    sk = f"SERVICE#{canonical_service}#{record.date}"
     
     # Calculate TTL
     ttl = calculate_ttl(ttl_days)
@@ -89,7 +89,7 @@ def transform_to_dynamodb_record(record: CostRecord, ttl_days: int = 365) -> Dyn
         pk=pk,
         sk=sk,
         date=record.date,
-        service=record.service,
+        service=canonical_service,
         blended_cost=record.blended_cost,
         unblended_cost=record.unblended_cost,
         currency=record.currency,

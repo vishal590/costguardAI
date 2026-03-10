@@ -4,6 +4,8 @@
 **Implementation Date:** January 2026  
 **Test Coverage:** 94%+ (412 tests passing)
 
+**Troubleshooting:** If the forecast API returns a timeout (`success: false`, `error: "timeout"`), see [Forecast Timeout & Bedrock Reference](./forecast-timeout-and-bedrock-reference.md) for diagnosis, Bedrock quota, and what we tried.
+
 ## Overview
 
 Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon Bedrock Nova Lite. The system generates 7-30 day cost forecasts with confidence intervals. When Bedrock provides confidence intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, a fallback uses ±20% ranges around the prediction.

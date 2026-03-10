@@ -108,6 +108,7 @@
   - **[specification.md](./technical/phase2-ai-forecasting/specification.md)** - Complete Phase 2 specification
   - **[implementation-summary.md](./technical/phase2-ai-forecasting/implementation-summary.md)** - Test results (412/412 passing, 94.16% coverage)
   - **[infrastructure-updates.md](./technical/phase2-ai-forecasting/infrastructure-updates.md)** - CDK infrastructure changes for Bedrock
+  - **[forecast-timeout-and-bedrock-reference.md](./technical/phase2-ai-forecasting/forecast-timeout-and-bedrock-reference.md)** - Forecast timeout troubleshooting, Bedrock quota, Lambda logs, what we tried
 - **[technical/phase3-automated-prevention/](./technical/phase3-automated-prevention/)** - ✅ **Phase 3: Automated Cost Prevention (COMPLETE)**
   - **[README.md](./technical/phase3-automated-prevention/README.md)** - Overview, features, architecture, and getting started
   - **[innovation-and-market-position.md](./technical/phase3-automated-prevention/innovation-and-market-position.md)** - Phase 3 innovation, forum research, breakthrough positioning, drawbacks
@@ -364,7 +365,8 @@ docs/
 │   │   ├── README.md            # Overview, features, architecture, and getting started
 │   │   ├── specification.md     # Complete Phase 2 specification
 │   │   ├── implementation-summary.md  # Test results & deliverables
-│   │   └── infrastructure-updates.md  # CDK infrastructure changes for Bedrock
+│   │   ├── infrastructure-updates.md  # CDK infrastructure changes for Bedrock
+│   │   └── forecast-timeout-and-bedrock-reference.md  # Forecast timeout, Bedrock quota, Lambda logs
 │   ├── development-notes.md # ✅ Development Progress - Phase 1, 1.5 & 2 Complete
 │   ├── architecture.md      # Technical architecture
 │   ├── aws-services.md      # AWS services research and selection

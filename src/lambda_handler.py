@@ -51,6 +51,9 @@ from .utils.date_utils import (
 )
 from .utils.helpers import calculate_cost_summary
 
+# API Gateway integration timeout is 29s; forecast/advisor run in a thread and return before this.
+FORECAST_THREAD_TIMEOUT = 28.0
+
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -828,9 +831,9 @@ def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
         thread = threading.Thread(target=run_forecast, daemon=True)
         thread.start()
-        thread.join(timeout=25.0)
+        thread.join(timeout=FORECAST_THREAD_TIMEOUT)
         if thread.is_alive():
-            logger.warning("Forecast request timed out after 25s")
+            logger.warning("Forecast request timed out after %.0fs", FORECAST_THREAD_TIMEOUT)
             response_data = {
                 'success': False,
                 'forecast_data': [],
@@ -1029,9 +1032,9 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
         thread = threading.Thread(target=run_forecast_service, daemon=True)
         thread.start()
-        thread.join(timeout=25.0)
+        thread.join(timeout=FORECAST_THREAD_TIMEOUT)
         if thread.is_alive():
-            logger.warning("Forecast service request timed out after 25s")
+            logger.warning("Forecast service request timed out after %.0fs", FORECAST_THREAD_TIMEOUT)
             response_data = {
                 'success': False,
                 'forecast_data': [],

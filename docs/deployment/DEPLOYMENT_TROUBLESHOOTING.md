@@ -36,6 +36,7 @@
 - API returns 500 error → [Issue 4: Lambda Runtime Errors](#4-lambda-runtime-errors)
 - Cost data won't save to DynamoDB → [Issue 3: DynamoDB Schema Mismatch](#issue-3-dynamodb-schema-mismatch-for-cost-data)
 - Advisor/Forecast: "Too many tokens per day" or ThrottlingException → [Bedrock Quota](#12-bedrock-quota--throttling-phase-2--4)
+- Forecast: `success: false`, `error: "timeout"`, empty forecast_data → [Phase 2 Forecast Timeout & Bedrock Reference](../technical/phase2-ai-forecasting/forecast-timeout-and-bedrock-reference.md)
 - Prevention status/resources/history return 500; rollback 400; Resources tab empty → [Phase 3 Prevention 500s, Rollback & Resources](#13-phase-3-prevention-500s-rollback--resources)
 
 ---
@@ -914,12 +915,13 @@ aws_cloudwatch_logs      # Log groups, Log streams
 **Severity:** High (blocks AI features when quota is 0)  
 **Tags:** `bedrock` `quota` `throttling` `nova` `phase-2` `phase-4`
 
-**Related Docs:** [Phase 4 Bedrock Enablement](../PHASE4_BEDROCK_ENABLEMENT.md)
+**Related Docs:** [Phase 4 Bedrock Enablement](../PHASE4_BEDROCK_ENABLEMENT.md) · [Phase 2 Forecast Timeout & Bedrock Reference](../technical/phase2-ai-forecasting/forecast-timeout-and-bedrock-reference.md) (timeout response, Lambda logs, what we tried)
 
 ### Problem
 
 **Symptom:**
 - Advisor or Forecast returns errors: `ThrottlingException`, "Too many tokens per day, please wait before trying again."
+- **Forecast** returns HTTP 200 with `success: false`, `error: "timeout"`, empty `forecast_data` (often due to Bedrock latency/retries exceeding the 28s handler limit) → see [Phase 2 Forecast Timeout & Bedrock Reference](../technical/phase2-ai-forecasting/forecast-timeout-and-bedrock-reference.md).
 - Lambda logs show the same throttling message.
 
 **Root cause:** Account has **0** (or very low) Bedrock token quota for the model in use. The app uses **Nova Lite** (`amazon.nova-lite-v1:0`) by default for both Advisor and Forecast.

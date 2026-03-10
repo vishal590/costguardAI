@@ -56,10 +56,11 @@ class HistoricalDataRetriever:
         # Query DynamoDB for historical data
         raw_data = self._query_dynamodb(start_date, end_date, service)
         
-        # Check we have enough raw data before processing
-        if len(raw_data) < 30:
+        # Check we have enough raw data before processing (min 7 so 7-day forecast can run with limited history)
+        MIN_DATA_POINTS = 7
+        if len(raw_data) < MIN_DATA_POINTS:
             raise InsufficientDataError(
-                f"Insufficient historical data: need at least 30 data points, found {len(raw_data)}"
+                f"Insufficient historical data: need at least {MIN_DATA_POINTS} data points, found {len(raw_data)}"
             )
         
         # Aggregate by service and date
@@ -288,11 +289,11 @@ class HistoricalDataRetriever:
             days_back: Expected number of days
             
         Returns:
-            True if data is sufficient (at least 30 days)
+            True if data is sufficient (at least 7 days)
         """
         if not data:
             return False
         
-        # Check minimum 30 days of data
+        # Check minimum 7 days of data (allow 7-day forecast with limited history)
         unique_dates = set(item['date'] for item in data)
-        return len(unique_dates) >= 30
+        return len(unique_dates) >= 7

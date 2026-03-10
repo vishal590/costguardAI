@@ -9,6 +9,7 @@ This module orchestrates the forecast generation process by:
 5. Returning formatted forecast responses
 """
 
+from dataclasses import asdict
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta, UTC
 from src.utils.types import (
@@ -69,14 +70,35 @@ class ForecastEngine:
             # Return cached forecast with cache_hit=True
             return self._deserialize_cached_forecast(cached_forecast, cache_hit=True)
         
-        # Retrieve historical data (45 days to stay within API Gateway 29s timeout; cache helps repeat requests)
+        # Retrieve historical data (30 days to keep prompt smaller and complete within API Gateway 29s; cache helps repeat requests)
         historical_data = self.historical_data_retriever.get_historical_data(
             service=service,
-            days_back=45
+            days_back=30
         )
         
-        # Validate historical data
+        # Validate historical data (minimum days)
         self.validate_historical_data(historical_data)
+        
+        # If all costs are zero, return a zero forecast (no Bedrock call)
+        if all(cost == 0.0 for cost in historical_data.costs):
+            forecast_data = self._build_zero_forecast(days, granularity, historical_data)
+            metadata = ForecastMetadata(
+                timestamp=datetime.now(UTC).isoformat(),
+                forecast_horizon=days,
+                granularity=granularity,
+                model_used="zero-forecast",
+                service=service,
+                services_included=None if service else self._get_all_services(historical_data),
+                cache_hit=False,
+                historical_data_days=historical_data.total_days
+            )
+            forecast_dict = {
+                'success': True,
+                'forecast_data': [asdict(p) for p in forecast_data],
+                'metadata': asdict(metadata),
+            }
+            self.cache_manager.store_forecast(forecast_dict, service, days, granularity)
+            return ForecastResponse(success=True, forecast_data=forecast_data, metadata=metadata)
         
         # Call Bedrock for predictions
         bedrock_response = self.bedrock_client.invoke_forecast(
@@ -119,8 +141,13 @@ class ForecastEngine:
             metadata=metadata
         )
         
-        # Store in cache
-        self.cache_manager.store_forecast(forecast_response, service, days, granularity)
+        # Store in cache (must pass a JSON-serializable dict; dataclasses are not serializable by default)
+        forecast_dict = {
+            'success': forecast_response.success,
+            'forecast_data': [asdict(p) for p in forecast_response.forecast_data],
+            'metadata': asdict(forecast_response.metadata),
+        }
+        self.cache_manager.store_forecast(forecast_dict, service, days, granularity)
         
         return forecast_response
         
@@ -137,18 +164,13 @@ class ForecastEngine:
         Raises:
             InsufficientDataError: Data doesn't meet requirements
         """
-        # Check minimum 30 days
-        if data.total_days < 30:
+        # Check minimum 7 days (allow 7-day forecast with limited history)
+        if data.total_days < 7:
             raise InsufficientDataError(
-                f"Insufficient historical data. Minimum 30 days required, found {data.total_days} days."
+                f"Insufficient historical data. Minimum 7 days required, found {data.total_days} days."
             )
         
-        # Check data quality (no all-zero costs)
-        if all(cost == 0.0 for cost in data.costs):
-            raise InsufficientDataError(
-                "Historical data contains only zero costs. Cannot generate forecast."
-            )
-        
+        # All-zero costs are handled in generate_forecast (return zero forecast); no need to raise here
         return True
         
     def aggregate_to_weekly(self, daily_data: List[ForecastDataPoint]) -> List[ForecastDataPoint]:
@@ -227,6 +249,30 @@ class ForecastEngine:
             'rmse': rmse
         }
         
+    def _build_zero_forecast(
+        self, days: int, granularity: str, historical_data: ProcessedData
+    ) -> List[ForecastDataPoint]:
+        """Build a forecast of zeros when historical data is all zero (no Bedrock call)."""
+        if not historical_data.timestamps:
+            start = datetime.now(UTC).date()
+        else:
+            last_str = historical_data.timestamps[-1]
+            last_date = datetime.strptime(last_str, "%Y-%m-%d").date()
+            start = last_date + timedelta(days=1)
+        daily_data = []
+        for i in range(days):
+            d = start + timedelta(days=i)
+            daily_data.append(ForecastDataPoint(
+                date=d.strftime("%Y-%m-%d"),
+                predicted_cost=0.0,
+                confidence_lower=0.0,
+                confidence_upper=0.0,
+                currency="USD"
+            ))
+        if granularity == "weekly":
+            return self.aggregate_to_weekly(daily_data)
+        return daily_data
+
     def _validate_parameters(self, days: int, granularity: str) -> None:
         """Validate forecast parameters."""
         if days not in [7, 14, 30]:

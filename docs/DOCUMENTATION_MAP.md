@@ -97,6 +97,7 @@
 - 📋 [Specification](./technical/phase2-ai-forecasting/specification.md) - Complete spec
 - ✅ [Implementation Summary](./technical/phase2-ai-forecasting/implementation-summary.md) - Test results
 - 🏗️ [Infrastructure Updates](./technical/phase2-ai-forecasting/infrastructure-updates.md) - Bedrock setup
+- 🔧 [Forecast Timeout & Bedrock Reference](./technical/phase2-ai-forecasting/forecast-timeout-and-bedrock-reference.md) - Troubleshooting timeout, Bedrock quota, Lambda logs, what we tried
 
 **Related Topics:**
 - [Amazon Bedrock Integration](#aws-service-integration)
