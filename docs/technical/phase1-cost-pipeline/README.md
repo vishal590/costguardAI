@@ -15,6 +15,8 @@ A serverless AWS cost data pipeline that fetches historical cost data from AWS C
 - **Property-Based Testing**: Comprehensive test coverage with both unit and property-based tests
 - **Free Tier Compatible**: Designed to operate within AWS Free Tier limits
 
+**Where service data appears:** Cost history (Phase 1) shows **all** services from Cost Explorer. Current estimate (Phase 1.5) uses **5** services (EC2, Lambda, DynamoDB, S3, RDS). The **22 services** in Resource Manager are used in **Phase 3 Prevention** only. See [Services: where data appears](../SERVICES-WHERE-DATA-APPEARS.md).
+
 ## Architecture
 
 ```

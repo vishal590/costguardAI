@@ -96,6 +96,7 @@
   - **[implementation-summary.md](./technical/phase1-cost-pipeline/implementation-summary.md)** - Test results (134/134 passing, 94.43% coverage)
   - **[README.md](./technical/phase1-cost-pipeline/README.md)** - Setup, deployment & API usage guide
   - **[tasks.md](./technical/phase1-cost-pipeline/tasks.md)** - Implementation tasks (14/14 complete)
+- **[technical/SERVICES-WHERE-DATA-APPEARS.md](./technical/SERVICES-WHERE-DATA-APPEARS.md)** - Where service data appears (Phase 1 all, Phase 1.5 five, Phase 3 twenty-two)
 - **[technical/phase1.5-near-realtime/](./technical/phase1.5-near-realtime/)** - ✅ **Phase 1.5: Near-Real-Time Cost Estimation (COMPLETE)**
   - **[README.md](./technical/phase1.5-near-realtime/README.md)** - Overview, features, and getting started
   - **[specification.md](./technical/phase1.5-near-realtime/specification.md)** - Complete Phase 1.5 specification

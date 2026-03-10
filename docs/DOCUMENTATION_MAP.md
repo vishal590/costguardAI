@@ -60,6 +60,7 @@
 - [Cost Explorer Integration](#aws-service-integration)
 - [DynamoDB Schema](#database-documentation)
 - [API Design](#api-documentation)
+- [Services: where data appears](./technical/SERVICES-WHERE-DATA-APPEARS.md) (Phase 1 all services, Phase 1.5 five, Phase 3 twenty-two)
 
 **Key Metrics:**
 - Tests: 134 passing
@@ -79,6 +80,7 @@
 - 🏗️ [Infrastructure Updates](./technical/phase1.5-near-realtime/infrastructure-updates.md) - CDK changes
 
 **Related Topics:**
+- [Services: where data appears](./technical/SERVICES-WHERE-DATA-APPEARS.md) (current estimate uses 5 services only)
 - [CloudWatch Integration](#aws-service-integration)
 - [Pricing API](#aws-service-integration)
 - [Cost Estimation Algorithms](#technical-concepts)

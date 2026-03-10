@@ -49,7 +49,7 @@ from .utils.date_utils import (
     validate_date_range,
     calculate_default_date_range
 )
-from .utils.helpers import calculate_cost_summary
+from .utils.helpers import calculate_cost_summary, cost_explorer_service_to_short
 
 # API Gateway integration timeout is 29s; forecast/advisor run in a thread and return before this.
 FORECAST_THREAD_TIMEOUT = 28.0
@@ -333,11 +333,11 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
         
         logger.info(f"Query returned {len(records)} records")
         
-        # Convert records to response format
+        # Convert records to response format (normalize service to short name for consistent display with Phase 2)
         data = [
             {
                 'date': record.date,
-                'service': record.service,
+                'service': cost_explorer_service_to_short(record.service),
                 'blendedCost': record.blended_cost,
                 'unblendedCost': record.unblended_cost,
                 'currency': record.currency
