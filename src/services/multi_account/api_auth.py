@@ -48,10 +48,13 @@ class APIAuthenticator:
         Requirements: 16.10
         """
         try:
-            # Extract API key from headers
-            headers = event.get('headers', {})
-            api_key = headers.get('X-API-Key') or headers.get('x-api-key')
-            
+            # Extract API key from headers (case-insensitive; API Gateway may normalize casing)
+            headers = event.get('headers', {}) or {}
+            headers_lower = {k.lower(): v for k, v in headers.items()}
+            api_key = headers_lower.get('x-api-key')
+            if isinstance(api_key, list):
+                api_key = api_key[0] if api_key else None
+
             if not api_key:
                 return False, 'API key is required', None
             
