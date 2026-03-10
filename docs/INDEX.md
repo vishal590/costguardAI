@@ -1,6 +1,11 @@
 # AWS 10,000 AIdeas Hackathon - Documentation Index
 
-> **Central Navigation Hub** - Start here to find any documentation or code
+> **Central Navigation Hub** - Start here to find any documentation or code  
+> **Keywords:** index, documentation, navigation, CostGuardAI, backend, frontend, app complete, semantic search, cross-reference, discoverability
+
+## ✅ App status
+
+**CostGuardAI backend and React web frontend are complete** for the demo scope. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) (Phases 1–6 + Autonomous + Phase 8 Web). Frontend repo: **client-aws-ideas** (Dashboard, Cost, Forecast, Prevention, Advisor, Multi-account, AI/ML, Demo, Auth).
 
 ## 🗺️ NEW: Complete Documentation Map
 
@@ -260,6 +265,7 @@
 - **...run autonomous demo mode** → [AUTONOMOUS_DEMO_COMPLETE.md](./AUTONOMOUS_DEMO_COMPLETE.md) ⚡ **5.26s execution time**
 - **...understand autonomous deployment** → [AUTONOMOUS_DEPLOYMENT_SUCCESS.md](./AUTONOMOUS_DEPLOYMENT_SUCCESS.md) 🚀 **Infrastructure validation**
 - **...see complete project status** → [PROJECT_STATUS.md](./PROJECT_STATUS.md) 📊 **All phases**
+- **...see app complete / React frontend** → [PROJECT_STATUS.md – Phase 8 (Web)](./PROJECT_STATUS.md#phase-8-web-react-frontend-dashboard) ✅ **React web UI complete (client-aws-ideas)**
 - **...see future roadmap** → [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) 🗺️ **Phase 7-8 post-hackathon**
 - **...see API examples** → [API_EXAMPLES.md](./API_EXAMPLES.md) ✅ **Phase 1-4 examples**
 - **...see Phase 5 & 6 API examples** → [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md) ✅ **NEW: Multi-Account & GPU Cost examples**
@@ -285,7 +291,7 @@
 - **Configuration files** → [technical/architecture.md](./technical/architecture.md), [technical/aws-services.md](./technical/aws-services.md)
 - **API/Backend code** → [technical/api-design.md](./technical/api-design.md), [technical/architecture.md](./technical/architecture.md)
 - **Database code** → [technical/database-design.md](./technical/database-design.md), [technical/architecture.md](./technical/architecture.md)
-- **Frontend code** → [technical/architecture.md](./technical/architecture.md), [project/planning.md](./project/planning.md)
+- **Frontend code** → [PROJECT_STATUS.md – Phase 8 (Web)](./PROJECT_STATUS.md#phase-8-web-react-frontend-dashboard) (React app complete; repo **client-aws-ideas**), [technical/architecture.md](./technical/architecture.md), [project/planning.md](./project/planning.md)
 - **Infrastructure code** → [technical/architecture.md](./technical/architecture.md), [technical/aws-services.md](./technical/aws-services.md)
 - **Kiro-related code** → [technical/aws-services.md](./technical/aws-services.md), [technical/development-notes.md](./technical/development-notes.md)
 
@@ -306,6 +312,7 @@
 
 ### Semantic Search Keywords
 Each documentation file includes keywords in its header. Search for:
+- **App status:** app complete, project complete, frontend complete, React frontend, CostGuardAI, Phase 8 Web, client-aws-ideas, demo ready
 - **Technologies:** AWS, SageMaker, Lambda, Bedrock, Kiro, Nova, DynamoDB, EC2, GPU, etc.
 - **Concepts:** AI, ML, architecture, design, planning, Free Tier, forecasting, prediction, confidence intervals
 - **Topics:** competition, submission, requirements, ideas, tracks, prizes

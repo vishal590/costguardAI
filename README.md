@@ -34,7 +34,7 @@
 
 ## 🚀 Project Overview
 
-**CostGuard** is a near-real-time AWS cost monitoring and estimation system that provides immediate visibility into cloud spending. Unlike traditional cost tracking tools that rely on AWS Cost Explorer's 24-hour delayed data, CostGuard estimates current costs by collecting CloudWatch metrics and applying real-time pricing calculations.
+**CostGuardAI** is a near-real-time AWS cost monitoring and estimation system that provides immediate visibility into cloud spending. The **React web frontend** (separate repo: **client-aws-ideas**) is complete for the demo scope; see [docs/PROJECT_STATUS.md – Phase 8 (Web)](./docs/PROJECT_STATUS.md#phase-8-web-react-frontend-dashboard). Unlike traditional cost tracking tools that rely on AWS Cost Explorer's 24-hour delayed data, CostGuard estimates current costs by collecting CloudWatch metrics and applying real-time pricing calculations.
 
 ### Key Features (Phases 1-6 Complete)
 
