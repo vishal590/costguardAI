@@ -537,18 +537,7 @@ class CostGuardStack(Stack):
         costs_by_account.add_method("GET", lambda_integration)
         self._disable_api_key_on_options(costs_by_account)
 
-        # Phase 6: Autonomous demo (stub when AutonomousStack not deployed; avoids 403 on OPTIONS/GET)
-        autonomous_resource = api_resource.add_resource("autonomous")
-        demo_status_resource = autonomous_resource.add_resource("demo-status")
-        demo_status_resource.add_method("GET", lambda_integration)
-        self._disable_api_key_on_options(demo_status_resource)
-        demo_resource = autonomous_resource.add_resource("demo")
-        demo_start_resource = demo_resource.add_resource("start")
-        demo_start_resource.add_method("POST", lambda_integration)
-        self._disable_api_key_on_options(demo_start_resource)
-        demo_reset_resource = demo_resource.add_resource("reset")
-        demo_reset_resource.add_method("POST", lambda_integration)
-        self._disable_api_key_on_options(demo_reset_resource)
+        # Phase 6 Autonomous API lives in AutonomousStack (separate API URL). No /api/autonomous on main API.
 
         # =====================================================================
         # EventBridge Schedule (Phase 3)

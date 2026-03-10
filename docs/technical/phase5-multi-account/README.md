@@ -342,7 +342,15 @@ https://{api-id}.execute-api.{region}.amazonaws.com/prod/api
 
 ### Authentication
 
-All API requests require an API key:
+All API requests require an API key in the `X-API-Key` header. The multi-account API validates keys against the **DynamoDB** table `costguard-api-keys` (not API Gateway usage plans).
+
+**Obtaining an API key:** After deploying CostGuardMultiAccountStack, run in the backend repo (aws-ideas):
+
+```bash
+python setup_api_auth.py
+```
+
+This creates the `costguard-api-keys` and `costguard-rate-limits` tables (if needed) and prints a test API key. Use that value in the frontend as `VITE_MULTI_ACCOUNT_API_KEY`. See `docs/deployment/DEPLOYMENT_BUGS_AND_FIXES.md` (Issue 5.2).
 
 ```bash
 curl -H "x-api-key: YOUR_API_KEY" \
@@ -610,14 +618,31 @@ All logs include:
 3. Verify Cost Explorer is enabled in member accounts
 4. Check CloudWatch logs for specific account errors
 
+#### API Returns 401 Unauthorized / Invalid API Key
+
+**Symptom**: API requests return 401 with "Invalid API key"
+
+**Solution**:
+1. The multi-account API uses **DynamoDB** for key validation, not API Gateway. Run `python setup_api_auth.py` in the backend repo to create the `costguard-api-keys` table and a test key.
+2. Use the printed key as `VITE_MULTI_ACCOUNT_API_KEY` in the frontend (or in `X-API-Key` header for direct API calls).
+3. Ensure the key is at least 32 characters and the table exists in the same account/region as the Lambda.
+
+#### API Returns 200 with Empty Data / "Your account is not a member of an AWS Organization"
+
+**Symptom**: Endpoints return HTTP 200 with `organizations: []`, `consolidated_costs` with zeros, or a `message` stating the account is not a member of an organization.
+
+**Explanation**: When the current AWS account is not part of an AWS Organization (or Organizations is not enabled), the API returns **success with empty data** and a clear message instead of 500. This allows the frontend to show an informative state (e.g. "Multi-account features require AWS Organizations (management account)").
+
+**Solution**: To use full multi-account features, enable AWS Organizations and use the **management account**, or call the API from an account that is a member of an organization. Create operations (e.g. create allocation rule, create organization budget) return **400** with the same message when Organizations is not in use.
+
 #### API Returns 403 Forbidden
 
 **Symptom**: API requests return 403 errors
 
 **Solution**:
 1. Verify API key is included in request headers
-2. Check API key is valid and not expired
-3. Verify IAM permissions for API Gateway
+2. Check API key is valid and not expired (DynamoDB table `costguard-api-keys`)
+3. Verify IAM permissions for API Gateway and Lambda
 4. Check rate limiting hasn't been exceeded
 
 #### DynamoDB Throttling

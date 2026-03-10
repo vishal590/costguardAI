@@ -127,11 +127,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Phase 5: Multi-account stub (full API in MultiAccountStack; stub returns empty data when using main API URL)
         elif http_method == 'GET' and ('/organizations' in path or path.endswith('/costs/consolidated') or path.endswith('/costs/by-account')):
             return handle_multi_account_stub(event)
-        # Phase 6: Autonomous demo (stub when AutonomousStack not deployed)
-        elif http_method == 'GET' and path.endswith('/autonomous/demo-status'):
-            return handle_autonomous_demo_stub(event)
-        elif http_method == 'POST' and (path.endswith('/autonomous/demo/start') or path.endswith('/autonomous/demo/reset')):
-            return handle_autonomous_demo_stub(event)
+        # Phase 6 Autonomous API is in AutonomousStack (separate API URL). Not handled by main Lambda.
         # Phase 6: AI/ML workload cost management endpoints
         elif '/ai-ml/' in path:
             # Delegate all AI/ML endpoints to the AI/ML handler

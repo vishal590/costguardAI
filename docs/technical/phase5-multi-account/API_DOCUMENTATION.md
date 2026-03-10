@@ -42,19 +42,13 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 ### Obtaining an API Key
 
-API keys are managed through AWS API Gateway:
+The multi-account API validates keys against the **DynamoDB** table `costguard-api-keys`, not API Gateway. After deploying CostGuardMultiAccountStack, run in the backend repo (aws-ideas):
 
 ```bash
-# Create API key
-aws apigateway create-api-key \
-  --name "CostGuard-API-Key" \
-  --enabled
-
-# Get API key value
-aws apigateway get-api-key \
-  --api-key YOUR_API_KEY_ID \
-  --include-value
+python setup_api_auth.py
 ```
+
+This creates the `costguard-api-keys` and `costguard-rate-limits` tables (if needed) and prints a test API key. Use that value in the `X-API-Key` header or as `VITE_MULTI_ACCOUNT_API_KEY` in the frontend. See `docs/deployment/DEPLOYMENT_BUGS_AND_FIXES.md` (Issue 5.2).
 
 ---
 

@@ -14,6 +14,7 @@ Includes:
 Requirements: Autonomous Action Loops requirements (1-12)
 """
 
+import os
 from aws_cdk import (
     Stack,
     Duration,
@@ -25,8 +26,10 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_sns as sns,
     aws_iam as iam,
+    aws_apigateway as apigateway,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cw_actions,
+    aws_logs as logs,
     CfnOutput,
 )
 from constructs import Construct
@@ -904,6 +907,113 @@ class AutonomousStack(Stack):
         spot_manager_rule.add_target(targets.LambdaFunction(spot_manager_lambda))
 
         # =====================================================================
+        # Autonomous API Lambda (REST API for demo, action-history, approve, etc.)
+        # =====================================================================
+
+        api_lambda_role = iam.Role(
+            self, "AutonomousAPILambdaRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+            description="IAM role for Autonomous API Lambda",
+        )
+        action_history_table.grant_read_write_data(api_lambda_role)
+        autonomous_event_bus.grant_put_events_to(api_lambda_role)
+        gpu_scheduler_lambda.grant_invoke(api_lambda_role)
+        learning_engine_lambda.grant_invoke(api_lambda_role)
+
+        project_root = os.path.join(os.path.dirname(__file__), "..")
+        autonomous_api_handler = lambda_.Function(
+            self, "AutonomousAPIHandler",
+            function_name="CostGuard-Autonomous-API",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="src.autonomous_handler.handler",
+            code=lambda_.Code.from_asset(
+                project_root,
+                exclude=[
+                    "cdk.out",
+                    "infrastructure",
+                    ".git",
+                    ".github",
+                    ".hypothesis",
+                    ".kiro",
+                    "tests",
+                    "docs",
+                    "scripts",
+                    "htmlcov",
+                    "*.md",
+                    ".coverage",
+                    ".coveragerc",
+                    ".pytest_cache",
+                    ".ruff_cache",
+                    "__pycache__",
+                    "*.pyc",
+                    "*.pyo",
+                    "*.py[cod]",
+                    ".venv",
+                    "venv",
+                    "env",
+                    ".env",
+                    "*.egg-info",
+                    "dist",
+                    "build",
+                    ".mypy_cache",
+                    ".tox",
+                    "*.log",
+                    "*.txt",
+                    "*.ps1",
+                    "*$py.class",
+                ],
+            ),
+            role=api_lambda_role,
+            timeout=Duration.seconds(29),
+            memory_size=256,
+            environment={
+                "ACTION_HISTORY_TABLE": action_history_table.table_name,
+                "EVENT_BUS_NAME": autonomous_event_bus.event_bus_name,
+                "GPU_SCHEDULER_FUNCTION": gpu_scheduler_lambda.function_name,
+                "LEARNING_ENGINE_FUNCTION": learning_engine_lambda.function_name,
+                "DEMO_MODE": "true",
+                "CHECKPOINTS_BUCKET": checkpoints_bucket.bucket_name,
+            },
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+
+        # =====================================================================
+        # API Gateway for Autonomous (Phase 6 Extension)
+        # =====================================================================
+
+        autonomous_api = apigateway.RestApi(
+            self, "AutonomousAPI",
+            rest_api_name="CostGuard-AutonomousAPI",
+            description="REST API for CostGuard Autonomous Action Loops (Phase 6 Extension)",
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_methods=apigateway.Cors.ALL_METHODS,
+                allow_headers=["Content-Type", "X-API-Key", "Authorization"],
+            ),
+        )
+        autonomous_integration = apigateway.LambdaIntegration(
+            autonomous_api_handler,
+            allow_test_invoke=False,
+            timeout=Duration.seconds(29),
+        )
+        api_resource = autonomous_api.root.add_resource("api")
+        autonomous_resource = api_resource.add_resource("autonomous")
+
+        autonomous_resource.add_resource("schedule-analysis").add_method("POST", autonomous_integration)
+        autonomous_resource.add_resource("action-history").add_method("GET", autonomous_integration)
+        autonomous_resource.add_resource("approve-action").add_method("POST", autonomous_integration)
+        autonomous_resource.add_resource("rollback").add_method("POST", autonomous_integration)
+        autonomous_resource.add_resource("confidence-scores").add_method("GET", autonomous_integration)
+        autonomous_resource.add_resource("demo-status").add_method("GET", autonomous_integration)
+        demo_resource = autonomous_resource.add_resource("demo")
+        demo_resource.add_resource("start").add_method("POST", autonomous_integration)
+        demo_resource.add_resource("reset").add_method("POST", autonomous_integration)
+        demo_resource.add_resource("trigger-interruption").add_method("POST", autonomous_integration)
+
+        # =====================================================================
         # Lambda Function Outputs
         # =====================================================================
 
@@ -935,6 +1045,12 @@ class AutonomousStack(Stack):
             self, "SafetyGuardFunctionArn",
             value=safety_guard_lambda.function_arn,
             description="Safety Guard Lambda function ARN",
+        )
+
+        CfnOutput(
+            self, "AutonomousAPIUrl",
+            value=autonomous_api.url,
+            description="Phase 6 Extension Autonomous API base URL (set VITE_AUTONOMOUS_API_BASE_URL in frontend)",
         )
 
         # Store references for use by Lambda functions in subsequent tasks

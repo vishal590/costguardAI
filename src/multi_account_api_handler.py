@@ -26,6 +26,7 @@ from .services.multi_account.repositories import (
 from .services.multi_account.api_auth import authenticate_and_authorize, create_auth_error_response
 from .services.multi_account.cloudwatch_metrics import get_metrics_service
 from .services.dynamodb import get_dynamodb_client
+from botocore.exceptions import ClientError
 from .utils.error_handler import format_error
 from .utils.date_utils import validate_date_format, validate_date_range
 
@@ -181,6 +182,25 @@ def handle_list_organizations(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == 'AWSOrganizationsNotInUseException':
+            # Account is standalone or Organizations not enabled — return empty list, not 500
+            logger.info("AWS Organizations is not in use for this account")
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'success': True,
+                    'organizations': [],
+                    'count': 0,
+                    'message': 'Your account is not a member of an AWS Organization. Multi-account features require AWS Organizations (management account).'
+                })
+            }
+        raise
     except Exception as e:
         logger.error(f"Error in handle_list_organizations: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -259,6 +279,17 @@ def handle_list_accounts(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            return _json_200({
+                'success': True,
+                'organization_id': org_id,
+                'accounts': [],
+                'count': 0,
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_list_accounts: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -370,6 +401,26 @@ def handle_consolidated_costs(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            query_params = event.get('queryStringParameters') or {}
+            return _json_200({
+                'success': True,
+                'consolidated_costs': {
+                    'total_cost': 0.0,
+                    'currency': 'USD',
+                    'period_start': query_params.get('start_date'),
+                    'period_end': query_params.get('end_date'),
+                    'granularity': query_params.get('granularity', 'MONTHLY'),
+                    'by_service': {},
+                    'by_account': {},
+                    'by_time_period': []
+                },
+                'timestamp': datetime.now(UTC).isoformat(),
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_consolidated_costs: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -450,6 +501,17 @@ def handle_costs_by_account(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            return _json_200({
+                'success': True,
+                'account_costs': [],
+                'count': 0,
+                'timestamp': datetime.now(UTC).isoformat(),
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_costs_by_account: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -591,6 +653,25 @@ def create_error_response(
             'Access-Control-Allow-Origin': '*'
         },
         'body': json.dumps(error_body)
+    }
+
+
+# When AWS Organizations is not in use, return 200 with empty data instead of 500
+_ORGANIZATIONS_NOT_IN_USE_MESSAGE = (
+    'Your account is not a member of an AWS Organization. '
+    'Multi-account features require AWS Organizations (management account).'
+)
+
+
+def _json_200(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Return 200 response with JSON body and CORS headers."""
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        'body': json.dumps(body)
     }
 
 
@@ -736,6 +817,20 @@ def handle_allocation_by_tag(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            query_params = event.get('queryStringParameters') or {}
+            return _json_200({
+                'success': True,
+                'tag_key': query_params.get('tag_key', 'Team'),
+                'allocated_costs': {},
+                'period_start': query_params.get('start_date'),
+                'period_end': query_params.get('end_date'),
+                'timestamp': datetime.now(UTC).isoformat(),
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_allocation_by_tag: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -835,6 +930,26 @@ def handle_unallocated_costs(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            query_params = event.get('queryStringParameters') or {}
+            return _json_200({
+                'success': True,
+                'unallocated_costs': {
+                    'total_cost': 0.0,
+                    'currency': 'USD',
+                    'percentage_of_total': 0.0,
+                    'by_service': {},
+                    'by_account': {},
+                    'untagged_resources': []
+                },
+                'period_start': query_params.get('start_date'),
+                'period_end': query_params.get('end_date'),
+                'timestamp': datetime.now(UTC).isoformat(),
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_unallocated_costs: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -937,6 +1052,15 @@ def handle_create_allocation_rule(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            return create_error_response(
+                400,
+                'ORGANIZATIONS_NOT_IN_USE',
+                _ORGANIZATIONS_NOT_IN_USE_MESSAGE,
+                {'aws_error_code': 'AWSOrganizationsNotInUseException'}
+            )
+        raise
     except Exception as e:
         logger.error(f"Error in handle_create_allocation_rule: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1036,6 +1160,20 @@ def handle_budget_hierarchy(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            logger.info("AWS Organizations is not in use for this account")
+            query_params = event.get('queryStringParameters') or {}
+            return _json_200({
+                'success': True,
+                'budget_hierarchy': {
+                    'organization': None,
+                    'organizational_units': []
+                },
+                'timestamp': datetime.now(UTC).isoformat(),
+                'message': _ORGANIZATIONS_NOT_IN_USE_MESSAGE
+            })
+        raise
     except Exception as e:
         logger.error(f"Error in handle_budget_hierarchy: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1137,6 +1275,15 @@ def handle_create_organization_budget(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps(response_data)
         }
     
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') == 'AWSOrganizationsNotInUseException':
+            return create_error_response(
+                400,
+                'ORGANIZATIONS_NOT_IN_USE',
+                _ORGANIZATIONS_NOT_IN_USE_MESSAGE,
+                {'aws_error_code': 'AWSOrganizationsNotInUseException'}
+            )
+        raise
     except Exception as e:
         logger.error(f"Error in handle_create_organization_budget: {str(e)}", exc_info=True)
         error_response = format_error(e)

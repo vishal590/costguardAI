@@ -200,8 +200,79 @@ def handle_gpu_costs(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def handle_gpu_utilization(event: Dict[str, Any]) -> Dict[str, Any]:
-    """Handle GET /api/ai-ml/gpu-utilization request. Requirements: API-1.2"""
-    return create_error_response(501, 'NOT_IMPLEMENTED', 'GPU utilization endpoint not yet implemented')
+    """
+    Handle GET /api/ai-ml/gpu-utilization request.
+    
+    Query parameters:
+    - start_date (required): Start date in YYYY-MM-DD format
+    - end_date (required): End date in YYYY-MM-DD format
+    - instance_id (optional): Filter by EC2 instance ID
+    - instance_type (optional): Filter by instance type (e.g. p3.2xlarge)
+    
+    Returns per-instance GPU utilization (CloudWatch GPUUtilization or CPUUtilization fallback).
+    Requirements: API-1.2
+    """
+    try:
+        import statistics
+        
+        query_params = event.get('queryStringParameters') or {}
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+        instance_id_filter = (query_params.get('instance_id') or '').strip() or None
+        instance_type_filter = (query_params.get('instance_type') or '').strip() or None
+        
+        if not start_date or not end_date:
+            return create_error_response(400, 'MISSING_PARAMETER', 'start_date and end_date are required')
+        if not validate_date_format(start_date) or not validate_date_format(end_date):
+            return create_error_response(400, 'INVALID_DATE_FORMAT', 'Dates must be in YYYY-MM-DD format')
+        if not validate_date_range(start_date, end_date):
+            return create_error_response(400, 'INVALID_DATE_RANGE', 'start_date must be before end_date')
+        
+        dynamodb = get_dynamodb_client()
+        detector = IdleGPUDetector(dynamodb)
+        gpu_instances = detector._get_gpu_instances(start_date, end_date)
+        
+        if instance_id_filter:
+            gpu_instances = [i for i in gpu_instances if i.get('instance_id') == instance_id_filter]
+        if instance_type_filter:
+            gpu_instances = [i for i in gpu_instances if (i.get('instance_type') or '').lower() == instance_type_filter.lower()]
+        
+        utilization_list = []
+        now_iso = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        
+        for inst in gpu_instances:
+            iid = inst.get('instance_id')
+            itype = inst.get('instance_type', '')
+            if not iid:
+                continue
+            values = detector._get_gpu_utilization(iid, start_date, end_date)
+            if not values:
+                utilization_list.append({
+                    'instance_id': iid,
+                    'instance_type': itype,
+                    'avg_utilization': None,
+                    'gpu_utilization_pattern': [],
+                    'timestamp': now_iso,
+                })
+                continue
+            avg_util = round(statistics.mean(values), 2)
+            utilization_list.append({
+                'instance_id': iid,
+                'instance_type': itype,
+                'avg_utilization': avg_util,
+                'gpu_utilization_pattern': [round(v, 2) for v in values[:96]],
+                'timestamp': now_iso,
+            })
+        
+        return create_success_response({
+            'utilization': utilization_list,
+            'date_range': {'start_date': start_date, 'end_date': end_date},
+        })
+    
+    except Exception as e:
+        logger.error(f"Error handling GPU utilization request: {str(e)}", exc_info=True)
+        error_response = format_error(e)
+        return create_error_response(500, error_response.code, error_response.message, error_response.details)
 
 
 def handle_idle_gpus(event: Dict[str, Any]) -> Dict[str, Any]:
