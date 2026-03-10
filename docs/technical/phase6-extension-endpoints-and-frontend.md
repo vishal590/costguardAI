@@ -28,3 +28,9 @@
 
 - **Backend:** Autonomous stack has its own API Gateway + Lambda (CostGuard-Autonomous-API) serving all 9 paths. Lambda env: `ACTION_HISTORY_TABLE`, `EVENT_BUS_NAME`, `GPU_SCHEDULER_FUNCTION`, `LEARNING_ENGINE_FUNCTION`, `DEMO_MODE`, `CHECKPOINTS_BUCKET`. Role has DynamoDB (action-history), EventBridge PutEvents, and Lambda invoke for GPU Scheduler and Learning Engine.
 - **Frontend:** Set `VITE_AUTONOMOUS_API_BASE_URL` to the Autonomous stack API URL (output **AutonomousAPIUrl**). Phase 6 Demo page (`/demo`) has 6 tabs; all 9 endpoints have apiSlice hooks and UI. When the URL is not set, the Demo page shows an info alert and skips requests.
+
+**Troubleshooting OPTIONS 403:** If you see `OPTIONS 403 Forbidden` on `/api/autonomous/demo-status` (and other autonomous paths), you are almost certainly using the **wrong base URL**. The AI/ML stack API (e.g. `chcymuh4qi...`) only has `/api/ai-ml/*` routes. The Autonomous stack has a **separate** API with `/api/autonomous/*`. Use the **AutonomousAPIUrl** output from `cdk deploy CostGuardAutonomousStack` for `VITE_AUTONOMOUS_API_BASE_URL`, not the AI/ML API URL.
+
+**Troubleshooting CORS error on GET/POST:** If preflight (OPTIONS) succeeds but the actual request shows "CORS error" in the browser, the Lambda response must include `Access-Control-Allow-Origin` (e.g. in `autonomous_handler.py`, all responses use `CORS_HEADERS`). Redeploy the Autonomous stack so the handler returns CORS on every response.
+
+**Behaviour (no config):** Demo-status phase and progress are time-based (0–10 min after demo/start). When phase is `completed`, in-progress actions older than 10 minutes are excluded from the count so the payload is consistent. Schedule-analysis returns payload only (e.g. `recommendations`, `analysis_timestamp`, `dry_run_mode`); empty `recommendations` is valid when there are no scheduling opportunities.

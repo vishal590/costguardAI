@@ -35,6 +35,9 @@ lambda_client = boto3.client("lambda")
 # Tables
 action_history_table = dynamodb.Table(ACTION_HISTORY_TABLE)
 
+# CORS headers for browser requests (API Gateway only adds them to OPTIONS; Lambda must add to GET/POST)
+CORS_HEADERS = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+
 
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder for Decimal types."""
@@ -83,7 +86,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             return {
                 'statusCode': 404,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': f'Endpoint not found: {http_method} {path}'})
             }
             
@@ -91,7 +94,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"Error in autonomous handler: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -124,14 +127,14 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(days, int) or days < 1 or days > 30:
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'days must be an integer between 1 and 30'})
             }
         
         if not isinstance(confidence_threshold, (int, float)) or confidence_threshold < 0 or confidence_threshold > 1:
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'confidence_threshold must be between 0 and 1'})
             }
         
@@ -150,16 +153,22 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
             )
             
             result = json.loads(response['Payload'].read())
+            # GPU Scheduler may return API Gateway shape; unwrap so client gets payload only
+            if isinstance(result, dict) and 'body' in result and 'statusCode' in result:
+                body_content = result['body']
+                if isinstance(body_content, str):
+                    body_content = json.loads(body_content)
+                result = body_content
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps(result, cls=DecimalEncoder)
             }
         else:
             return {
                 'statusCode': 503,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'GPU Scheduler function not configured'})
             }
             
@@ -167,7 +176,7 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in schedule analysis: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -203,7 +212,7 @@ def handle_action_history(event: Dict[str, Any]) -> Dict[str, Any]:
         if limit < 1 or limit > 1000:
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'limit must be between 1 and 1000'})
             }
         
@@ -267,7 +276,7 @@ def handle_action_history(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'actions': actions,
                 'count': len(actions),
@@ -280,7 +289,7 @@ def handle_action_history(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in action history: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -314,7 +323,7 @@ def handle_approve_action(event: Dict[str, Any]) -> Dict[str, Any]:
         if not all([request_id, action_id, signature is not None, approved is not None]):
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'Missing required fields: request_id, action_id, approved, signature'})
             }
         
@@ -342,7 +351,7 @@ def handle_approve_action(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'status': 'approved' if approved else 'rejected',
                 'action_id': action_id,
@@ -354,7 +363,7 @@ def handle_approve_action(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in approve action: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -384,7 +393,7 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
         if not action_id:
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'Missing required field: action_id'})
             }
         
@@ -409,7 +418,7 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 202,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'status': 'rollback_initiated',
                 'action_id': action_id,
@@ -422,7 +431,7 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in rollback: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -484,7 +493,7 @@ def handle_confidence_scores(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'confidence_scores': scores_by_type,
                 'timestamp': datetime.utcnow().isoformat()
@@ -495,7 +504,7 @@ def handle_confidence_scores(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in confidence scores: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -583,6 +592,11 @@ def handle_demo_status(event: Dict[str, Any]) -> Dict[str, Any]:
             # Estimate completion time
             remaining_minutes = max(0, 10 - elapsed_minutes)
             estimated_completion = (datetime.utcnow() + timedelta(minutes=remaining_minutes)).isoformat() + 'Z'
+            
+            # When phase is completed, don't show stale in-progress actions (demo_start is never updated to completed in DB)
+            if current_phase == 'completed':
+                cutoff_recent = (datetime.utcnow() - timedelta(minutes=10)).isoformat() + 'Z'
+                in_progress = [a for a in in_progress if (a.get('timestamp') or '') >= cutoff_recent]
         else:
             overall_progress = 0.0
         
@@ -616,7 +630,7 @@ def handle_demo_status(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'demo_mode': True,
                 'current_phase': current_phase,
@@ -642,7 +656,7 @@ def handle_demo_status(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error in demo status: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': str(e)})
         }
 
@@ -664,7 +678,7 @@ def handle_demo_start(event: Dict[str, Any]) -> Dict[str, Any]:
         if not os.environ.get('DEMO_MODE', 'false').lower() == 'true':
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'error': 'Demo mode is not enabled',
                     'message': 'Set DEMO_MODE=true environment variable to enable demo mode'
@@ -702,7 +716,7 @@ def handle_demo_start(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'message': 'Demo sequence initiated',
                 'demo_mode': True,
@@ -719,7 +733,7 @@ def handle_demo_start(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error starting demo: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to start demo: {str(e)}'})
         }
 
@@ -737,7 +751,7 @@ def handle_demo_reset(event: Dict[str, Any]) -> Dict[str, Any]:
         if not os.environ.get('DEMO_MODE', 'false').lower() == 'true':
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'error': 'Demo mode is not enabled',
                     'message': 'Set DEMO_MODE=true environment variable to enable demo mode'
@@ -804,7 +818,7 @@ def handle_demo_reset(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'message': 'Demo data reset successfully',
                 'deleted_counts': deleted_counts,
@@ -816,7 +830,7 @@ def handle_demo_reset(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error resetting demo: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to reset demo: {str(e)}'})
         }
 
@@ -839,7 +853,7 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
         if not os.environ.get('DEMO_MODE', 'false').lower() == 'true':
             return {
                 'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'error': 'Demo mode is not enabled',
                     'message': 'Set DEMO_MODE=true environment variable to enable demo mode'
@@ -871,7 +885,7 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
         if response.get('FailedEntryCount', 0) > 0:
             return {
                 'statusCode': 500,
-                'headers': {'Content-Type': 'application/json'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'error': 'Failed to publish interruption event',
                     'details': response.get('Entries', [])
@@ -895,7 +909,7 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'message': 'Spot interruption triggered successfully',
                 'instance_id': instance_id,
@@ -913,6 +927,6 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error triggering interruption: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to trigger interruption: {str(e)}'})
         }

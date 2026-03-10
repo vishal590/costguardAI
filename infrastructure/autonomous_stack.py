@@ -1002,16 +1002,48 @@ class AutonomousStack(Stack):
         api_resource = autonomous_api.root.add_resource("api")
         autonomous_resource = api_resource.add_resource("autonomous")
 
-        autonomous_resource.add_resource("schedule-analysis").add_method("POST", autonomous_integration)
-        autonomous_resource.add_resource("action-history").add_method("GET", autonomous_integration)
-        autonomous_resource.add_resource("approve-action").add_method("POST", autonomous_integration)
-        autonomous_resource.add_resource("rollback").add_method("POST", autonomous_integration)
-        autonomous_resource.add_resource("confidence-scores").add_method("GET", autonomous_integration)
-        autonomous_resource.add_resource("demo-status").add_method("GET", autonomous_integration)
+        # OPTIONS (CORS preflight) must not require API key so browser preflight succeeds.
+        self._disable_api_key_on_options(api_resource)
+        self._disable_api_key_on_options(autonomous_resource)
+
+        schedule_analysis_res = autonomous_resource.add_resource("schedule-analysis")
+        schedule_analysis_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(schedule_analysis_res)
+
+        action_history_res = autonomous_resource.add_resource("action-history")
+        action_history_res.add_method("GET", autonomous_integration)
+        self._disable_api_key_on_options(action_history_res)
+
+        approve_action_res = autonomous_resource.add_resource("approve-action")
+        approve_action_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(approve_action_res)
+
+        rollback_res = autonomous_resource.add_resource("rollback")
+        rollback_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(rollback_res)
+
+        confidence_scores_res = autonomous_resource.add_resource("confidence-scores")
+        confidence_scores_res.add_method("GET", autonomous_integration)
+        self._disable_api_key_on_options(confidence_scores_res)
+
+        demo_status_res = autonomous_resource.add_resource("demo-status")
+        demo_status_res.add_method("GET", autonomous_integration)
+        self._disable_api_key_on_options(demo_status_res)
+
         demo_resource = autonomous_resource.add_resource("demo")
-        demo_resource.add_resource("start").add_method("POST", autonomous_integration)
-        demo_resource.add_resource("reset").add_method("POST", autonomous_integration)
-        demo_resource.add_resource("trigger-interruption").add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(demo_resource)
+
+        demo_start_res = demo_resource.add_resource("start")
+        demo_start_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(demo_start_res)
+
+        demo_reset_res = demo_resource.add_resource("reset")
+        demo_reset_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(demo_reset_res)
+
+        demo_trigger_res = demo_resource.add_resource("trigger-interruption")
+        demo_trigger_res.add_method("POST", autonomous_integration)
+        self._disable_api_key_on_options(demo_trigger_res)
 
         # =====================================================================
         # Lambda Function Outputs
@@ -1072,3 +1104,12 @@ class AutonomousStack(Stack):
         self.right_sizer_lambda = right_sizer_lambda
         self.learning_engine_lambda = learning_engine_lambda
         self.safety_guard_lambda = safety_guard_lambda
+
+    def _disable_api_key_on_options(self, resource: apigateway.Resource) -> None:
+        """Set ApiKeyRequired=false on the OPTIONS method so CORS preflight succeeds without x-api-key."""
+        for child in resource.node.children:
+            if isinstance(child, apigateway.Method) and getattr(child, "http_method", None) == "OPTIONS":
+                cfn = child.node.default_child
+                if cfn is not None:
+                    cfn.add_property_override("ApiKeyRequired", False)
+                break
