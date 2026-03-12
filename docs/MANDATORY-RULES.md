@@ -118,7 +118,7 @@
 - **[competition/overview.md](./competition/overview.md)** - Competition overview (Get Started section)
 - **[competition/important-notes.md](./competition/important-notes.md)** - Important clarifications
 - **[submission/requirements.md](./submission/requirements.md)** - Submission requirements (written pitch, no code required)
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ Initial submission pitch
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐ Initial submission pitch
 - **[submission/checklist.md](./submission/checklist.md)** - Pre-submission checklist
 - **[submission/process.md](./submission/process.md)** - Submission process stages
 - **[INDEX.md](./INDEX.md)** - Master documentation index

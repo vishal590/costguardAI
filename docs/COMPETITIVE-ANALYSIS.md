@@ -7,7 +7,7 @@
 
 ## Related Files
 - **[project/ideas.md](./project/ideas.md)** - CostGuard AI concept and features
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - Submission pitch
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - Submission pitch
 - **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - Alignment with hackathon goals
 - **[technical/architecture.md](./technical/architecture.md)** - Technical implementation
 - **[INDEX.md](./INDEX.md)** - Master documentation index
@@ -699,7 +699,7 @@
 - **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)** - 🔥 **Phase 5 Multi-Account Cost Management - Foundation**
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
 - **[TECHNICAL-FEASIBILITY-ASSESSMENT.md](./TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - 🔍 **Brutal honest technical feasibility analysis - can we actually deliver?**
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ Current submission pitch (needs refinement based on this analysis)
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐ Current submission pitch (needs refinement based on this analysis)
 - **[project/ideas.md](./project/ideas.md)** - CostGuard AI concept and features
 - **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - Alignment with hackathon goals
 

@@ -141,7 +141,8 @@ Your Builder Center article must include:
 
 ## See Also
 
-- **[initial-pitch.md](./initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Ready for submission)**
+- **[FORM-FIELD-RESPONSES.md](./FORM-FIELD-RESPONSES.md)** - **Actual submitted form content** (big idea, vision, impact, game plan, AWS services)
+- **[SUBMISSION-READY-PITCH.md](./SUBMISSION-READY-PITCH.md)** - CostGuard AI narrative pitch (expanded version; form fields are in FORM-FIELD-RESPONSES)
 - **[../ALIGNMENT-ANALYSIS.md](../ALIGNMENT-ANALYSIS.md)** - ✅ **Alignment analysis validating submission against hackathon goals**
 - **[process.md](./process.md)** - Submission process stages
 - **[checklist.md](./checklist.md)** - Pre-submission checklist

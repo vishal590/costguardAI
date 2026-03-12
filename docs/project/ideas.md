@@ -100,7 +100,7 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 - ✅ AWS services planned
 - ✅ Kiro usage plan designed
 - ✅ Architecture design created
-- ✅ Initial submission pitch drafted (see [../submission/initial-pitch.md](../submission/initial-pitch.md))
+- ✅ Initial submission pitch drafted (see [../submission/SUBMISSION-READY-PITCH.md](../submission/SUBMISSION-READY-PITCH.md))
 - ⏭️ Review and finalize submission pitch
 - ⏭️ Submit by January 21, 2026 11:59pm PT
 
@@ -192,7 +192,7 @@ See [competition tracks](../competition/tracks.md) for the five available tracks
 - **[../technical/aws-services.md](../technical/aws-services.md)** - AWS services for CostGuard AI implementation
 - **[../competition/tracks.md](../competition/tracks.md)** - Commercial Potential track details
 - **[../submission/requirements.md](../submission/requirements.md)** - Submission requirements for CostGuard AI
-- **[../submission/initial-pitch.md](../submission/initial-pitch.md)** - ⭐ Initial submission pitch
+- **[../submission/SUBMISSION-READY-PITCH.md](../submission/SUBMISSION-READY-PITCH.md)** - ⭐ Initial submission pitch
 - **[../submission/judging-criteria.md](../submission/judging-criteria.md)** - Judging criteria (market impact focus)
 - **[../resources/research.md](../resources/research.md)** - Market research and competitive analysis
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

@@ -694,11 +694,11 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 
 The project uses a comprehensive testing strategy:
 
-- **Unit Tests:** Test individual components with mocked dependencies (962 tests)
+- **Unit Tests:** Test individual components with mocked dependencies (1,134 tests)
 - **Property-Based Tests:** Validate universal properties using Hypothesis (386 tests, 100+ iterations per property)
-- **Integration Tests:** Test end-to-end flows and service interactions (126 tests)
+- **Integration Tests:** Test end-to-end flows and service interactions (101 tests)
 
-**Test Coverage:** 87%+ code coverage maintained (1,434 tests passing across all phases)
+**Test Coverage:** 87%+ code coverage maintained (1,621 tests passing across all phases)
 
 **Key Properties Tested:**
 - **Phase 1 & 1.5:** Non-negative cost estimates, pricing data freshness, API response validation

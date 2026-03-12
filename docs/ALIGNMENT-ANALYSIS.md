@@ -3,7 +3,7 @@
 **Keywords:** alignment, analysis, hackathon goals, Ana Cunha article, problem-first approach, feasibility checks, track selection, Free Tier compliance, Kiro usage, submission structure, validation, verification, CostGuard AI, commercial potential, real problems, buildable solution, original application, semantic search, discoverability, cross-referencing
 
 ## Related Files
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ Final submission pitch (validated in this analysis)
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐ Final submission pitch (validated in this analysis)
 - **[project/ideas.md](./project/ideas.md)** - Problem identification and solution concept
 - **[competition/tracks.md](./competition/tracks.md)** - Track selection rationale (Commercial Potential)
 - **[technical/aws-services.md](./technical/aws-services.md)** - Free Tier compliance verification
@@ -260,7 +260,7 @@
 ## See Also
 
 ### Core Documentation
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ Final submission pitch (validated in this analysis)
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐ Final submission pitch (validated in this analysis)
 - **[project/ideas.md](./project/ideas.md)** - Problem identification and solution concept
 - **[project/planning.md](./project/planning.md)** - Project planning and timeline
 - **[competition/tracks.md](./competition/tracks.md)** - Track selection rationale (Commercial Potential)

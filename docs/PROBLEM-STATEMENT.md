@@ -5,7 +5,7 @@
 ## Related Files
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10)**
 - **[project/ideas.md](./project/ideas.md)** - CostGuard AI concept
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - Submission pitch
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - Submission pitch
 - **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Competitive landscape
 - **[TECHNICAL-FEASIBILITY-ASSESSMENT.md](./TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - Technical feasibility
 - **[INDEX.md](./INDEX.md)** - Master documentation index
@@ -190,7 +190,7 @@ We're not building "another cost management tool." We're building "cost preventi
 ## See Also
 
 - **[project/ideas.md](./project/ideas.md)** - CostGuard AI concept and problem identification
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - Submission pitch (needs to emphasize real problem)
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - Submission pitch (needs to emphasize real problem)
 - **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Competitive landscape and differentiation
 - **[TECHNICAL-FEASIBILITY-ASSESSMENT.md](./TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - Technical feasibility
 - **[INDEX.md](./INDEX.md)** - Master documentation index

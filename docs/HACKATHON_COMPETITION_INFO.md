@@ -1,6 +1,8 @@
 # AWS 10,000 AIdeas Competition - Official Information
 
-**Source:** [10,000 AIdeas Competition | AWS Builder Center](https://builder.aws.com/connect/events/10000aideas)  
+**This doc is a local copy of the hackathon website page** — content copy-pasted from the official site for reference. For the live page and any updates, use the link below.
+
+**Source (official page):** [10,000 AIdeas Competition | AWS Builder Center](https://builder.aws.com/connect/events/10000aideas)  
 **Last Updated:** March 9, 2026  
 **Current Status:** Semi-Finalist (Top 1,000)
 
@@ -279,8 +281,8 @@ No. Applications are judged on innovation, efficiency, and practical impact—no
 ## CostGuard AI Status
 
 **Current Phase:** Semi-Finalist (Top 1,000) ✅  
-**Next Deadline:** March 13, 2026 - Article submission  
-**Days Remaining:** 4 days (as of March 9, 2026)
+**Next Deadline:** March 13, 2026 - Article submission (**11:59pm PT** per [competition/terms.md](./competition/terms.md) and [competition/timeline.md](./competition/timeline.md))  
+**Days Remaining:** Update as needed — aim to publish early to maximize likes.
 
 **Our Compliance:**
 - ✅ Used Kiro for 70%+ of development

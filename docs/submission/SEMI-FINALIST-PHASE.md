@@ -3,8 +3,9 @@
 **Keywords:** semi-finalist, building phase, article requirements, Kiro credits, AWS credits, Builder Center, article submission, demo, likes, community voting, deadlines, March 2026, CostGuard AI, development phase
 
 ## Related Files
+- **[SEMI_FINALIST_SELECTION_EMAIL.md](./SEMI_FINALIST_SELECTION_EMAIL.md)** - **Official source** for deadlines, credits, and article guidelines (use this for canonical dates and rules)
+- **[HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md)** - Article sections, Terms, quality; copy-paste content in [ARTICLE_DRAFT.md](./ARTICLE_DRAFT.md)
 - **[FORM-FIELD-RESPONSES.md](./FORM-FIELD-RESPONSES.md)** - Original submission form responses
-- **[article-requirements.md](./article-requirements.md)** - Detailed Builder Center article requirements
 - **[requirements.md](./requirements.md)** - Overall submission requirements
 - **[process.md](./process.md)** - Submission process stages
 - **[checklist.md](./checklist.md)** - Pre-submission checklist
@@ -18,7 +19,7 @@
 ## Current Status ✅
 
 **Status:** Semi-Finalist (Top 1,000)  
-**Competition:** 10,000 Aldeas Competition  
+**Competition:** 10,000 AIdeas Competition  
 **Project:** CostGuard AI - AWS Cost Prevention Platform  
 **Announcement Date:** February 12, 2026  
 **Team:** CostGuard AI Team
@@ -48,22 +49,16 @@ As a semi-finalist, you must complete three critical tasks:
 
 ### Kiro Usage
 
-**Credits Provided:**
-- **2000 Kiro Credits** (equivalent to Kiro Pro+ subscription)
-- **Redemption Code:** `https://kiro.dev/redeem/aideas2026-baa75c7e4a39`
-- **Support:** [Kiro Billing Support](https://support.aws.amazon.com/#/contacts/kiro)
+**Credits and redemption:** See [SEMI_FINALIST_SELECTION_EMAIL.md](./SEMI_FINALIST_SELECTION_EMAIL.md) for 2000 Kiro Credits, redemption URL, and support link.
 
 **Kiro Usage Requirements:**
 - Must use Kiro for at least a portion of development
-- Document Kiro usage in your article (see [article-requirements.md](./article-requirements.md))
+- Document Kiro usage in your article (see [HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md))
 - Reference your original game plan from [FORM-FIELD-RESPONSES.md](./FORM-FIELD-RESPONSES.md)
 
 ### AWS Free Tier Usage
 
-**Credits Provided:**
-- **$200 AWS Credit**
-- **Redemption Code:** `PC3PXQHPSME1244`
-- **Instructions:** [How to redeem AWS credits](https://aws.amazon.com/awscredits/)
+**Credits and redemption:** See [SEMI_FINALIST_SELECTION_EMAIL.md](./SEMI_FINALIST_SELECTION_EMAIL.md) for $200 AWS Credit, redemption code, and instructions.
 
 **AWS Free Tier Requirements:**
 - Use AWS Free Tier services only
@@ -90,16 +85,18 @@ As a semi-finalist, you must complete three critical tasks:
 
 ### Article Deadline
 
-**Publication Deadline:** March 13, 2026, 8:00 PM UTC
-- **Pacific Time:** March 13, 2026, 12:00 PM PT
-- **India Standard Time:** March 14, 2026, 4:00 AM IST
+**Publication Deadline (per selection email):** March 13, 2026
+- **8:00 PM UTC** = **12:00 PM PT** = **4:00 AM IST (March 14)**  
+- See [SEMI_FINALIST_SELECTION_EMAIL.md](./SEMI_FINALIST_SELECTION_EMAIL.md). Other docs (e.g. [competition/timeline.md](../competition/timeline.md)) may cite 11:59pm PT; **follow the email** and publish by **12:00 PM PT** to be safe.
 
-**⚠️ IMPORTANT:** The sooner you publish, the more time you have to earn likes.
+**Tip:** The sooner you publish, the more time you have to earn likes.
 
 ### Article Platform
 
 **Platform:** AWS Builder Center  
 **URL:** [AWS Builder Center](https://aws.amazon.com/builders-center/)
+
+**How to create it:** Use **Article**, not a post in the space. On any Builder Center page, click the **"+"** (top right) → **Create** → **Article**. This gives you full space for screenshots/video, text, and required tags. After publishing, share your article in the [10,000 AIdeas Competition space](https://builder.aws.com/connect/space/3a92613a-ce41-30a7-bc0d-6067611fbd09/10000-aideas-competition). See [HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md) (“Create an Article, not a Post”).
 
 ### Required Article Sections
 
@@ -214,14 +211,14 @@ Your article **must include** the following sections:
 
 #### Article Title
 
-**Required Format:**
+**Required Format (per official email):**
 ```
-Aldeas: [your project or app name]
+AIdeas: [your project or app name]
 ```
 
 **For CostGuard AI:**
 ```
-Aldeas: CostGuard AI
+AIdeas: CostGuard AI
 ```
 
 #### Article Tags
@@ -323,7 +320,7 @@ Aldeas: CostGuard AI
 
 ### Community & Support
 
-#### 10,000 Aldeas Builder Space
+#### 10,000 AIdeas Builder Space
 
 **Purpose:**
 - Resources
@@ -331,7 +328,7 @@ Aldeas: CostGuard AI
 - Announcements
 - Questions and answers
 
-**Access:** Join the 10,000 Aldeas Builder Space (link provided in email)
+**Access:** Join the 10,000 AIdeas Builder Space (link provided in email)
 
 #### Support Channels
 
@@ -345,7 +342,7 @@ Aldeas: CostGuard AI
 - AWS Support
 
 **Competition Questions:**
-- Use the 10,000 Aldeas space
+- Use the 10,000 AIdeas space
 - Do NOT reply to the email
 
 ---
@@ -389,7 +386,7 @@ Aldeas: CostGuard AI
 - [ ] Create demo (screenshots or <5 min video)
 - [ ] Draft "What I Learned" section
 - [ ] Create/select cover image
-- [ ] Format article title: "Aldeas: CostGuard AI"
+- [ ] Format article title: "AIdeas: CostGuard AI"
 - [ ] Select tags: `#aideas-2025`, `#commercial-solutions`, `[region tag]`
 - [ ] Review article for completeness
 - [ ] Publish on AWS Builder Center by March 13, 2026, 8:00 PM UTC
@@ -441,7 +438,7 @@ Aldeas: CostGuard AI
 ### Related Documentation
 
 - **[FORM-FIELD-RESPONSES.md](./FORM-FIELD-RESPONSES.md)** - Original submission with game plan
-- **[article-requirements.md](./article-requirements.md)** - Detailed article requirements
+- **[HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md)** - Article requirements; [ARTICLE_DRAFT.md](./ARTICLE_DRAFT.md) for copy-paste
 - **[requirements.md](./requirements.md)** - Overall submission requirements
 - **[process.md](./process.md)** - Submission process stages
 - **[../project/planning.md](../project/planning.md)** - Project planning details
@@ -477,5 +474,5 @@ Aldeas: CostGuard AI
 ## See Also
 
 - **[INDEX.md](../INDEX.md)** - Master documentation index
-- **[10,000 Aldeas Builder Space]** - Community support and resources
+- **[10,000 AIdeas Builder Space]** - Community support and resources
 - **[AWS Builder Center](https://aws.amazon.com/builders-center/)** - Article publication platform

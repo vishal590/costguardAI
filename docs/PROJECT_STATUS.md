@@ -24,7 +24,7 @@ CostGuard AI is a comprehensive AWS cost management system with 8 phases + auton
 **Total Tests:** 1621 passing (1134 unit + 386 property + 101 integration)  
 **Phase 6 & 6 Extension:** 212 unit tests passing (41 Phase 6 + 171 Phase 6 Extension)  
 **Overall Coverage:** 87%  
-**Monthly Cost:** ~$4.01 (Phases 1-6 + Autonomous)
+**Monthly Cost:** ~$4.51 (Phases 1-6 + Autonomous; see breakdown below)
 
 ---
 
@@ -660,7 +660,8 @@ Total Monthly Cost: ~$4.51
 ├── Phase 3: ~$0.00 (within free tier)
 ├── Phase 4: ~$0.50 (Bedrock API)
 ├── Phase 5: ~$1.50 (DynamoDB, Lambda, API Gateway)
-└── Phase 6: ~$1.00 (DynamoDB, Lambda, API Gateway, Cost Explorer) [deployed]
+├── Phase 6: ~$1.00 (DynamoDB, Lambda, API Gateway, Cost Explorer) [deployed]
+└── Phase 6 Extension (Autonomous): ~$0.00 (within free tier) [deployed]
 
 Free Tier Usage:
 ├── Lambda: ~30,000 invocations/month (within 1M free tier)

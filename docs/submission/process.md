@@ -3,9 +3,9 @@
 **Keywords:** submission process, stages, phases, initial submission, semi-finalists, finalists, voting, community voting, expert review
 
 ## Related Files
-- **[requirements.md](./requirements.md)** - Submission requirements
+- **[requirements.md](./requirements.md)** - **What's required** at each stage (initial + semi-finalist + article)
 - **[checklist.md](./checklist.md)** - Pre-submission checklist
-- **[article-requirements.md](./article-requirements.md)** - Builder Center article requirements
+- **[HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md)** - Article sections and requirements (copy-paste: [ARTICLE_DRAFT.md](./ARTICLE_DRAFT.md))
 - **[../competition/timeline.md](../competition/timeline.md)** - Competition timeline
 - **[../competition/overview.md](../competition/overview.md)** - Competition overview
 - **[../INDEX.md](../INDEX.md)** - Master documentation index

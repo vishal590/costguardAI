@@ -26,6 +26,7 @@
 - **⚠️ TERMS & CONDITIONS:** [competition/terms.md](./competition/terms.md) - Complete terms (READ FIRST)
 - **Competition Deadline:** January 21, 2026 11:59pm PT
 - **Semi-Finalists:** February 11, 2026 5:00pm PT (Top 1,000)
+- **Article Deadline:** March 13, 2026 8:00 PM UTC (12:00 PM PT) ⏰ (Builder Center article)
 - **Top 300:** March 20, 2026 9:00am PT
 - **Finalists:** April 3, 2026 5:00pm PT (50 finalists)
 - **Final Voting:** April 3-30, 2026
@@ -52,12 +53,14 @@
 
 ### Submission
 - **[submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements (February 2026)**
+- **[submission/SEMI_FINALIST_SELECTION_EMAIL.md](./submission/SEMI_FINALIST_SELECTION_EMAIL.md)** - 📧 **Official selection email - deadlines (8:00 PM UTC), credits, article guidelines, no-reply note**
 - **[HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md)** - 📋 **Official AWS 10,000 AIdeas Competition info - rules, prizes, timeline, requirements (8 days to article deadline)** - `hackathon` `competition` `AWS 10,000 AIdeas` `prizes` `timeline` `eligibility` `technical requirements` `Free Tier` `semi-finalist` `community voting` `expert review` `article deadline` `March 13 2026`
 - **[HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md)** - 🏆 **Complete winning strategy - article plan, community engagement, judging criteria, 8-day action plan** - `winning strategy` `competition strategy` `judging criteria` `innovation showcase` `technical depth` `community voting` `expert review` `article strategy` `demo strategy` `competitive positioning` `Innovation Award` `Global Champion` `Regional Champion` `8-day action plan`
+- **[HACKATHON_WINNING_QUESTIONS.md](./HACKATHON_WINNING_QUESTIONS.md)** - ❓ **Important questions to ask (and answer) to win - quick list + where to find answers** - `winning questions` `article checklist` `voting` `judging` `eligibility` `timeline`
 - **[submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)** - 📋 **Original submission form responses with game plan**
 - **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐⭐ **READY TO COPY - Submission-ready pitch (fill in [YOUR NAME] and submit)**
 - **[submission/SUBMISSION-GUIDE.md](./submission/SUBMISSION-GUIDE.md)** - 📋 **Step-by-step submission guide**
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - ⭐ **CostGuard AI Initial Submission Pitch (Reference version)**
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - CostGuard AI submission pitch (copy-paste for form)
 - **[PROBLEM-STATEMENT.md](./PROBLEM-STATEMENT.md)** - 🎯 **The REAL problem - why CostGuard AI solves a real problem, not generic features**
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
 - **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - ✅ **Comprehensive alignment analysis with hackathon goals and Ana Cunha's article**
@@ -68,7 +71,7 @@
 - **[submission/process.md](./submission/process.md)** - Five-stage submission process
 - **[submission/judging-criteria.md](./submission/judging-criteria.md)** - Judging criteria for each stage
 - **[submission/checklist.md](./submission/checklist.md)** - Pre-submission verification checklist
-- **[submission/article-requirements.md](./submission/article-requirements.md)** - Builder Center article requirements
+- **[submission/HOW_TO_WRITE_ARTICLE.md](./submission/HOW_TO_WRITE_ARTICLE.md)** - Article requirements & how to write (copy-paste: [ARTICLE_DRAFT.md](./submission/ARTICLE_DRAFT.md))
 
 ### Project Planning
 - **[project/phase-timeline.md](./project/phase-timeline.md)** - 📅 **Complete Phase Timeline & Priorities - All 10 phases with hackathon priorities, effort estimates, and success criteria**
@@ -169,7 +172,7 @@
 - **Prizes:** [competition/prizes.md](./competition/prizes.md)
 - **Semi-Finalist Phase:** [submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md) 🚀 **CURRENT PHASE**
 - **Submission Requirements:** [submission/requirements.md](./submission/requirements.md), [submission/checklist.md](./submission/checklist.md)
-- **Article Requirements:** [submission/article-requirements.md](./submission/article-requirements.md)
+- **Article Requirements:** [submission/HOW_TO_WRITE_ARTICLE.md](./submission/HOW_TO_WRITE_ARTICLE.md)
 - **Form Responses:** [submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)
 
 ### AI & Machine Learning
@@ -226,7 +229,7 @@
 - **...see semi-finalist requirements** → [submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md) 🚀 **CURRENT PHASE**
 - **...see judging criteria** → [submission/judging-criteria.md](./submission/judging-criteria.md)
 - **...check submission checklist** → [submission/checklist.md](./submission/checklist.md)
-- **...see article requirements** → [submission/article-requirements.md](./submission/article-requirements.md)
+- **...see article requirements** → [submission/HOW_TO_WRITE_ARTICLE.md](./submission/HOW_TO_WRITE_ARTICLE.md)
 - **...see original form responses** → [submission/FORM-FIELD-RESPONSES.md](./submission/FORM-FIELD-RESPONSES.md)
 - **...brainstorm ideas** → [project/ideas.md](./project/ideas.md) (CostGuard AI)
 - **...see selected project idea** → [project/ideas.md](./project/ideas.md) (CostGuard AI - Commercial Potential track)
@@ -274,7 +277,9 @@
 - **...understand our differentiation** → [INNOVATION-STRATEGY.md](./INNOVATION-STRATEGY.md) 💡 **What makes CostGuard unique**
 - **...understand hackathon competition** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md) 📋 **Official competition rules, prizes, timeline**
 - **...develop winning strategy** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md) 🏆 **Complete strategy for winning**
+- **...see important questions to win** → [HACKATHON_WINNING_QUESTIONS.md](./HACKATHON_WINNING_QUESTIONS.md) ❓ **Quick list + where to find answers**
 - **...prepare article submission** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#article-strategy-march-13-deadline) 📝 **Article structure and content plan**
+- **...see how to write the article** → [submission/HOW_TO_WRITE_ARTICLE.md](./submission/HOW_TO_WRITE_ARTICLE.md) 📝 **Step-by-step: title, tags, sections, template, checklist**
 - **...understand judging criteria** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#what-judges-are-looking-for) 🎯 **Community voting and expert review criteria**
 - **...see competition timeline** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md#timeline) ⏰ **8 days to article deadline**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
@@ -345,6 +350,7 @@ docs/
 │
 ├── submission/
 │   ├── SEMI-FINALIST-PHASE.md  # 🚀 CURRENT PHASE - Semi-finalist building & article requirements
+│   ├── SEMI_FINALIST_SELECTION_EMAIL.md  # Official selection email (deadlines, credits, guidelines)
 │   ├── FORM-FIELD-RESPONSES.md # Original submission form responses
 │   ├── requirements.md      # Submission requirements
 │   ├── process.md           # Five-stage submission process

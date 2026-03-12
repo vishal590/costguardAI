@@ -3,9 +3,9 @@
 **Keywords:** checklist, submission, verification, requirements, preparation, deadline, materials, demo, article, mandatory, terms, compliance, rules
 
 ## Related Files
-- **[requirements.md](./requirements.md)** - Submission requirements
-- **[process.md](./process.md)** - Submission process
-- **[article-requirements.md](./article-requirements.md)** - Builder Center article requirements
+- **[requirements.md](./requirements.md)** - **What's required** (initial + semi-finalist + article)
+- **[process.md](./process.md)** - Submission process stages
+- **[HOW_TO_WRITE_ARTICLE.md](./HOW_TO_WRITE_ARTICLE.md)** - Article requirements and copy-paste content ([ARTICLE_DRAFT.md](./ARTICLE_DRAFT.md))
 - **[../competition/terms.md](../competition/terms.md)** - ⚠️ **MANDATORY Terms and Conditions - READ FIRST**
 - **[../competition/timeline.md](../competition/timeline.md)** - Timeline and deadlines
 - **[../competition/eligibility.md](../competition/eligibility.md)** - Eligibility requirements

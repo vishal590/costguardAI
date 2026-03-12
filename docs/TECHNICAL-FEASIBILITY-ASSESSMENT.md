@@ -8,7 +8,7 @@
 ## Related Files
 - **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Competitive positioning and differentiators
 - **[technical/architecture.md](./technical/architecture.md)** - Technical architecture
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - Submission pitch
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - Submission pitch
 - **[project/ideas.md](./project/ideas.md)** - Project concept
 - **[INDEX.md](./INDEX.md)** - Master documentation index
 
@@ -380,7 +380,7 @@ Simple setup, works out of the box, minimal configuration.
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10)**
 - **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Competitive positioning and differentiators
 - **[technical/architecture.md](./technical/architecture.md)** - Technical architecture details
-- **[submission/initial-pitch.md](./submission/initial-pitch.md)** - Submission pitch (needs refinement)
+- **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - Submission pitch (needs refinement)
 - **[project/ideas.md](./project/ideas.md)** - Project concept
 - **[INDEX.md](./INDEX.md)** - Master documentation index
 
