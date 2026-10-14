@@ -16,6 +16,8 @@ Includes:
 Requirements: All Phase 5 multi-account requirements
 """
 
+import os
+
 from aws_cdk import (
     Stack,
     Duration,
@@ -172,6 +174,14 @@ class MultiAccountStack(Stack):
         # =====================================================================
 
         # Multi-account Lambda execution role
+        business_metrics_table = dynamodb.Table(self, "BusinessMetricsTable",
+            table_name="costguard-business-metrics", partition_key=dynamodb.Attribute(name="metric_key", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING), billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST, removal_policy=RemovalPolicy.RETAIN)
+
+        organization_policies_table = dynamodb.Table(self, "OrganizationPoliciesTable",
+            table_name="costguard-organization-policies", partition_key=dynamodb.Attribute(name="scope_key", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST, removal_policy=RemovalPolicy.RETAIN)
+
         multi_account_lambda_role = iam.Role(
             self, "MultiAccountLambdaRole",
             assumed_by=iam.CompositePrincipal(
@@ -212,6 +222,8 @@ class MultiAccountStack(Stack):
             actions=[
                 "ce:GetCostAndUsage",
                 "ce:GetCostForecast",
+                "ce:GetReservationUtilization", "ce:GetReservationCoverage",
+                "ce:GetSavingsPlansUtilization", "ce:GetSavingsPlansCoverage", "ce:GetSavingsPlansUtilizationDetails",
                 "ce:GetUsageForecast",
                 "ce:ListCostCategoryDefinitions",
                 "ce:GetCostCategories",
@@ -224,7 +236,8 @@ class MultiAccountStack(Stack):
             effect=iam.Effect.ALLOW,
             actions=["bedrock:InvokeModel"],
             resources=[
-                f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+                f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
+                f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0"
             ],
         ))
 
@@ -234,6 +247,8 @@ class MultiAccountStack(Stack):
         multi_account_costs_table.grant_read_write_data(multi_account_lambda_role)
         allocation_rules_table.grant_read_write_data(multi_account_lambda_role)
         budgets_table.grant_read_write_data(multi_account_lambda_role)
+        organization_policies_table.grant_read_write_data(multi_account_lambda_role)
+        business_metrics_table.grant_read_write_data(multi_account_lambda_role)
 
         # Add DynamoDB permissions for API authentication tables
         # These tables are created separately by setup_api_auth.py
@@ -263,8 +278,13 @@ class MultiAccountStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.multi_account_cost_collector_handler.lambda_handler",
             code=lambda_.Code.from_asset(
-                "..",  # Parent directory contains src/
+                os.path.join(os.path.dirname(__file__), ".."),  # Repository root
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out/*",
                     "infrastructure/cdk.out/*",
                     "infrastructure/*",
@@ -287,11 +307,15 @@ class MultiAccountStack(Stack):
             timeout=Duration.minutes(15),
             memory_size=1024,  # Higher memory for parallel processing
             environment={
+                "COLLECT_ALLOCATION_TAGS": "true",
+                "EXTERNAL_ID": self.node.try_get_context("cross_account_external_id") or os.environ.get("EXTERNAL_ID", ""),
                 "ORGANIZATIONS_TABLE": organizations_table.table_name,
                 "ACCOUNTS_TABLE": accounts_table.table_name,
                 "MULTI_ACCOUNT_COSTS_TABLE": multi_account_costs_table.table_name,
                 "ALLOCATION_RULES_TABLE": allocation_rules_table.table_name,
                 "BUDGETS_TABLE": budgets_table.table_name,
+                "BUSINESS_METRICS_TABLE": business_metrics_table.table_name,
+                "ORGANIZATION_POLICIES_TABLE": organization_policies_table.table_name,
                 "CROSS_ACCOUNT_ROLE_NAME": "CostGuardCrossAccountRole",
                 "MAX_PARALLEL_ACCOUNTS": "10",  # Configurable: Number of accounts processed in parallel (default: 10)
                 "COLLECTION_TIMEOUT_SECONDS": "60",
@@ -307,8 +331,13 @@ class MultiAccountStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.multi_account_api_handler.handler",
             code=lambda_.Code.from_asset(
-                "..",  # Parent directory contains src/
+                os.path.join(os.path.dirname(__file__), ".."),  # Repository root
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out/*",
                     "infrastructure/cdk.out/*",
                     "infrastructure/*",
@@ -331,11 +360,15 @@ class MultiAccountStack(Stack):
             timeout=Duration.minutes(5),
             memory_size=512,
             environment={
+                "COLLECT_ALLOCATION_TAGS": "true",
+                "EXTERNAL_ID": self.node.try_get_context("cross_account_external_id") or os.environ.get("EXTERNAL_ID", ""),
                 "ORGANIZATIONS_TABLE": organizations_table.table_name,
                 "ACCOUNTS_TABLE": accounts_table.table_name,
                 "MULTI_ACCOUNT_COSTS_TABLE": multi_account_costs_table.table_name,
                 "ALLOCATION_RULES_TABLE": allocation_rules_table.table_name,
                 "BUDGETS_TABLE": budgets_table.table_name,
+                "BUSINESS_METRICS_TABLE": business_metrics_table.table_name,
+                "ORGANIZATION_POLICIES_TABLE": organization_policies_table.table_name,
                 "API_RATE_LIMIT_PER_MINUTE": "100",
                 "CACHE_TTL_SECONDS": "3600",  # 1 hour
                 "LOG_LEVEL": "INFO",
@@ -354,8 +387,13 @@ class MultiAccountStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="src.multi_account_handler.handler",
             code=lambda_.Code.from_asset(
-                "..",  # Parent directory contains src/
+                os.path.join(os.path.dirname(__file__), ".."),  # Repository root
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out/*",
                     "infrastructure/cdk.out/*",
                     "infrastructure/*",
@@ -378,11 +416,15 @@ class MultiAccountStack(Stack):
             timeout=Duration.minutes(10),
             memory_size=1024,
             environment={
+                "COLLECT_ALLOCATION_TAGS": "true",
+                "EXTERNAL_ID": self.node.try_get_context("cross_account_external_id") or os.environ.get("EXTERNAL_ID", ""),
                 "ORGANIZATIONS_TABLE": organizations_table.table_name,
                 "ACCOUNTS_TABLE": accounts_table.table_name,
                 "MULTI_ACCOUNT_COSTS_TABLE": multi_account_costs_table.table_name,
                 "ALLOCATION_RULES_TABLE": allocation_rules_table.table_name,
                 "BUDGETS_TABLE": budgets_table.table_name,
+                "BUSINESS_METRICS_TABLE": business_metrics_table.table_name,
+                "ORGANIZATION_POLICIES_TABLE": organization_policies_table.table_name,
                 "CROSS_ACCOUNT_ROLE_NAME": "CostGuardCrossAccountRole",
                 "MAX_PARALLEL_ACCOUNTS": "10",  # Configurable: Number of accounts processed in parallel (default: 10)
                 "ORG_CACHE_TTL_HOURS": str(org_sync_hours * 6),  # Cache TTL = 6x sync frequency (default: 24 hours)
@@ -459,6 +501,29 @@ class MultiAccountStack(Stack):
         account_costs = costs_resource.add_resource("account").add_resource("{account_id}")
         account_costs.add_method("GET", multi_account_integration)
 
+        # Scoped showback/chargeback reporting
+        reports_resource = api_resource.add_resource("reports")
+        reports_resource.add_resource("showback").add_method("GET", multi_account_integration)
+        reports_resource.add_resource("chargeback").add_method("GET", multi_account_integration)
+
+        forecasts_resource = api_resource.add_resource("forecasts")
+        forecasts_resource.add_resource("organization").add_method("GET", multi_account_integration)
+        forecasts_resource.add_resource("account").add_resource("{account_id}").add_method("GET", multi_account_integration)
+        api_resource.add_resource("organization-advisor").add_resource("query").add_method("POST", multi_account_integration)
+
+        policies_resource = api_resource.add_resource("organization-policies")
+        policies_resource.add_resource("effective").add_resource("{account_id}").add_method("GET", multi_account_integration)
+        policy_item = policies_resource.add_resource("{scope}").add_resource("{entity_id}")
+        policy_item.add_method("GET", multi_account_integration)
+        policy_item.add_method("PUT", multi_account_integration)
+
+        business_metric_item = api_resource.add_resource("business-metrics").add_resource("{account_id}")
+        business_metric_item.add_method("PUT", multi_account_integration)
+        business_metric_item.add_method("GET", multi_account_integration)
+        api_resource.add_resource("unit-economics").add_method("GET", multi_account_integration)
+
+        api_resource.add_resource("commitments").add_resource("analytics").add_method("GET", multi_account_integration)
+
         # Allocation endpoints
         allocation_resource = api_resource.add_resource("allocation")
         
@@ -469,6 +534,7 @@ class MultiAccountStack(Stack):
         unallocated_costs.add_method("GET", multi_account_integration)
 
         allocation_rules = allocation_resource.add_resource("rules")
+        allocation_rules.add_method("GET", multi_account_integration)
         allocation_rules.add_method("POST", multi_account_integration)
 
         # Budget endpoints

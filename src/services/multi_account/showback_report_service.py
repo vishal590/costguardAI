@@ -5,7 +5,7 @@ Generates showback reports for teams, projects, and environments.
 Showback provides cost visibility without actual billing.
 """
 import logging
-import csv
+from .report_data import entity_rows, safe_writer
 from io import StringIO
 from decimal import Decimal
 from typing import List, Dict, Optional
@@ -28,6 +28,8 @@ class ShowbackReport:
     total_cost: Decimal
     cost_breakdown: Dict[str, Decimal]  # service -> cost
     cost_trend: Dict[str, Decimal]  # date -> cost
+    estimated_observations: Optional[List[Dict]] = None
+    unknown_estimate_observations: Optional[List[Dict]] = None
 
 
 class ShowbackReportService:
@@ -89,42 +91,12 @@ class ShowbackReportService:
         cost_breakdown: Dict[str, Decimal] = {}
         cost_trend: Dict[str, Decimal] = {}
         
-        # Aggregate costs across all accounts
-        for account_id in account_ids:
-            # Get allocation result for this account
-            result = self.allocation_engine.allocate_by_tags(
-                account_id=account_id,
-                start_date=start_date,
-                end_date=end_date,
-                tag_keys=[tag_key]
-            )
-            
-            # Filter allocations for this entity
-            entity_tag = f"{tag_key}:{entity_name}"
-            if entity_tag in result.allocations_by_category:
-                entity_cost = result.allocations_by_category[entity_tag]
-                total_cost += entity_cost
-                
-                # Get service breakdown (from cost repository)
-                cost_data = self.allocation_engine.cost_repository.get_cost_data(
-                    account_id, start_date
-                )
-                
-                if cost_data and 'costs_by_service' in cost_data:
-                    for service, cost in cost_data['costs_by_service'].items():
-                        cost_decimal = Decimal(str(cost))
-                        cost_breakdown[service] = cost_breakdown.get(
-                            service, Decimal("0")
-                        ) + cost_decimal
-                
-                # Get daily trend
-                if cost_data and 'costs_by_day' in cost_data:
-                    for date, cost in cost_data['costs_by_day'].items():
-                        cost_decimal = Decimal(str(cost))
-                        cost_trend[date] = cost_trend.get(
-                            date, Decimal("0")
-                        ) + cost_decimal
-        
+        observations = []
+        category = tag_key + ':' + entity_name
+        for account_id, day, service, cost in entity_rows(self.allocation_engine.cost_repository, account_ids, category, start_date, end_date, observations=observations):
+            total_cost += cost
+            cost_breakdown[service] = cost_breakdown.get(service, Decimal('0')) + cost
+            cost_trend[day] = cost_trend.get(day, Decimal('0')) + cost
         report = ShowbackReport(
             entity_type=entity_type,
             entity_name=entity_name,
@@ -132,7 +104,9 @@ class ShowbackReportService:
             end_date=end_date,
             total_cost=total_cost,
             cost_breakdown=cost_breakdown,
-            cost_trend=cost_trend
+            cost_trend=cost_trend,
+            estimated_observations=[item for item in observations if item['is_estimated'] is True],
+            unknown_estimate_observations=[item for item in observations if item['is_estimated'] is None]
         )
         
         logger.info(
@@ -160,13 +134,16 @@ class ShowbackReportService:
         )
         
         output = StringIO()
-        writer = csv.writer(output)
+        writer = safe_writer(output)
         
         # Header
         writer.writerow([
             f"Showback Report - {report.entity_type.title()}: {report.entity_name}"
         ])
         writer.writerow([f"Period: {report.start_date} to {report.end_date}"])
+        writer.writerow(["Provider estimated account/day observations", len(report.estimated_observations) if report.estimated_observations is not None else "Unknown"])
+        writer.writerow(["Unknown provider estimate account/day observations", len(report.unknown_estimate_observations) if report.unknown_estimate_observations is not None else "Unknown"])
+        writer.writerow(["Provider cost observations can change; this is not a verified invoice."])
         writer.writerow([f"Total Cost: ${report.total_cost}"])
         writer.writerow([])
         

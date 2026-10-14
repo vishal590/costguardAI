@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .models import AccountCostData
 from .repositories import MultiAccountCostRepository, AccountRepository
@@ -28,6 +28,8 @@ class AccountCostBreakdown:
     costs_by_service: Dict[str, Decimal]
     costs_by_day: Dict[str, Decimal]
     top_services: List[Tuple[str, Decimal]]  # [(service, cost), ...]
+    complete: bool = True
+    missing_dates: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -110,7 +112,7 @@ class PerAccountCostService:
         account_name = self._get_account_name(account_id)
         
         # Get cost data
-        cost_data = self.cost_repository.get_cost_data(account_id, start_date)
+        cost_data = self.cost_repository.get_period(account_id, start_date, end_date)
         
         if not cost_data:
             logger.warning(f"No cost data found for account {account_id}")
@@ -154,7 +156,7 @@ class PerAccountCostService:
             total_cost=total_cost,
             costs_by_service=costs_by_service,
             costs_by_day=costs_by_day,
-            top_services=top_services
+            top_services=top_services, complete=cost_data["complete"], missing_dates=cost_data["missing_dates"]
         )
         
         logger.info(

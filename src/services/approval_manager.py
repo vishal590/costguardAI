@@ -4,13 +4,16 @@ Approval Manager for managing approval workflow for automated actions.
 Supports:
 - Sending approval requests via SNS
 - Waiting for approval response (30 minute timeout)
-- Processing approval via API or email
+- Conditional decisions from a trusted integration (no legacy public receiver is defined)
 """
 
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, UTC
 import uuid
 import logging
+import os
+import json
+from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ class ApprovalManager:
         """
         self.sns = sns_client
         self.dynamodb = dynamodb_client
-        self.approval_table = "approval-requests"
+        self.approval_table = os.environ.get("APPROVAL_REQUESTS_TABLE", "costguard-approval-requests")
         self.approval_topic_arn = None  # Would be set from config
     
     def request_approval(self, actions: List[Dict[str, Any]]) -> Any:
@@ -46,21 +49,17 @@ class ApprovalManager:
         request_id = str(uuid.uuid4())
         expires_at = (datetime.now(UTC) + timedelta(minutes=30)).isoformat()
         
-        # Convert actions to PlannedAction objects
         planned_actions = []
-        total_savings = 0.0
-        
         for action in actions:
-            planned_action = PlannedAction(
-                resource_id=action['resource'].resource_id,
-                resource_type=action['resource'].resource_type,
-                action=action['action'],
-                reason="Budget threshold exceeded - resource is idle",
-                estimated_savings=action['estimated_savings']
-            )
-            planned_actions.append(planned_action)
-            total_savings += action['estimated_savings']
-        
+            if isinstance(action, PlannedAction):
+                planned_actions.append(action)
+            else:
+                planned_actions.append(PlannedAction(resource_id=action['resource'].resource_id,
+                    resource_type=action['resource'].resource_type, action=action['action'],
+                    reason='Budget threshold exceeded; resource review requested', estimated_savings=action.get('estimated_savings')))
+        values = [action.estimated_savings for action in planned_actions]
+        total_savings = sum(values) if values and all(value is not None for value in values) else None
+
         approval_request = ApprovalRequest(
             request_id=request_id,
             actions=planned_actions,
@@ -131,6 +130,8 @@ class ApprovalManager:
         
         logger.info(f"Processing approval response for {request_id}: {approved}")
         
+        if type(approved) is not bool or not isinstance(approved_by, str) or not approved_by.strip() or len(approved_by) > 256:
+            raise ValueError('A boolean decision and authenticated approver identity are required')
         response = ApprovalResponse(
             request_id=request_id,
             approved=approved,
@@ -151,14 +152,20 @@ class ApprovalManager:
                 Item={
                     'request_id': {'S': request.request_id},
                     'status': {'S': 'pending'},
-                    'total_estimated_savings': {'N': str(request.total_estimated_savings)},
+                    'total_estimated_savings': {'N': str(request.total_estimated_savings)} if request.total_estimated_savings is not None else {'NULL': True},
                     'expires_at': {'S': request.expires_at},
-                    'created_at': {'S': datetime.now(UTC).isoformat()},
+                    'created_at': {'N': str(int(datetime.now(UTC).timestamp()))},
+                    'created_at_iso': {'S': datetime.now(UTC).isoformat()},
+                    'expires_at_epoch': {'N': str(int(datetime.fromisoformat(request.expires_at).timestamp()))},
+                    'ttl': {'N': str(int(datetime.now(UTC).timestamp())+90*86400)},
+                    'actions_json': {'S': json.dumps([asdict(action) for action in request.actions], default=str)},
                     'action_count': {'N': str(len(request.actions))}
-                }
+                },
+                ConditionExpression='attribute_not_exists(request_id)'
             )
         except Exception as e:
             logger.error(f"Failed to store approval request: {e}")
+            raise RuntimeError("Approval request was not persisted") from e
     
     def _store_approval_response(self, response: Any):
         """Store approval response in DynamoDB."""
@@ -167,15 +174,18 @@ class ApprovalManager:
                 TableName=self.approval_table,
                 Key={'request_id': {'S': response.request_id}},
                 UpdateExpression='SET #status = :status, approved_by = :approved_by, response_timestamp = :timestamp',
+                ConditionExpression='attribute_exists(request_id) AND #status = :pending AND expires_at_epoch > :now',
                 ExpressionAttributeNames={'#status': 'status'},
                 ExpressionAttributeValues={
                     ':status': {'S': 'approved' if response.approved else 'denied'},
+                    ':pending': {'S': 'pending'}, ':now': {'N': str(int(datetime.now(UTC).timestamp()))},
                     ':approved_by': {'S': response.approved_by or 'unknown'},
                     ':timestamp': {'S': response.timestamp}
                 }
             )
         except Exception as e:
             logger.error(f"Failed to store approval response: {e}")
+            raise RuntimeError("Approval decision was not persisted; request may be expired or already decided") from e
     
     def _check_approval_status(self, request_id: str) -> Any:
         """Check if approval has been received."""
@@ -184,13 +194,14 @@ class ApprovalManager:
         try:
             response = self.dynamodb.get_item(
                 TableName=self.approval_table,
-                Key={'request_id': {'S': request_id}}
+                Key={'request_id': {'S': request_id}}, ConsistentRead=True
             )
             
             item = response.get('Item')
             if not item:
                 return None
             
+            if int(item.get('expires_at_epoch', {}).get('N', '0')) <= int(datetime.now(UTC).timestamp()): return None
             status = item.get('status', {}).get('S')
             
             if status in ['approved', 'denied']:
@@ -205,7 +216,7 @@ class ApprovalManager:
             
         except Exception as e:
             logger.error(f"Failed to check approval status: {e}")
-            return None
+            raise RuntimeError("Approval status is unavailable") from e
     
     def _send_approval_notification(self, request: Any):
         """Send approval request notification via SNS."""
@@ -213,21 +224,22 @@ class ApprovalManager:
             logger.warning("No approval topic ARN configured")
             return
         
+        from .notification_service import _opportunity
         message = f"""
 Automated Cost Prevention - Approval Required
 
 Request ID: {request.request_id}
 Actions: {len(request.actions)}
-Estimated Monthly Savings: ${request.total_estimated_savings:.2f}
+Monetary opportunity: {_opportunity(request.total_estimated_savings)}
 Expires: {request.expires_at}
 
 Actions to be taken:
 """
         
         for action in request.actions:
-            message += f"\n- {action.action} {action.resource_type} {action.resource_id} (${action.estimated_savings:.2f}/month)"
+            message += f"\n- {action.action} {action.resource_type} {action.resource_id} ({_opportunity(action.estimated_savings)})"
         
-        message += f"\n\nTo approve or deny, respond via API or email within 30 minutes."
+        message += f"\n\nUse the configured approval integration. This legacy manager has no public response endpoint and does not authorize resource changes by itself."
         
         try:
             self.sns.publish(

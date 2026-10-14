@@ -1,5 +1,7 @@
 # All Phases Code Comparison: 71576c4 vs Current
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](../PROJECT_STATUS.md) and [current source limitations](documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
 **Date:** March 2026  
 **Comparison:** Commit 71576c4 (3 days ago) vs Current HEAD  
 **Scope:** ALL 8 PHASES - Complete code file comparison

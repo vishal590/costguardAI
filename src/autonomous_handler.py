@@ -8,6 +8,8 @@ and demo mode.
 Requirements: 6.8
 """
 import json
+from .services.request_json import RequestBodyError
+from .services.access_control import AccessDenied, BackendAuthenticationError, BackendConfigurationError, authorize_stack_request, advisor_identity
 import logging
 import os
 from typing import Dict, Any
@@ -59,8 +61,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         Dict containing statusCode, headers, and body
     """
     try:
-        logger.info(f"Received autonomous action event: {json.dumps(event, default=str)}")
+        logger.info("Request method=%s path=%s", event.get("httpMethod"), event.get("path"))
         
+        try:
+            authorize_stack_request(event)
+        except RequestBodyError as exc:
+            return {'statusCode': 400, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': str(exc), 'code': 'INVALID_REQUEST_BODY'})}
+        except BackendConfigurationError:
+            return {'statusCode': 503, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'Backend access is not configured', 'code': 'BACKEND_AUTHENTICATION_UNAVAILABLE'})}
+        except BackendAuthenticationError:
+            return {'statusCode': 401, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'Invalid backend access key', 'code': 'BACKEND_AUTHENTICATION_FAILED'})}
+        except AccessDenied as exc:
+            return {'statusCode': 403, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': str(exc)})}
         http_method = event.get('httpMethod', 'GET')
         path = event.get('path', '')
         
@@ -138,12 +150,17 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'confidence_threshold must be between 0 and 1'})
             }
         
+        if not isinstance(dry_run, bool) or (body.get("workload") is not None and not isinstance(body["workload"], dict)):
+            return {"statusCode": 400, "headers": CORS_HEADERS,
+                    "body": json.dumps({"error": "dry_run must be boolean and workload must be an object"})}
+
         # Invoke GPU Scheduler Lambda
         if GPU_SCHEDULER_FUNCTION:
             payload = {
                 'days': days,
                 'confidence_threshold': confidence_threshold,
-                'dry_run': dry_run
+                'dry_run': dry_run,
+                'workload': body.get('workload')
             }
             
             response = lambda_client.invoke(
@@ -153,6 +170,10 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
             )
             
             result = json.loads(response['Payload'].read())
+            if response.get('FunctionError'):
+                return {'statusCode': 500, 'headers': CORS_HEADERS,
+                        'body': json.dumps({'error': 'GPU Scheduler failed'})}
+            result_status = result.get('statusCode', 200) if isinstance(result, dict) else 200
             # GPU Scheduler may return API Gateway shape; unwrap so client gets payload only
             if isinstance(result, dict) and 'body' in result and 'statusCode' in result:
                 body_content = result['body']
@@ -161,7 +182,7 @@ def handle_schedule_analysis(event: Dict[str, Any]) -> Dict[str, Any]:
                 result = body_content
             
             return {
-                'statusCode': 200,
+                'statusCode': result_status,
                 'headers': CORS_HEADERS,
                 'body': json.dumps(result, cls=DecimalEncoder)
             }
@@ -202,6 +223,7 @@ def handle_action_history(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse query parameters
         params = event.get('queryStringParameters', {}) or {}
+        action_id = params.get('action_id')
         action_type = params.get('action_type')
         start_date = params.get('start_date')
         end_date = params.get('end_date')
@@ -217,7 +239,21 @@ def handle_action_history(event: Dict[str, Any]) -> Dict[str, Any]:
             }
         
         # Build query
-        if action_type:
+        if action_id:
+            query_kwargs = {'KeyConditionExpression': Key('action_id').eq(action_id),
+                            'Limit': limit, 'ScanIndexForward': False, 'ConsistentRead': True}
+            filters = []
+            for field, value, comparison in [('action_type', action_type, 'eq'), ('status', status, 'eq'),
+                                              ('timestamp', start_date, 'gte'), ('timestamp', end_date, 'lte')]:
+                if value:
+                    filters.append(getattr(Attr(field), comparison)(value))
+            if filters:
+                expression = filters[0]
+                for extra in filters[1:]:
+                    expression = expression & extra
+                query_kwargs['FilterExpression'] = expression
+            response = action_history_table.query(**query_kwargs)
+        elif action_type:
             # Query by action type using GSI
             query_kwargs = {
                 'IndexName': 'action-type-index',
@@ -320,20 +356,23 @@ def handle_approve_action(event: Dict[str, Any]) -> Dict[str, Any]:
         signature = body.get('signature')
         
         # Validate required fields
-        if not all([request_id, action_id, signature is not None, approved is not None]):
+        if not (isinstance(request_id, str) and request_id.strip()
+                and isinstance(action_id, str) and action_id.strip()
+                and isinstance(signature, str) and signature.strip()
+                and isinstance(approved, bool)):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'error': 'Missing required fields: request_id, action_id, approved, signature'})
+                'body': json.dumps({'error': 'request_id, action_id and signature must be non-empty strings; approved must be a boolean'})
             }
         
-        # Validate signature (simplified - in production would use HMAC validation)
-        # This would call the Safety Guard's validate_approval_signature function
+        # Safety Guard validates the signature against the stored, unexpired
+        # request before applying this asynchronous decision.
         
         # Publish approval decision event
         detail_type = "ActionApproved" if approved else "ActionRejected"
         
-        events_client.put_events(
+        response = events_client.put_events(
             Entries=[{
                 'Source': 'costguard.autonomous.api',
                 'DetailType': detail_type,
@@ -341,19 +380,25 @@ def handle_approve_action(event: Dict[str, Any]) -> Dict[str, Any]:
                     'request_id': request_id,
                     'action_id': action_id,
                     'approved': approved,
+                    'signature': signature,
+                    'submitted_by': event.get('_principal', {}).get('subject'),
                     'timestamp': datetime.utcnow().isoformat()
                 }),
                 'EventBusName': EVENT_BUS_NAME
             }]
         )
         
+        if response.get('FailedEntryCount', 0):
+            raise RuntimeError("EventBridge failed to accept the approval decision")
+
         logger.info(f"Published {detail_type} event for action: {action_id}")
         
         return {
-            'statusCode': 200,
+            'statusCode': 202,
             'headers': CORS_HEADERS,
             'body': json.dumps({
-                'status': 'approved' if approved else 'rejected',
+                'status': 'approval_submitted',
+                'approved': approved,
                 'action_id': action_id,
                 'request_id': request_id
             })
@@ -398,7 +443,7 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
             }
         
         # Publish rollback request event
-        events_client.put_events(
+        response = events_client.put_events(
             Entries=[{
                 'Source': 'costguard.autonomous.api',
                 'DetailType': 'RollbackRequested',
@@ -411,6 +456,9 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
             }]
         )
         
+        if response.get('FailedEntryCount', 0):
+            raise RuntimeError("EventBridge failed to accept the rollback request")
+
         logger.info(f"Published RollbackRequested event for action: {action_id}")
         
         # Estimate completion time (5 minutes as per requirements)
@@ -437,76 +485,115 @@ def handle_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def handle_confidence_scores(event: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handle GET /api/autonomous/confidence-scores
-    
-    Query Learning Engine for current confidence scores by action type.
-    
-    Returns:
-        Confidence scores, success rates, and total action counts by type
-    
-    Requirements: 4.3, 4.4
-    """
+    """Observe bounded stored action outcomes; heuristic scores are not calibrated confidence."""
+    import math
+    from datetime import UTC
     try:
-        # Query action history for all completed actions
-        response = action_history_table.scan(
-            FilterExpression=Attr('status').eq('completed')
-        )
-        
-        actions = response.get('Items', [])
-        
-        # Calculate confidence scores by action type
-        scores_by_type = {}
-        
-        for action in actions:
-            action_type = action.get('action_type')
-            if not action_type:
-                continue
-            
-            if action_type not in scores_by_type:
-                scores_by_type[action_type] = {
-                    'total_actions': 0,
-                    'successful_actions': 0,
-                    'success_rate': 0.0,
-                    'avg_confidence': 0.0,
-                    'confidence_scores': []
-                }
-            
-            scores_by_type[action_type]['total_actions'] += 1
-            
-            # Check if action was successful (simplified)
-            if action.get('outcome') == 'success':
-                scores_by_type[action_type]['successful_actions'] += 1
-            
-            # Collect confidence scores
-            confidence = float(action.get('confidence_score', 0.5))
-            scores_by_type[action_type]['confidence_scores'].append(confidence)
-        
-        # Calculate averages
-        for action_type, data in scores_by_type.items():
-            if data['total_actions'] > 0:
-                data['success_rate'] = data['successful_actions'] / data['total_actions']
-                data['avg_confidence'] = sum(data['confidence_scores']) / len(data['confidence_scores'])
-            
-            # Remove raw scores from response
-            del data['confidence_scores']
-        
-        return {
-            'statusCode': 200,
-            'headers': CORS_HEADERS,
-            'body': json.dumps({
-                'confidence_scores': scores_by_type,
-                'timestamp': datetime.utcnow().isoformat()
-            }, cls=DecimalEncoder)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in confidence scores: {e}", exc_info=True)
-        return {
-            'statusCode': 500,
-            'headers': CORS_HEADERS,
-            'body': json.dumps({'error': str(e)})
-        }
+        from .services.request_query import single_valued_query
+        single_valued_query(event, set())
+        fields = ('action_id', 'timestamp', 'action_type', 'status', 'success', 'outcome',
+                  'confidence_score', 'ttl', 'demo', 'demo_mode')
+        names = {f'#projection{index}': name for index, name in enumerate(fields)}
+        names.update({'#parameters': 'parameters', '#demo': 'demo', '#demo_mode': 'demo_mode'})
+        request = {'FilterExpression': Attr('status').eq('completed'), 'Limit': 100,
+            'ProjectionExpression': ', '.join(f'#projection{index}' for index in range(len(fields)))+', #parameters.#demo, #parameters.#demo_mode',
+            'ExpressionAttributeNames': names}
+        quality = {'scan_page_limit': 10, 'scan_page_size': 100, 'pages_read': 0,
+            'returned_completed_rows': 0, 'invalid_rows': 0, 'expired_rows': 0,
+            'unknown_retention_rows': 0, 'duplicate_rows': 0, 'conflicting_identities': 0,
+            'scanned_rows': 0, 'has_more_stored_rows': None, 'complete_history_verified': False,
+            'execution_verified': False, 'calibrated_confidence_available': False,
+            'scope': 'bounded_completed_record_observations_not_production_success_or_calibration'}
+        now = datetime.now(UTC)
+        records, conflicts, seen = {}, set(), set()
+        for _ in range(10):
+            response = action_history_table.scan(**request)
+            quality['pages_read'] += 1
+            scanned = response.get('ScannedCount')
+            if quality['scanned_rows'] is not None:
+                quality['scanned_rows'] = quality['scanned_rows']+scanned if type(scanned) is int and scanned >= 0 else None
+            rows = response.get('Items', [])
+            if not isinstance(rows, list): raise RuntimeError('Invalid action observation page')
+            quality['returned_completed_rows'] += len(rows)
+            for row in rows:
+                if not isinstance(row, dict) or row.get('status') != 'completed':
+                    quality['invalid_rows'] += 1; continue
+                identifier, timestamp, kind = (row.get(key) for key in ('action_id', 'timestamp', 'action_type'))
+                if any(not isinstance(value, str) or not value or len(value) > maximum
+                        for value, maximum in ((identifier, 256), (timestamp, 64), (kind, 128))):
+                    quality['invalid_rows'] += 1; continue
+                ttl = row.get('ttl')
+                try:
+                    expiry = float(ttl) if ttl is not None and not isinstance(ttl, bool) else None
+                    if expiry is not None and not math.isfinite(expiry): expiry = None
+                except (TypeError, ValueError, OverflowError): expiry = None
+                if expiry is not None and expiry <= now.timestamp():
+                    quality['expired_rows'] += 1; continue
+                if expiry is None: quality['unknown_retention_rows'] += 1
+                if 'success' in row:
+                    outcome = row['success'] if isinstance(row['success'], bool) else None
+                else:
+                    outcome = True if row.get('outcome') == 'success' else False if row.get('outcome') in ('failed', 'failure') else None
+                raw_score = row.get('confidence_score')
+                try:
+                    score = float(raw_score) if raw_score is not None and not isinstance(raw_score, bool) else None
+                    if score is not None and (not math.isfinite(score) or not 0 <= score <= 1): score = None
+                except (TypeError, ValueError, OverflowError): score = None
+                parameters = row.get('parameters') if isinstance(row.get('parameters'), dict) else {}
+                raw_flags = (row.get('demo'), row.get('demo_mode'), parameters.get('demo'), parameters.get('demo_mode'))
+                declared_flags = [value for value in raw_flags if isinstance(value, bool)]
+                invalid_scope = any(value is not None and not isinstance(value, bool) for value in raw_flags)
+                scope = 'unknown_or_conflicting' if invalid_scope else 'declared_demo' if declared_flags and all(declared_flags) else 'declared_non_demo' if declared_flags and not any(declared_flags) else 'unknown_or_conflicting'
+                key = (identifier, timestamp)
+                observed = {'action_type': kind, 'outcome': outcome, 'recorded_score': score, 'declared_scope': scope}
+                if key in conflicts: continue
+                if key in records:
+                    quality['duplicate_rows'] += 1
+                    if records[key] != observed:
+                        conflicts.add(key); del records[key]
+                    continue
+                records[key] = observed
+            cursor = response.get('LastEvaluatedKey')
+            quality['has_more_stored_rows'] = bool(cursor)
+            if not cursor: break
+            fingerprint = json.dumps(cursor, sort_keys=True, cls=DecimalEncoder)
+            if fingerprint in seen: raise RuntimeError('Repeated action observation scan cursor')
+            seen.add(fingerprint); request['ExclusiveStartKey'] = cursor
+        quality['conflicting_identities'] = len(conflicts)
+        quality['retained_unique_records'] = len(records)
+        quality['status'] = 'bounded_selection' if quality['has_more_stored_rows'] else 'observed_scan_pages'
+        scores = {}
+        for row in records.values():
+            kind = row['action_type']
+            data = scores.setdefault(kind, {'total_actions': 0, 'successful_actions': 0, 'failed_actions': 0,
+                'unknown_outcome_actions': 0, 'known_outcome_actions': 0, 'success_rate': None,
+                'avg_confidence': None, 'confidence_method': 'unavailable',
+                'recorded_score_average': None, 'recorded_score_count': 0, 'missing_or_invalid_score_count': 0,
+                'recorded_score_basis': 'unverified_recorded_heuristic',
+                'declared_scope_counts': {'declared_demo': 0, 'declared_non_demo': 0, 'unknown_or_conflicting': 0},
+                'execution_verified': False, '_score_sum': 0.0})
+            data['total_actions'] += 1
+            data['declared_scope_counts'][row['declared_scope']] += 1
+            if row['outcome'] is None: data['unknown_outcome_actions'] += 1
+            else:
+                data['known_outcome_actions'] += 1
+                data['successful_actions' if row['outcome'] else 'failed_actions'] += 1
+            if row['recorded_score'] is None: data['missing_or_invalid_score_count'] += 1
+            else:
+                data['recorded_score_count'] += 1; data['_score_sum'] += row['recorded_score']
+        for data in scores.values():
+            if data['known_outcome_actions']: data['success_rate'] = data['successful_actions']/data['known_outcome_actions']
+            if data['recorded_score_count']: data['recorded_score_average'] = data['_score_sum']/data['recorded_score_count']
+            del data['_score_sum']
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps({
+            'data_contract': 'autonomous_action_observations_v2', 'confidence_scores': scores,
+            'data_quality': quality, 'timestamp': datetime.now(UTC).isoformat()}, cls=DecimalEncoder, allow_nan=False)}
+    except ValueError as error:
+        return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': str(error), 'code': 'INVALID_PARAMETER'})}
+    except Exception as error:
+        logger.warning('Autonomous action observations unavailable: %s', type(error).__name__)
+        return {'statusCode': 503, 'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Stored autonomous action observations are unavailable', 'code': 'ACTION_OBSERVATIONS_UNAVAILABLE'})}
 
 
 def handle_demo_status(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -847,7 +934,9 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse request body
         body = json.loads(event.get('body', '{}'))
-        instance_id = body.get('instance_id', 'i-demo-wellutilized-002')  # Default to training instance
+        instance_id = body.get('instance_id')
+        parameters = body.get('parameters')
+        training_job_id = body.get('training_job_id')
         
         # Validate demo mode is enabled
         if not os.environ.get('DEMO_MODE', 'false').lower() == 'true':
@@ -860,8 +949,18 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
                 })
             }
         
+        if not (isinstance(instance_id, str) and instance_id.strip()
+                and isinstance(training_job_id, str) and training_job_id.strip()
+                and isinstance(parameters, dict)):
+            return {'statusCode': 400, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'instance_id, training_job_id and parameters are required'})}
+        from autonomous.action_executor import validate_parameters
+        try:
+            validate_parameters('ondemand_fallback', dict(parameters, training_job_id=training_job_id))
+        except (ValueError, KeyError, TypeError) as error:
+            return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': str(error)})}
+
         # Publish SpotInterruptionDetected event to EventBridge
-        events_client = boto3.client('events')
         event_bus_name = os.environ.get('EVENT_BUS_NAME', 'costguard-autonomous-events')
         
         interruption_event = {
@@ -869,10 +968,11 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
             'DetailType': 'SpotInterruptionDetected',
             'Detail': json.dumps({
                 'instance_id': instance_id,
-                'instance_type': 'g4dn.xlarge',
-                'region': 'us-east-1',
+                'instance_type': body.get('instance_type', 'g4dn.xlarge'),
+                'region': parameters['region'],
                 'interruption_time': (datetime.utcnow() + timedelta(minutes=2)).isoformat() + 'Z',
-                'training_job_id': 'demo-training-job-001',
+                'training_job_id': training_job_id,
+                'parameters': parameters,
                 'demo_mode': True,
                 'triggered_manually': True
             }),
@@ -898,7 +998,7 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
                 'action_id': f'demo-interruption-{datetime.utcnow().isoformat()}',
                 'timestamp': datetime.utcnow().isoformat() + 'Z',
                 'action_type': 'demo_trigger_interruption',
-                'status': 'completed',
+                'status': 'submitted',
                 'parameters': {
                     'instance_id': instance_id,
                     'triggered_at': datetime.utcnow().isoformat() + 'Z'
@@ -908,18 +1008,14 @@ def handle_demo_trigger_interruption(event: Dict[str, Any]) -> Dict[str, Any]:
         )
         
         return {
-            'statusCode': 200,
+            'statusCode': 202,
             'headers': CORS_HEADERS,
             'body': json.dumps({
-                'message': 'Spot interruption triggered successfully',
+                'message': 'Interruption request submitted for approval',
+                'status': 'interruption_submitted',
                 'instance_id': instance_id,
                 'interruption_time': (datetime.utcnow() + timedelta(minutes=2)).isoformat() + 'Z',
-                'next_steps': [
-                    'Spot Manager will receive interruption warning',
-                    'Checkpoint will be saved to S3',
-                    'Replacement instance will be acquired',
-                    'Training will resume from checkpoint'
-                ]
+                'training_job_id': training_job_id
             }, cls=DecimalEncoder)
         }
         

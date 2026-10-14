@@ -15,6 +15,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _opportunity(value):
+    return 'Unavailable' if value is None else f'${value:.2f}/month (unverified estimate)'
+
+
 class NotificationService:
     """Send notifications via SNS for cost prevention events."""
     
@@ -54,7 +58,7 @@ Budget: {budget_status.budget_name}
 Utilization: {budget_status.utilization_percent:.1f}%
 Actual Spend: {budget_status.currency} {budget_status.actual_spend:.2f}
 Budget Limit: {budget_status.currency} {budget_status.limit:.2f}
-Forecasted Spend: {budget_status.currency} {budget_status.forecasted_spend:.2f}
+Forecasted Spend: {budget_status.currency} {format(budget_status.forecasted_spend, '.2f') if budget_status.forecasted_spend is not None else 'Unavailable'}
 Time Period: {budget_status.time_period}
 
 This budget has reached the warning threshold (80%). 
@@ -85,25 +89,26 @@ Timestamp: {datetime.now(UTC).isoformat()}
             return
         
         # Calculate total savings
-        total_savings = sum(action.estimated_savings for action in actions)
+        values = [action.estimated_savings for action in actions]
+        total_savings = sum(values) if values and all(value is not None for value in values) else None
         successful_actions = [a for a in actions if a.success]
         failed_actions = [a for a in actions if not a.success]
         
-        subject = f"Cost Prevention: {len(successful_actions)} Actions Taken (${total_savings:.2f}/month savings)"
+        subject = f"Cost Prevention: {len(successful_actions)} Requests Accepted"
         
         message = f"""
-AWS Cost Prevention - Automated Actions Taken
+AWS Cost Prevention - Resource Requests Submitted
 
 Total Actions: {len(actions)}
-Successful: {len(successful_actions)}
+Accepted: {len(successful_actions)}
 Failed: {len(failed_actions)}
-Estimated Monthly Savings: ${total_savings:.2f}
+Monetary opportunity: {_opportunity(total_savings)}
 
-Successful Actions:
+Accepted Requests:
 """
         
         for action in successful_actions:
-            message += f"\n- {action.action} {action.resource_id} (${action.estimated_savings:.2f}/month)"
+            message += f"\n- {action.action} {action.resource_id} ({_opportunity(action.estimated_savings)})"
         
         if failed_actions:
             message += "\n\nFailed Actions:"
@@ -111,7 +116,7 @@ Successful Actions:
                 message += f"\n- {action.action} {action.resource_id}: {action.error_message}"
         
         message += f"\n\nTimestamp: {datetime.now(UTC).isoformat()}"
-        message += "\n\nAll actions can be rolled back within 24 hours via the API."
+        message += "\n\nRollback requires a supported operation, valid snapshot and original action timestamp."
         
         try:
             self.sns.publish(
@@ -173,7 +178,7 @@ Context:
             logger.warning("No action topic ARN configured for dry run report")
             return
         
-        subject = f"Cost Prevention DRY RUN: {len(planned_actions)} Actions Planned (${total_savings:.2f}/month savings)"
+        subject = f"Cost Prevention DRY RUN: {len(planned_actions)} Actions Planned"
         
         message = f"""
 AWS Cost Prevention - DRY RUN REPORT
@@ -181,7 +186,7 @@ AWS Cost Prevention - DRY RUN REPORT
 This is a DRY RUN - no actual actions were taken.
 
 Total Planned Actions: {len(planned_actions)}
-Estimated Monthly Savings: ${total_savings:.2f}
+Monetary opportunity: {_opportunity(total_savings)}
 
 Planned Actions:
 """
@@ -189,10 +194,10 @@ Planned Actions:
         for action in planned_actions:
             message += f"\n- {action.action} {action.resource_id} ({action.resource_type})"
             message += f"\n  Reason: {action.reason}"
-            message += f"\n  Savings: ${action.estimated_savings:.2f}/month"
+            message += f"\n  Monetary opportunity: {_opportunity(action.estimated_savings)}"
         
         message += f"\n\nTimestamp: {datetime.now(UTC).isoformat()}"
-        message += "\n\nTo enable actual execution, disable dry_run_mode in configuration."
+        message += "\n\nExecution also requires deployment enablement, durable audit and supported approval configuration."
         
         try:
             self.sns.publish(

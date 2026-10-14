@@ -48,6 +48,13 @@ class ActionExecutor:
         
         logger.info(f"Executing {action} on {resource.resource_id}")
         
+        from .resource_actions import supported_action
+        if supported_action(resource) != action or self.audit_logger is None:
+            return ActionResult(resource_id=resource.resource_id, action=action, success=False,
+                error_message='Unsupported operation or missing durable audit; no resource operation was attempted',
+                pre_action_state={}, post_action_state={}, estimated_savings=None,
+                timestamp=datetime.now(UTC).isoformat())
+
         # Get pre-action state
         pre_action_state = self._get_resource_state(resource)
         
@@ -101,7 +108,7 @@ class ActionExecutor:
                 error_message=str(e),
                 pre_action_state=pre_action_state,
                 post_action_state={},
-                estimated_savings=0.0,
+                estimated_savings=None,
                 timestamp=datetime.now(UTC).isoformat()
             )
             
@@ -254,45 +261,10 @@ class ActionExecutor:
             'timestamp': datetime.now(UTC).isoformat()
         }
     
-    def _estimate_savings(self, resource) -> float:
-        """
-        Estimate monthly savings from stopping resource using real pricing data.
-        
-        Args:
-            resource: Resource object with service, region, resource_id
-            
-        Returns:
-            Estimated monthly savings in USD
-        """
-        try:
-            # Initialize PricingManager if not provided
-            if not self.pricing_manager:
-                from ..services.pricing_manager import PricingManager
-                self.pricing_manager = PricingManager(region=resource.region)
-            
-            # Service-specific pricing logic
-            if resource.service == 'ec2':
-                return self._estimate_ec2_savings(resource)
-            elif resource.service == 'rds':
-                return self._estimate_rds_savings(resource)
-            elif resource.service == 'lambda':
-                return self._estimate_lambda_savings(resource)
-            elif resource.service == 'dynamodb':
-                return self._estimate_dynamodb_savings(resource)
-            elif resource.service == 'ebs':
-                return self._estimate_ebs_savings(resource)
-            elif resource.service == 'nat_gateway':
-                return self._estimate_nat_gateway_savings(resource)
-            else:
-                # Fallback for unknown services
-                logger.warning(f"Unknown service for savings estimation: {resource.service}")
-                return self._estimate_default_savings(resource)
-                
-        except Exception as e:
-            logger.error(f"Error estimating savings for {resource.resource_id}: {e}")
-            # Fallback to default
-            return self._estimate_default_savings(resource)
-    
+    def _estimate_savings(self, resource) -> Optional[float]:
+        """A request acknowledgement alone does not establish avoidable charges."""
+        return None
+
     def _estimate_ec2_savings(self, resource) -> float:
         """Estimate EC2 instance savings."""
         try:
@@ -414,10 +386,5 @@ class ActionExecutor:
             logger.error(f"Error estimating NAT Gateway savings: {e}")
             return self._estimate_default_savings(resource)
     
-    def _estimate_default_savings(self, resource) -> float:
-        """Default savings estimation fallback."""
-        # Conservative default: $0.10/hour = $72/month
-        default_hourly = 0.10
-        monthly_savings = default_hourly * 24 * 30
-        logger.warning(f"Using default savings estimate for {resource.service}: ${monthly_savings:.2f}/month")
-        return monthly_savings
+    def _estimate_default_savings(self, resource) -> Optional[float]:
+        return None

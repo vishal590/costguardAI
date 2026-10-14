@@ -1,5 +1,7 @@
 # Phase 2 Implementation Summary
 
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 ## Overview
 
 This document summarizes the implementation of Phase 2 (AI-Powered Cost Forecasting), including key decisions, challenges encountered, and lessons learned.

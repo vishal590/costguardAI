@@ -139,14 +139,14 @@
 ## Key Documents
 
 ### Must Read
-- **[HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md)** - Why AI/ML was chosen
-- **[PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md)** - Active Phase 6 recommendation
+- **[HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md)** - Why AI/ML was chosen
+- **[PHASE6_RECOMMENDATION.md](phase6-recommendation.md)** - Active Phase 6 recommendation
 
 ### Reference
-- **[PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md](./PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md)** - Deferred to Phase 7
-- **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)** - Phase 5 multi-account
-- **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Market positioning
-- **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - SMB/startup impact
+- **[PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md](phase7-recommendation.md)** - Deferred to Phase 7
+- **[PHASE5_RECOMMENDATION.md](phase5-recommendation.md)** - Phase 5 multi-account
+- **[COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md)** - Market positioning
+- **[IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)** - SMB/startup impact
 
 ---
 

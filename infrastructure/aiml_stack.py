@@ -16,6 +16,8 @@ Requirements: All Phase 6 AI/ML workload cost management requirements
 """
 
 import os
+import json
+import re
 from aws_cdk import (
     Stack,
     Duration,
@@ -144,6 +146,7 @@ class AIMLStack(Stack):
                 "sagemaker:DescribeTrainingJob",
                 "sagemaker:ListEndpoints",
                 "sagemaker:DescribeEndpoint",
+                "sagemaker:DescribeEndpointConfig",
                 "sagemaker:ListNotebookInstances",
                 "sagemaker:DescribeNotebookInstance",
             ],
@@ -184,6 +187,10 @@ class AIMLStack(Stack):
             resources=["*"],
         ))
 
+        aiml_lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW, actions=["pricing:GetProducts"], resources=["*"],
+        ))
+
         # Add Organizations permissions for multi-account support
         aiml_lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
@@ -204,6 +211,7 @@ class AIMLStack(Stack):
         # Grant DynamoDB permissions
         gpu_costs_table.grant_read_write_data(aiml_lambda_role)
         workload_classifications_table.grant_read_write_data(aiml_lambda_role)
+        # Transactional declaration/history Put operations use the granted PutItem permission.
         aiml_cache_table.grant_read_write_data(aiml_lambda_role)
 
         # Add DynamoDB permissions for multi-account tables (from Phase 5)
@@ -227,6 +235,16 @@ class AIMLStack(Stack):
         # Lambda Function
         # =====================================================================
 
+        gpu_history_table = self.node.try_get_context('gpu_action_history_table') or os.environ.get('GPU_PREVENTION_ACTIONS_TABLE', '')
+        if gpu_history_table:
+            if not isinstance(gpu_history_table, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{3,255}', gpu_history_table):
+                raise ValueError('gpu_action_history_table must be an existing table name')
+            history = dynamodb.Table.from_table_name(self, 'HistoricalGPUActions', gpu_history_table)
+            history.grant_read_data(aiml_lambda_role)
+        metric_contract = self.node.try_get_context('gpu_utilization_metric_contract')
+        gpu_metric_contract = json.dumps(metric_contract) if isinstance(metric_contract, dict) else metric_contract or os.environ.get('GPU_UTILIZATION_METRIC_CONTRACT', '')
+        if not isinstance(gpu_metric_contract, str): raise ValueError('GPU metric contract must be an object or JSON string')
+
         aiml_handler = lambda_.Function(
             self, "AIMLHandler",
             function_name="CostGuard-AIMLHandler",
@@ -235,6 +253,11 @@ class AIMLStack(Stack):
             code=lambda_.Code.from_asset(
                 os.path.join(os.path.dirname(__file__), ".."),  # Project root (parent of infrastructure/)
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out",
                     "infrastructure",
                     ".git",
@@ -274,7 +297,12 @@ class AIMLStack(Stack):
             timeout=Duration.minutes(5),
             memory_size=512,
             environment={
+                "BACKEND_API_KEY": self.node.try_get_context("bff_aiml_key") or os.environ.get("BFF_AIML_API_KEY", ""),
+                "BACKEND_ACCOUNT_ID": Stack.of(self).account,
+                "ALLOW_DIRECT_API_KEYS": self.node.try_get_context("allow_direct_api_keys") or "false",
                 "GPU_COSTS_TABLE": gpu_costs_table.table_name,
+                "GPU_PREVENTION_ACTIONS_TABLE": gpu_history_table,
+                "GPU_UTILIZATION_METRIC_CONTRACT": gpu_metric_contract,
                 "WORKLOAD_CLASSIFICATIONS_TABLE": workload_classifications_table.table_name,
                 "AIML_CACHE_TABLE": aiml_cache_table.table_name,
                 "ORGANIZATIONS_TABLE": "costguard-organizations",

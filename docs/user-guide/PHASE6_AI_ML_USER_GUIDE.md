@@ -1,5 +1,7 @@
 # Phase 6: AI/ML Workload Cost Management - User Guide
 
+> **Source review note (October 3, 2026):** Use [current API contracts](../technical/api-design.md) and [known limitations](../technical/documentation-code-sync.md) for stack URLs, routing and current behavior. Sample responses, timing and savings below are illustrative or historical; this pass did not execute requests or verify frontend/live AWS behavior.
+
 **Last Updated:** March 3, 2026  
 **API Endpoint:** https://chcymuh4qi.execute-api.us-east-1.amazonaws.com/prod/api/ai-ml/  
 **Status:** ✅ DEPLOYED & OPERATIONAL
@@ -609,19 +611,9 @@ curl "https://chcymuh4qi.execute-api.us-east-1.amazonaws.com/prod/api/ai-ml/mult
 
 **Solution:** Ensure all required parameters are provided in the correct format (YYYY-MM-DD for dates).
 
-#### 2. 501 Not Implemented
+#### 2. GPU Utilization Has No Metrics
 
-**Error:**
-```json
-{
-  "error": {
-    "code": "NOT_IMPLEMENTED",
-    "message": "GPU utilization endpoint not yet implemented"
-  }
-}
-```
-
-**Solution:** This endpoint is planned for a future release. Use alternative endpoints for now.
+The current GPU-utilization endpoint is implemented. Supply `start_date` and `end_date`, optionally filtering by `instance_id` or `instance_type`. Missing metrics return null `avg_utilization` and an empty `gpu_utilization_pattern`; check the instance and available CloudWatch metrics rather than treating it as a future endpoint.
 
 #### 3. No Data Returned
 
@@ -648,7 +640,7 @@ curl "https://chcymuh4qi.execute-api.us-east-1.amazonaws.com/prod/api/ai-ml/mult
 
 For issues or questions:
 - Check [PHASE6_ENDPOINT_TEST_REPORT.md](../PHASE6_ENDPOINT_TEST_REPORT.md) for endpoint status
-- Review [DEPLOYMENT_ISSUES_AND_FIXES.md](../DEPLOYMENT_ISSUES_AND_FIXES.md) for common problems
+- Review [DEPLOYMENT_ISSUES_AND_FIXES.md](../deployment/DEPLOYMENT_BUGS_AND_FIXES.md) for common problems
 - See [PROJECT_STATUS.md](../PROJECT_STATUS.md) for overall system status
 
 ---

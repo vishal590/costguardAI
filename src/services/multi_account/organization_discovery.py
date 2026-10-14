@@ -104,7 +104,7 @@ class OrganizationDiscoveryService:
                         arn=account_data['Arn'],
                         name=account_data['Name'],
                         email=account_data['Email'],
-                        status=account_data['Status'],
+                        status=account_data.get('State') or account_data.get('Status') or 'UNKNOWN',
                         joined_method=account_data['JoinedMethod'],
                         joined_timestamp=account_data['JoinedTimestamp']
                     )
@@ -236,7 +236,7 @@ class OrganizationDiscoveryService:
             ttl = int((datetime.utcnow() + timedelta(hours=self.cache_ttl_hours)).timestamp())
             
             self.dynamodb.put_item(
-                TableName='organizations',
+                TableName=os.environ.get('ORGANIZATIONS_TABLE', 'costguard-organizations'),
                 Item={
                     'org_id': {'S': organization.id},
                     'arn': {'S': organization.arn},
@@ -261,19 +261,10 @@ class OrganizationDiscoveryService:
             accounts: List of accounts to cache
         """
         try:
+            from .repositories import AccountRepository
+            repository = AccountRepository(self.dynamodb, os.environ.get('ACCOUNTS_TABLE', 'costguard-accounts'))
             for account in accounts:
-                self.dynamodb.put_item(
-                    TableName='accounts',
-                    Item={
-                        'account_id': {'S': account.id},
-                        'org_id': {'S': org_id},
-                        'name': {'S': account.name},
-                        'email': {'S': account.email},
-                        'status': {'S': account.status},
-                        'last_collection': {'N': '0'},
-                        'collection_status': {'S': 'PENDING'}
-                    }
-                )
+                repository.save(account, org_id)
             logger.debug(f"Cached {len(accounts)} accounts")
             
         except ClientError as e:

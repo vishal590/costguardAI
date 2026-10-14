@@ -1,5 +1,7 @@
 # Phase 1.5 Misleading Claims Analysis
 
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 **Date:** January 2026  
 **Status:** ⚠️ **MINOR ISSUES FOUND** - Mostly accurate, but some timing claims need clarification
 

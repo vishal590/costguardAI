@@ -39,98 +39,34 @@ class CostAllocationEngine:
         self.cost_repository = cost_repository or MultiAccountCostRepository()
         self.rule_repository = rule_repository or AllocationRuleRepository()
     
-    def allocate_by_tags(
-        self,
-        account_id: str,
-        start_date: str,
-        end_date: str,
-        tag_keys: Optional[List[str]] = None
-    ) -> AllocationResult:
-        """
-        Allocate costs based on resource tags.
-        
-        Args:
-            account_id: Account ID
-            start_date: Start date (YYYY-MM-DD)
-            end_date: End date (YYYY-MM-DD)
-            tag_keys: List of tag keys to use for allocation (default: Team, Project, Environment)
-            
-        Returns:
-            AllocationResult with allocated and unallocated costs
-            
-        Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7
-        """
-        logger.info(
-            f"Allocating costs by tags for account {account_id} "
-            f"from {start_date} to {end_date}"
-        )
-        
-        # Default tag keys
-        if tag_keys is None:
-            tag_keys = ['Team', 'Project', 'Environment']
-        
-        # Get cost data
-        cost_data = self.cost_repository.get_cost_data(account_id, start_date)
-        
-        if not cost_data:
-            logger.warning(f"No cost data found for account {account_id}")
-            return AllocationResult(
-                total_cost=Decimal("0"),
-                allocated_cost=Decimal("0"),
-                unallocated_cost=Decimal("0"),
-                allocation_percentage=0.0,
-                allocations_by_category={}
-            )
-        
-        # Extract total cost
-        total_cost = Decimal("0")
-        if 'costs_by_service' in cost_data:
-            for cost in cost_data['costs_by_service'].values():
-                total_cost += Decimal(str(cost))
-        
-        # Extract tag-based costs
-        allocations_by_category: Dict[str, Decimal] = {}
-        allocated_cost = Decimal("0")
-        
-        if 'costs_by_tag' in cost_data:
-            for tag_key in tag_keys:
-                # Look for costs tagged with this key
-                for tag, cost in cost_data['costs_by_tag'].items():
-                    if tag.startswith(f"{tag_key}:"):
-                        # Extract tag value (e.g., "Team:Engineering" -> "Engineering")
-                        tag_value = tag.split(':', 1)[1] if ':' in tag else tag
-                        category = f"{tag_key}:{tag_value}"
-                        
-                        cost_decimal = Decimal(str(cost))
-                        allocations_by_category[category] = allocations_by_category.get(
-                            category, Decimal("0")
-                        ) + cost_decimal
-                        allocated_cost += cost_decimal
-        
-        # Calculate unallocated cost
-        unallocated_cost = total_cost - allocated_cost
-        
-        # Calculate allocation percentage
-        allocation_percentage = float(
-            (allocated_cost / total_cost * 100) if total_cost > 0 else 0.0
-        )
-        
-        result = AllocationResult(
-            total_cost=total_cost,
-            allocated_cost=allocated_cost,
-            unallocated_cost=unallocated_cost,
-            allocation_percentage=allocation_percentage,
-            allocations_by_category=allocations_by_category
-        )
-        
-        logger.info(
-            f"Allocated ${allocated_cost} ({allocation_percentage:.1f}%) "
-            f"of ${total_cost} for account {account_id}, "
-            f"unallocated: ${unallocated_cost}"
-        )
-        
-        return result
-    
+    def allocate_by_tags(self, account_id, start_date, end_date, tag_keys=None):
+        """Allocate one tag dimension across stored daily records without double counting."""
+        from datetime import date, timedelta
+        from .report_data import AllocationDataUnavailable
+        keys = tag_keys or ['Team']
+        if len(keys) != 1 or keys[0] not in ('Team', 'Project', 'Environment'):
+            raise ValueError('Select one supported tag dimension to avoid overlapping allocation totals')
+        start, end = date.fromisoformat(start_date), date.fromisoformat(end_date)
+        if end < start or (end - start).days > 365:
+            raise ValueError('Select an ordered period of at most 366 days')
+        total_cost, allocated_cost, categories = Decimal('0'), Decimal('0'), {}
+        day = start
+        while day <= end:
+            data = self.cost_repository.get_cost_data(account_id, day.isoformat())
+            if data is None or getattr(data, 'costs_by_tag_service', None) is None:
+                raise AllocationDataUnavailable('Daily tag/service allocation data is unavailable')
+            total_cost += data.total_cost
+            for category, services in data.costs_by_tag_service.items():
+                if category.startswith(keys[0] + ':'):
+                    amount = sum(services.values(), Decimal('0'))
+                    categories[category] = categories.get(category, Decimal('0')) + amount
+                    allocated_cost += amount
+            day += timedelta(days=1)
+        return AllocationResult(total_cost=total_cost, allocated_cost=allocated_cost,
+            unallocated_cost=total_cost - allocated_cost,
+            allocation_percentage=float(allocated_cost / total_cost * 100) if total_cost else 0.0,
+            allocations_by_category=categories)
+
     def apply_allocation_rules(
         self,
         costs: AccountCostData,

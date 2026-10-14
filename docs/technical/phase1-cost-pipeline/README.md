@@ -1,5 +1,7 @@
 # Phase 1: Cost Data Pipeline
 
+> **Current-reference note (October 3, 2026):** Use [current API contracts](../api-design.md), [database schemas](../database-design.md) and [project status](../../PROJECT_STATUS.md) for source behavior. Test counts, coverage and deployment metrics below record earlier work; they were not rerun or checked against AWS in this documentation pass.
+
 > **Part of CostGuard AI** - AWS Cost Management & Optimization Platform  
 > **Documentation Location:** `docs/technical/phase1-cost-pipeline/`  
 > **Related:** [Project README](../../../README.md) | [Docs Index](../../INDEX.md) | [Development Notes](../development-notes.md)

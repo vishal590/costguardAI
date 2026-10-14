@@ -347,9 +347,9 @@ For issues or questions:
 
 ## Related Documentation
 
-- [Member Account Deployment](infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
-- [Cross-Account Setup](infrastructure/CROSS_ACCOUNT_SETUP.md)
-- [API Examples](docs/API_EXAMPLES.md)
+- [Member Account Deployment](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
+- [Cross-Account Setup](../../infrastructure/CROSS_ACCOUNT_SETUP.md)
+- [API Examples](../API_EXAMPLES.md)
 - [Deployment Checklist](DEPLOYMENT_CHECKLIST.md)
 
 ---

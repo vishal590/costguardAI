@@ -1,5 +1,8 @@
 # Autonomous Action Loops - Deployment Success Report
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](PROJECT_STATUS.md) and [current source limitations](technical/documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
+
 **Date:** March 5, 2026  
 **Status:** ✅ **DEPLOYMENT COMPLETE AND VERIFIED**  
 **Stack Name:** CostGuardAutonomousStack  
@@ -302,9 +305,9 @@ aws cloudformation describe-stacks --stack-name CostGuardAutonomousStack
 - [Autonomous Verification Report](./AUTONOMOUS_VERIFICATION_REPORT.md) - Test results and coverage
 - [Autonomous Deployment Ready](./AUTONOMOUS_DEPLOYMENT_READY.md) - Pre-deployment checklist
 - [Security Implementation](./SECURITY_IMPLEMENTATION.md) - Security features
-- [Requirements Document](./.kiro/specs/autonomous-action-loops/requirements.md) - Feature requirements
-- [Design Document](./.kiro/specs/autonomous-action-loops/design.md) - Architecture and design
-- [Tasks Document](./.kiro/specs/autonomous-action-loops/tasks.md) - Implementation tasks
+- [Requirements Document](../.kiro/specs/autonomous-action-loops/requirements.md) - Feature requirements
+- [Design Document](../.kiro/specs/autonomous-action-loops/design.md) - Architecture and design
+- [Tasks Document](../.kiro/specs/autonomous-action-loops/tasks.md) - Implementation tasks
 
 ---
 

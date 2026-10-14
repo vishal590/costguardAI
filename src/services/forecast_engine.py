@@ -76,6 +76,7 @@ class ForecastEngine:
             days_back=30
         )
         
+        historical_data.forecast_start_date = (datetime.now(UTC).date()+timedelta(days=1)).isoformat()
         # Validate historical data (minimum days)
         self.validate_historical_data(historical_data)
         
@@ -90,7 +91,11 @@ class ForecastEngine:
                 service=service,
                 services_included=None if service else self._get_all_services(historical_data),
                 cache_hit=False,
-                historical_data_days=historical_data.total_days
+                historical_data_days=historical_data.total_days,
+                range_method="deterministic_zero",
+                observed_history_days=historical_data.observed_days, missing_history_dates=historical_data.missing_dates,
+                history_method=historical_data.history_method, cost_metric=historical_data.cost_metric, forecast_start_date=historical_data.forecast_start_date,
+                estimated_dates=historical_data.estimated_dates, unknown_estimate_dates=historical_data.unknown_estimate_dates
             )
             forecast_dict = {
                 'success': True,
@@ -131,7 +136,11 @@ class ForecastEngine:
             service=service,
             services_included=None if service else self._get_all_services(historical_data),
             cache_hit=False,
-            historical_data_days=historical_data.total_days
+            historical_data_days=historical_data.total_days,
+            range_method=bedrock_response.range_method,
+            observed_history_days=historical_data.observed_days, missing_history_dates=historical_data.missing_dates,
+            history_method=historical_data.history_method, cost_metric=historical_data.cost_metric, forecast_start_date=historical_data.forecast_start_date,
+                estimated_dates=historical_data.estimated_dates, unknown_estimate_dates=historical_data.unknown_estimate_dates
         )
         
         # Build response
@@ -253,12 +262,7 @@ class ForecastEngine:
         self, days: int, granularity: str, historical_data: ProcessedData
     ) -> List[ForecastDataPoint]:
         """Build a forecast of zeros when historical data is all zero (no Bedrock call)."""
-        if not historical_data.timestamps:
-            start = datetime.now(UTC).date()
-        else:
-            last_str = historical_data.timestamps[-1]
-            last_date = datetime.strptime(last_str, "%Y-%m-%d").date()
-            start = last_date + timedelta(days=1)
+        start = datetime.fromisoformat(historical_data.forecast_start_date).date() if historical_data.forecast_start_date else datetime.now(UTC).date()+timedelta(days=1)
         daily_data = []
         for i in range(days):
             d = start + timedelta(days=i)
@@ -319,7 +323,11 @@ class ForecastEngine:
             service=metadata_data.get('service'),
             services_included=metadata_data.get('services_included'),
             cache_hit=cache_hit,  # Override with actual cache hit status
-            historical_data_days=metadata_data['historical_data_days']
+            historical_data_days=metadata_data['historical_data_days'],
+            range_method=metadata_data.get('range_method', 'legacy_unspecified'),
+            observed_history_days=metadata_data.get('observed_history_days'), missing_history_dates=metadata_data.get('missing_history_dates'),
+            history_method=metadata_data.get('history_method', 'unspecified'), cost_metric=metadata_data.get('cost_metric', 'unspecified'), forecast_start_date=metadata_data.get('forecast_start_date'),
+            estimated_dates=metadata_data.get('estimated_dates'), unknown_estimate_dates=metadata_data.get('unknown_estimate_dates')
         )
         
         return ForecastResponse(

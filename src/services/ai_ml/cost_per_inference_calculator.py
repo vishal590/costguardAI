@@ -1,490 +1,85 @@
-"""
-Cost-Per-Inference Calculator
-
-Calculates cost per inference request for AI/ML models, tracking inference requests
-from multiple sources (API Gateway, Lambda, SageMaker, Bedrock) and calculating
-total inference costs including compute, API, and data transfer costs.
-
-Requirements: FR-3.1, FR-3.2, FR-3.3, FR-3.4, FR-3.5, FR-3.6
-"""
-
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
-from decimal import Decimal
-from botocore.exceptions import ClientError
-
-from .error_handler import (
-    retry_with_exponential_backoff,
-    handle_cost_explorer_error,
-    validate_minimum_data,
-    AIMLError
-)
+"""Explicit runtime request observations with unavailable endpoint-attributed unit costs."""
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, UTC
+from typing import Optional, Dict, List, Tuple
+import math
+from .inference_counter import observe_counter
 
 
 @dataclass
 class InferenceCosts:
-    """Breakdown of inference costs by component."""
-    compute_cost: float
-    api_cost: float
-    data_transfer_cost: float
-    
+    compute_cost: Optional[float]
+    api_cost: Optional[float]
+    data_transfer_cost: Optional[float]
+
     @property
-    def total_cost(self) -> float:
-        """Calculate total cost across all components."""
-        return self.compute_cost + self.api_cost + self.data_transfer_cost
+    def total_cost(self):
+        values = (self.compute_cost, self.api_cost, self.data_transfer_cost)
+        return sum(values) if all(value is not None for value in values) else None
 
 
 @dataclass
 class CostPerInference:
-    """Cost per inference calculation result."""
-    model: str
+    model: Optional[str]
     endpoint: str
     date: datetime
-    total_requests: int
-    total_cost: float
-    cost_per_inference: float
-    compute_cost: float
-    api_cost: float
-    data_transfer_cost: float
+    total_requests: Optional[int]
+    total_cost: Optional[float]
+    cost_per_inference: Optional[float]
+    compute_cost: Optional[float]
+    api_cost: Optional[float]
+    data_transfer_cost: Optional[float]
+    source: Optional[str] = None
+    cost_attribution_status: str = 'unavailable'
+    data_quality: Dict = field(default_factory=dict)
 
 
 @dataclass
 class CostTrend:
-    """Cost-per-inference trend data point."""
     date: datetime
-    cost_per_inference: float
-    total_requests: int
-    total_cost: float
+    cost_per_inference: Optional[float]
+    total_requests: Optional[int]
+    total_cost: Optional[float]
+    observation_status: str = 'unavailable'
 
 
 class CostPerInferenceCalculator:
-    """
-    Calculates cost per inference request for AI/ML models.
-    
-    Tracks inference requests from multiple sources and calculates total costs
-    including compute, API, and data transfer components.
-    """
-    
-    def __init__(self, cost_explorer_client=None, cloudwatch_client=None, 
+    def __init__(self, cost_explorer_client=None, cloudwatch_client=None,
                  dynamodb_client=None, api_gateway_client=None):
-        """
-        Initialize the cost-per-inference calculator.
-        
-        Args:
-            cost_explorer_client: AWS Cost Explorer client
-            cloudwatch_client: AWS CloudWatch client
-            dynamodb_client: AWS DynamoDB client
-            api_gateway_client: AWS API Gateway client
-        """
-        self.cost_explorer = cost_explorer_client
-        self.cloudwatch = cloudwatch_client
-        self.dynamodb = dynamodb_client
-        self.api_gateway = api_gateway_client
-    
-    def calculate_cost_per_inference(
-        self,
-        model: str,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> CostPerInference:
-        """
-        Calculate cost per inference for a model/endpoint.
-        
-        Args:
-            model: Model name
-            endpoint: Endpoint identifier
-            start_date: Start date for calculation
-            end_date: End date for calculation
-            
-        Returns:
-            CostPerInference with detailed cost breakdown
-            
-        Requirements: FR-3.1, FR-3.4
-        """
-        # Get total inference request count
-        total_requests = self.get_inference_request_count(endpoint, start_date, end_date)
-        
-        if total_requests == 0:
-            return CostPerInference(
-                model=model,
-                endpoint=endpoint,
-                date=start_date,
-                total_requests=0,
-                total_cost=0.0,
-                cost_per_inference=0.0,
-                compute_cost=0.0,
-                api_cost=0.0,
-                data_transfer_cost=0.0
-            )
-        
-        # Get total inference costs
-        costs = self.get_inference_costs(endpoint, start_date, end_date)
-        
-        # Calculate cost per inference
-        cost_per_inference = costs.total_cost / total_requests
-        
-        return CostPerInference(
-            model=model,
-            endpoint=endpoint,
-            date=start_date,
-            total_requests=total_requests,
-            total_cost=costs.total_cost,
-            cost_per_inference=cost_per_inference,
-            compute_cost=costs.compute_cost,
-            api_cost=costs.api_cost,
-            data_transfer_cost=costs.data_transfer_cost
-        )
-    
-    def get_inference_request_count(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> int:
-        """
-        Get inference request count from CloudWatch/API Gateway.
-        
-        Tracks inference requests from multiple sources:
-        - API Gateway endpoints
-        - Lambda function invocations
-        - SageMaker inference endpoints
-        - Bedrock model invocations
-        
-        Args:
-            endpoint: Endpoint identifier
-            start_date: Start date
-            end_date: End date
-            
-        Returns:
-            Total number of inference requests
-            
-        Requirements: FR-3.2
-        """
-        if not self.cloudwatch:
+        self.cost_explorer, self.cloudwatch = cost_explorer_client, cloudwatch_client
+        self.dynamodb, self.api_gateway = dynamodb_client, api_gateway_client
+        self.last_counter_observation = None
+
+    def _counter(self, endpoint, start_date, end_date, *, source, variant=None, stage=None):
+        if self.cloudwatch is None:
             import boto3
             self.cloudwatch = boto3.client('cloudwatch')
-        
-        total_requests = 0
-        
-        # Try API Gateway metrics
-        try:
-            api_gateway_requests = self._get_api_gateway_requests(endpoint, start_date, end_date)
-            total_requests += api_gateway_requests
-        except Exception:
-            pass
-        
-        # Try Lambda metrics
-        try:
-            lambda_requests = self._get_lambda_invocations(endpoint, start_date, end_date)
-            total_requests += lambda_requests
-        except Exception:
-            pass
-        
-        # Try SageMaker metrics
-        try:
-            sagemaker_requests = self._get_sagemaker_invocations(endpoint, start_date, end_date)
-            total_requests += sagemaker_requests
-        except Exception:
-            pass
-        
-        # Try Bedrock metrics
-        try:
-            bedrock_requests = self._get_bedrock_invocations(endpoint, start_date, end_date)
-            total_requests += bedrock_requests
-        except Exception:
-            pass
-        
-        return total_requests
-    
-    def get_inference_costs(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> InferenceCosts:
-        """
-        Get total inference costs (compute + API + data transfer).
-        
-        Args:
-            endpoint: Endpoint identifier
-            start_date: Start date
-            end_date: End date
-            
-        Returns:
-            InferenceCosts with breakdown by component
-            
-        Requirements: FR-3.3
-        """
-        if not self.cost_explorer:
-            import boto3
-            self.cost_explorer = boto3.client('ce')
-        
-        compute_cost = self._get_compute_costs(endpoint, start_date, end_date)
-        api_cost = self._get_api_costs(endpoint, start_date, end_date)
-        data_transfer_cost = self._get_data_transfer_costs(endpoint, start_date, end_date)
-        
-        return InferenceCosts(
-            compute_cost=compute_cost,
-            api_cost=api_cost,
-            data_transfer_cost=data_transfer_cost
-        )
-    
-    def track_cost_trends(
-        self,
-        model: str,
-        endpoint: str,
-        days: int = 30
-    ) -> List[CostTrend]:
-        """
-        Track cost-per-inference trends over time.
-        
-        Args:
-            model: Model name
-            endpoint: Endpoint identifier
-            days: Number of days to track (default: 30)
-            
-        Returns:
-            List of CostTrend data points
-            
-        Requirements: FR-3.5
-        """
-        trends = []
-        end_date = datetime.utcnow()
-        
-        for i in range(days):
-            date = end_date - timedelta(days=i)
-            start = date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end = date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            
-            result = self.calculate_cost_per_inference(model, endpoint, start, end)
-            
-            trends.append(CostTrend(
-                date=date,
-                cost_per_inference=result.cost_per_inference,
-                total_requests=result.total_requests,
-                total_cost=result.total_cost
-            ))
-        
-        return list(reversed(trends))  # Return chronological order
-    
-    def check_cost_threshold(
-        self,
-        model: str,
-        endpoint: str,
-        threshold: float,
-        start_date: datetime,
-        end_date: datetime
-    ) -> Tuple[bool, float]:
-        """
-        Check if cost-per-inference exceeds threshold.
-        
-        Args:
-            model: Model name
-            endpoint: Endpoint identifier
-            threshold: Cost threshold
-            start_date: Start date
-            end_date: End date
-            
-        Returns:
-            Tuple of (exceeds_threshold, actual_cost)
-            
-        Requirements: FR-3.6
-        """
-        result = self.calculate_cost_per_inference(model, endpoint, start_date, end_date)
-        exceeds = result.cost_per_inference > threshold
-        return exceeds, result.cost_per_inference
-    
-    # Private helper methods
-    
-    def _get_api_gateway_requests(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> int:
-        """Get request count from API Gateway metrics."""
-        try:
-            response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/ApiGateway',
-                MetricName='Count',
-                Dimensions=[
-                    {'Name': 'ApiName', 'Value': endpoint}
-                ],
-                StartTime=start_date,
-                EndTime=end_date,
-                Period=300,
-                Statistics=['Sum']
-            )
-            
-            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
-            return total
-        except Exception:
-            return 0
-    
-    def _get_lambda_invocations(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> int:
-        """Get invocation count from Lambda metrics."""
-        try:
-            response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/Lambda',
-                MetricName='Invocations',
-                Dimensions=[
-                    {'Name': 'FunctionName', 'Value': endpoint}
-                ],
-                StartTime=start_date,
-                EndTime=end_date,
-                Period=300,
-                Statistics=['Sum']
-            )
-            
-            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
-            return total
-        except Exception:
-            return 0
-    
-    def _get_sagemaker_invocations(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> int:
-        """Get invocation count from SageMaker metrics."""
-        try:
-            response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/SageMaker',
-                MetricName='InvocationsPerInstance',
-                Dimensions=[
-                    {'Name': 'EndpointName', 'Value': endpoint}
-                ],
-                StartTime=start_date,
-                EndTime=end_date,
-                Period=300,
-                Statistics=['Sum']
-            )
-            
-            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
-            return total
-        except Exception:
-            return 0
-    
-    def _get_bedrock_invocations(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> int:
-        """Get invocation count from Bedrock metrics."""
-        try:
-            # Bedrock metrics are in AWS/Bedrock namespace
-            response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/Bedrock',
-                MetricName='Invocations',
-                Dimensions=[
-                    {'Name': 'ModelId', 'Value': endpoint}
-                ],
-                StartTime=start_date,
-                EndTime=end_date,
-                Period=300,
-                Statistics=['Sum']
-            )
-            
-            total = sum(int(dp['Sum']) for dp in response.get('Datapoints', []))
-            return total
-        except Exception:
-            return 0
-    
-    def _get_compute_costs(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> float:
-        """Get compute costs from Cost Explorer."""
-        try:
-            response = self.cost_explorer.get_cost_and_usage(
-                TimePeriod={
-                    'Start': start_date.strftime('%Y-%m-%d'),
-                    'End': end_date.strftime('%Y-%m-%d')
-                },
-                Granularity='DAILY',
-                Metrics=['UnblendedCost'],
-                Filter={
-                    'Dimensions': {
-                        'Key': 'SERVICE',
-                        'Values': ['Amazon Elastic Compute Cloud - Compute', 'AWS Lambda', 'Amazon SageMaker']
-                    }
-                }
-            )
-            
-            total = 0.0
-            for result in response.get('ResultsByTime', []):
-                total += float(result['Total']['UnblendedCost']['Amount'])
-            return total
-        except Exception:
-            return 0.0
-    
-    def _get_api_costs(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> float:
-        """Get API costs from Cost Explorer."""
-        try:
-            response = self.cost_explorer.get_cost_and_usage(
-                TimePeriod={
-                    'Start': start_date.strftime('%Y-%m-%d'),
-                    'End': end_date.strftime('%Y-%m-%d')
-                },
-                Granularity='DAILY',
-                Metrics=['UnblendedCost'],
-                Filter={
-                    'Dimensions': {
-                        'Key': 'SERVICE',
-                        'Values': ['Amazon API Gateway', 'Amazon Bedrock']
-                    }
-                }
-            )
-            
-            total = 0.0
-            for result in response.get('ResultsByTime', []):
-                total += float(result['Total']['UnblendedCost']['Amount'])
-            return total
-        except Exception:
-            return 0.0
-    
-    def _get_data_transfer_costs(
-        self,
-        endpoint: str,
-        start_date: datetime,
-        end_date: datetime
-    ) -> float:
-        """Get data transfer costs from Cost Explorer."""
-        try:
-            response = self.cost_explorer.get_cost_and_usage(
-                TimePeriod={
-                    'Start': start_date.strftime('%Y-%m-%d'),
-                    'End': end_date.strftime('%Y-%m-%d')
-                },
-                Granularity='DAILY',
-                Metrics=['UnblendedCost'],
-                Filter={
-                    'Dimensions': {
-                        'Key': 'USAGE_TYPE',
-                        'Values': ['DataTransfer-Out-Bytes', 'DataTransfer-In-Bytes']
-                    }
-                }
-            )
-            
-            total = 0.0
-            for result in response.get('ResultsByTime', []):
-                total += float(result['Total']['UnblendedCost']['Amount'])
-            return total
-        except Exception:
-            return 0.0
+        self.last_counter_observation = observe_counter(self.cloudwatch, source, endpoint, start_date, end_date, variant=variant, stage=stage)
+        return self.last_counter_observation
+
+    def calculate_cost_per_inference(self, model, endpoint, start_date, end_date, *, source=None, variant=None, stage=None):
+        counter = self._counter(endpoint, start_date, end_date, source=source, variant=variant, stage=stage)
+        return CostPerInference(model, endpoint, start_date, counter['total_count'], None, None, None, None, None,
+                                source=source, data_quality=counter)
+
+    def get_inference_request_count(self, endpoint, start_date, end_date, *, source=None, variant=None, stage=None):
+        return self._counter(endpoint, start_date, end_date, source=source, variant=variant, stage=stage)['total_count']
+
+    def get_inference_costs(self, endpoint, start_date, end_date):
+        return InferenceCosts(None, None, None)
+
+    def track_cost_trends(self, model, endpoint, days=30, *, source=None, variant=None, stage=None) -> List[CostTrend]:
+        if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 31: raise ValueError('Select 1-31 completed days')
+        end = datetime.combine(datetime.now(UTC).date(), datetime.min.time(), UTC)
+        counter = self._counter(endpoint, end-timedelta(days=days), end, source=source, variant=variant, stage=stage)
+        return [CostTrend(datetime.fromisoformat(row['date']).replace(tzinfo=UTC), None, row['count'], None,
+                          'available' if row['count'] is not None else 'unavailable') for row in counter['daily']]
+
+    def check_cost_threshold(self, model, endpoint, threshold, start_date, end_date, **counter_scope):
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or threshold <= 0:
+            raise ValueError('Cost threshold must be a positive finite amount')
+        return None, None  # Unattributed account costs cannot establish an endpoint threshold breach.
+
+    def _get_compute_costs(self, *args): return None
+    def _get_api_costs(self, *args): return None
+    def _get_data_transfer_costs(self, *args): return None

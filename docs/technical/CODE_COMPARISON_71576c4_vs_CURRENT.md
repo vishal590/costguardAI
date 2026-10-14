@@ -1,5 +1,7 @@
 # Code Comparison: 71576c4 vs Current - Actual Code Changes
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](../PROJECT_STATUS.md) and [current source limitations](documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
 **Date:** March 2026  
 **Comparison:** Actual source code files between commit 71576c4 and current HEAD  
 **Purpose:** Verify if code changes fixed issues or created more misleading claims

@@ -1,5 +1,8 @@
 # Phase 5 Multi-Account Endpoint Test Report
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](PROJECT_STATUS.md) and [current source limitations](technical/documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
+
 **Date:** March 2, 2026  
 **Status:** ✅ ALL TESTS PASSING - FULLY OPERATIONAL  
 **API Endpoint:** `https://7s4ff2lzc6.execute-api.us-east-1.amazonaws.com/prod/`
@@ -445,7 +448,7 @@ The Phase 5 deployment was successful from an infrastructure perspective. All AW
 - [Phase 5 Success Report](./PHASE5_DEPLOYMENT_SUCCESS.md) - Deployment details
 - [Phase 5 Troubleshooting](./PHASE5_DEPLOYMENT_TROUBLESHOOTING.md) - Issues resolved
 - [Deployment Troubleshooting Guide](./deployment/DEPLOYMENT_TROUBLESHOOTING.md) - All issues
-- [AI/ML Workload Costs Spec](./.kiro/specs/ai-ml-workload-costs/tasks.md) - Next implementation
+- [AI/ML Workload Costs Spec](../.kiro/specs/ai-ml-workload-costs/tasks.md) - Next implementation
 
 ---
 

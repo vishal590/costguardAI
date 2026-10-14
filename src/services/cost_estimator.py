@@ -49,34 +49,10 @@ class CostEstimator:
         Returns:
             Cost estimate with confidence interval
         """
-        # Calculate base estimate (sum of all metric values as a simple estimate)
-        # NOTE: This is a fallback method. The primary path uses estimate_cost_with_service_method()
-        # which calls service-specific methods (estimate_ec2_cost, estimate_lambda_cost, etc.)
-        if not metrics:
-            estimated_cost = Decimal('0')
-        else:
-            # Simple aggregation - fallback for unsupported services
-            estimated_cost = sum(m.value for m in metrics)
-        
-        # Calculate confidence interval
-        lower, upper = self.calculate_confidence_interval(estimated_cost, len(metrics))
-        
-        # Create estimate
         now = datetime.now(timezone.utc)
-        estimate = CostEstimate(
-            service=service,
-            estimated_cost=estimated_cost,
-            currency=pricing_data.currency,
-            confidence_lower=lower,
-            confidence_upper=upper,
-            timestamp=now,
-            period_start=now,
-            period_end=now,
-            metrics_count=len(metrics)
-        )
-        
-        return estimate
-    
+        return self._unavailable(service, metrics, pricing_data, now, now,
+            'Generic metric values do not establish monetary cost; use a supported service-specific estimator')
+
     def estimate_ec2_cost(
         self,
         metrics: List[EC2Metrics],
@@ -309,7 +285,9 @@ class CostEstimator:
         if not estimates:
             return Decimal('0')
         
-        total = sum(est.estimated_cost for est in estimates)
+        available = [est.estimated_cost for est in estimates if est.estimated_cost is not None]
+        if not available: return None
+        total = sum(available)
         return total
     
     def estimate_cost_with_service_method(
@@ -335,6 +313,23 @@ class CostEstimator:
         """
         from src.utils.types import EC2Metrics, LambdaMetrics, DynamoDBMetrics, S3Metrics, RDSMetrics
         
+        partial_storage = service == 's3' and isinstance(service_metrics, list) and bool(service_metrics) and all(getattr(metric, 'billing_profile', '') == 'storage_only_missing_requests' for metric in service_metrics)
+        profiles = {'ec2': 'linux_shared_ondemand', 'lambda': 'x86_lambda', 'dynamodb': 'standard_ondemand', 's3': 'standard_with_requests', 'rds': 'postgres_singleaz_gp2'}
+        if not partial_storage and (not isinstance(service_metrics, list) or not service_metrics or any(getattr(metric, 'billing_profile', 'unknown') != profiles.get(service) for metric in service_metrics)):
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'S3 request usage is not collected' if service == 's3' else 'Observed billing profile or required usage components are not supported')
+        required = {'lambda': ('request', 'gb_second'), 'dynamodb': ('read_unit', 'write_unit'), 's3': ('storage_gb', 'get_request', 'put_request'), 'rds': ('storage_gb',)}
+        if partial_storage: required['s3'] = ('storage_gb',)
+        try:
+            if any(not Decimal(str(value)).is_finite() or Decimal(str(value)) < 0 for value in pricing_data.prices.values()):
+                return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Pricing contains invalid nonnegative rates')
+        except Exception:
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Pricing rate shape is unsupported')
+        if pricing_data.source != 'aws_pricing' or any(key not in pricing_data.prices for key in required.get(service, ())):
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Verified regional pricing is incomplete or unavailable')
+        if service in ('ec2', 'rds') and any(getattr(metric, 'instance_type', None) not in pricing_data.prices for metric in service_metrics):
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Instance profile has no unambiguous regional price')
+        if service == 'ec2' and any(metric.network_out > 0 for metric in service_metrics) and 'data_transfer_out' not in pricing_data.prices:
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Transfer pricing is unavailable for the collected network usage')
         estimated_cost = Decimal('0')
         metrics_count = 0
         
@@ -342,7 +337,7 @@ class CostEstimator:
             # Convert PricingData to EC2Pricing
             ec2_pricing = EC2Pricing(
                 instance_prices={k: v for k, v in pricing_data.prices.items() if not k.startswith('data_transfer')},
-                data_transfer_out=pricing_data.prices.get('data_transfer_out', Decimal('0.09')),
+                data_transfer_out=pricing_data.prices.get('data_transfer_out', Decimal('0')),
                 currency=pricing_data.currency
             )
             estimated_cost = self.estimate_ec2_cost(service_metrics, ec2_pricing)
@@ -351,8 +346,8 @@ class CostEstimator:
         elif service == 'lambda' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], LambdaMetrics):
             # Convert PricingData to LambdaPricing
             lambda_pricing = LambdaPricing(
-                price_per_request=pricing_data.prices.get('request', Decimal('0.0000002')),
-                price_per_gb_second=pricing_data.prices.get('gb_second', Decimal('0.0000166667')),
+                price_per_request=pricing_data.prices['request'],
+                price_per_gb_second=pricing_data.prices['gb_second'],
                 currency=pricing_data.currency
             )
             estimated_cost = self.estimate_lambda_cost(service_metrics, lambda_pricing)
@@ -361,8 +356,8 @@ class CostEstimator:
         elif service == 'dynamodb' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], DynamoDBMetrics):
             # Convert PricingData to DynamoDBPricing
             dynamodb_pricing = DynamoDBPricing(
-                price_per_read_unit=pricing_data.prices.get('read_unit', Decimal('0.00025')),
-                price_per_write_unit=pricing_data.prices.get('write_unit', Decimal('0.00125')),
+                price_per_read_unit=pricing_data.prices['read_unit'],
+                price_per_write_unit=pricing_data.prices['write_unit'],
                 currency=pricing_data.currency
             )
             estimated_cost = self.estimate_dynamodb_cost(service_metrics, dynamodb_pricing)
@@ -371,60 +366,32 @@ class CostEstimator:
         elif service == 's3' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], S3Metrics):
             # Convert PricingData to S3Pricing
             s3_pricing = S3Pricing(
-                price_per_gb_storage=pricing_data.prices.get('storage_gb', Decimal('0.023')),
-                price_per_get_request=pricing_data.prices.get('get_request', Decimal('0.0004')),
-                price_per_put_request=pricing_data.prices.get('put_request', Decimal('0.005')),
+                price_per_gb_storage=pricing_data.prices['storage_gb'] * Decimal(str((end_time-start_time).total_seconds())) / Decimal('2628000'),
+                price_per_get_request=pricing_data.prices.get('get_request', Decimal('0')),
+                price_per_put_request=pricing_data.prices.get('put_request', Decimal('0')),
                 currency=pricing_data.currency
             )
-            estimated_cost = self.estimate_s3_cost(service_metrics, s3_pricing)
+            if partial_storage:
+                estimated_cost = sum((metric.bucket_size_bytes / Decimal('1073741824') * s3_pricing.price_per_gb_storage for metric in service_metrics), Decimal('0'))
+            else:
+                estimated_cost = self.estimate_s3_cost(service_metrics, s3_pricing)
             metrics_count = len(service_metrics)
             
         elif service == 'rds' and isinstance(service_metrics, list) and len(service_metrics) > 0 and isinstance(service_metrics[0], RDSMetrics):
             # Convert PricingData to RDSPricing
             rds_pricing = RDSPricing(
                 instance_prices={k: v for k, v in pricing_data.prices.items() if k.startswith('db.')},
-                storage_price_per_gb=pricing_data.prices.get('storage_gb', Decimal('0.115')),
-                iops_price=pricing_data.prices.get('iops', Decimal('0.10')),
+                storage_price_per_gb=pricing_data.prices['storage_gb'] * Decimal(str((end_time-start_time).total_seconds())) / Decimal('2628000'),
+                iops_price=Decimal('0'),  # General-purpose storage profile does not bill observed I/O as provisioned IOPS,
                 currency=pricing_data.currency
             )
             estimated_cost = self.estimate_rds_cost(service_metrics, rds_pricing)
             metrics_count = len(service_metrics)
         else:
-            # Fallback to generic method if service-specific method not available
-            # Convert service_metrics to MetricDataPoint list for generic method
-            from src.utils.types import MetricDataPoint
-            import logging
-            logger = logging.getLogger(__name__)
-            
-            metric_datapoints = []
-            if isinstance(service_metrics, list):
-                for metric in service_metrics:
-                    # Create a simple datapoint for unsupported services
-                    # Use 0.0 instead of 1.0 to indicate no cost data available
-                    metric_datapoints.append(MetricDataPoint(
-                        timestamp=datetime.now(timezone.utc),
-                        value=Decimal('0'),  # Zero cost for unsupported services (better than placeholder $1)
-                        unit='Count',
-                        metric_name=f'{service}_metric'
-                    ))
-            
-            # Log warning for unsupported service
-            logger.warning(f"Service '{service}' is not fully supported for cost estimation. Returning zero cost estimate.")
-            
-            # Return zero cost estimate with low confidence
-            # CostEstimate is already imported at module level
-            return CostEstimate(
-                service=service,
-                estimated_cost=Decimal('0'),
-                currency='USD',
-                confidence_lower=Decimal('0'),
-                confidence_upper=Decimal('0'),
-                timestamp=datetime.now(timezone.utc),
-                period_start=datetime.now(timezone.utc),
-                period_end=datetime.now(timezone.utc),
-                metrics_count=len(metric_datapoints) if metric_datapoints else 0
-            )
-        
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Unsupported service or metric shape')
+
+        if not estimated_cost.is_finite() or estimated_cost < 0:
+            return self._unavailable(service, service_metrics, pricing_data, start_time, end_time, 'Collected usage did not produce a finite nonnegative estimate')
         # Calculate confidence interval
         lower, upper = self.calculate_confidence_interval(estimated_cost, metrics_count)
         
@@ -439,7 +406,16 @@ class CostEstimator:
             timestamp=now,
             period_start=start_time,
             period_end=end_time,
-            metrics_count=metrics_count
+            metrics_count=metrics_count, pricing_source=pricing_data.source, pricing_profile=pricing_data.pricing_profile, range_method="heuristic_resource_count",
+            status="partial" if partial_storage else "estimated",
+            covered_components=["standard_storage"] if partial_storage else ["supported_profile_usage"],
+            missing_components=["get_requests", "put_requests", "other_storage_classes_and_charges"] if partial_storage else None,
+            reason="Standard storage only; request usage and other storage charges are excluded" if partial_storage else None
         )
         
         return estimate
+    def _unavailable(self, service, metrics, pricing, start, end, reason):
+        return CostEstimate(service=service, estimated_cost=None, currency=pricing.currency,
+            confidence_lower=None, confidence_upper=None, timestamp=datetime.now(timezone.utc),
+            period_start=start, period_end=end, metrics_count=len(metrics) if isinstance(metrics, list) else 0,
+            status='unavailable', pricing_source=pricing.source, pricing_profile=pricing.pricing_profile, reason=reason)

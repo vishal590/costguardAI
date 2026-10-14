@@ -9,7 +9,7 @@
 **Related Documentation:**
 - [submission/judging-criteria.md](./submission/judging-criteria.md) - Official judging criteria
 - [submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md) - Semi-finalist requirements
-- [PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md) - Current Phase 6 recommendation (Unit Economics + RI/SP)
+- [PHASE6_RECOMMENDATION.md](project/phase6-recommendation.md) - Current Phase 6 recommendation (Unit Economics + RI/SP)
 - [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) - Market positioning
 - [IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
 - [project/planning.md](./project/planning.md) - Overall project plan
@@ -494,7 +494,7 @@
 
 - **[submission/judging-criteria.md](./submission/judging-criteria.md)** - Official judging criteria
 - **[submission/SEMI-FINALIST-PHASE.md](./submission/SEMI-FINALIST-PHASE.md)** - Semi-finalist requirements
-- **[PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md)** - Current Phase 6 recommendation
+- **[PHASE6_RECOMMENDATION.md](project/phase6-recommendation.md)** - Current Phase 6 recommendation
 - **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Market positioning
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - SMB/startup impact analysis
 - **[project/planning.md](./project/planning.md)** - Overall project plan

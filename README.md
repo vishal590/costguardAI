@@ -1,5 +1,9 @@
 # AWS 10,000 AIdeas Hackathon Project
 
+> **Continuing implementation October 14, 2026.** The [active backlog](./docs/technical/development-backlog.md) and [feature contracts](./docs/technical/access-and-feature-contracts.md) describe new access controls, reports, scoped analytics, policy previews and Phase 7 unit/commitment views. All further testing, builds and AWS work are deferred.
+
+> **Earlier source review October 13, 2026.** See [current project status](./docs/PROJECT_STATUS.md). Deployment, test and cost figures elsewhere in this README are historical records; this review did not verify live AWS or the separate frontend. [Known backend limitations](./docs/technical/documentation-code-sync.md) remain open.
+
 > **Competition:** AWS Global 10,000 AIdeas Competition  
 > **Submission Deadline:** January 21, 2026 11:59pm PT  
 > **Prize Pool:** $250,000 cash + $30,000 AWS Credits
@@ -36,14 +40,14 @@
 
 **CostGuardAI** is a near-real-time AWS cost monitoring and estimation system that provides immediate visibility into cloud spending. The **React web frontend** (separate repo: **client-aws-ideas**) is complete for the demo scope; see [docs/PROJECT_STATUS.md – Phase 8 (Web)](./docs/PROJECT_STATUS.md#phase-8-web-react-frontend-dashboard). Unlike traditional cost tracking tools that rely on AWS Cost Explorer's 24-hour delayed data, CostGuard estimates current costs by collecting CloudWatch metrics and applying real-time pricing calculations.
 
-### Key Features (Phases 1-6 Complete)
+### Implemented Features (Phases 1-6)
 
 - **Historical Cost Data (Phase 1):** Fetch and query AWS cost data from Cost Explorer with flexible granularity (hourly, daily, monthly). Uses efficient DynamoDB Query operations with partition-based access patterns for optimal performance.
 - **Near-Real-Time Cost Estimation (Phase 1.5):** Estimate current AWS costs based on CloudWatch metrics for EC2, Lambda, DynamoDB, S3, and RDS
-- **AI-Powered Cost Forecasting (Phase 2):** Generate 7-30 day cost forecasts using Amazon Bedrock Nova Lite with confidence intervals (95% when Bedrock provides, ±20% fallback otherwise). Intelligent caching with adaptive TTL and persistent hit rate tracking.
+- **AI-Powered Cost Forecasting (Phase 2):** Observed daily-history forecasts using Amazon Bedrock Nova Lite, with disclosed gaps/provider estimates and uncalibrated model or heuristic ranges. Cache keys track UTC day and dataset revision with bounded original age.
 - **Automated Cost Prevention (Phase 3):** Automatically detect and prevent cost overruns with:
   - Budget threshold monitoring (80% warning, 90% action)
-  - Idle resource detection across 22 AWS services (20 with idle detection)
+  - Resource discovery adapters across 22 AWS services; observed low-usage rules for EC2, RDS and Lambda
   - Automated actions (stop EC2, limit Lambda, switch DynamoDB billing)
   - Safety guards (tag-based protection, whitelists, active usage checks)
   - Approval workflows with 30-minute timeout
@@ -65,12 +69,12 @@
   - Tag-based cost allocation
   - Chargeback and showback reports
   - Hierarchical budgets
-- **AI/ML Workload Cost Management (Phase 6):** GPU cost tracking and optimization:
-  - GPU cost tracking by workload type (training, inference, idle) - **Real Cost Explorer integration**
-  - Cost-per-inference and cost-per-training calculations - **Real CloudWatch and Cost Explorer data**
-  - Spot instance recommendations (up to 70% savings) - **AWS Pricing API integration**
-  - SageMaker and Bedrock cost optimization
-  - Automated workload classification - **CloudWatch metrics and EC2 tags**
+- **AI/ML Workload Cost Management (Phase 6):** Local observed-data implementations; runtime validation is deferred:
+  - GPU-family instance-type/usage-type compute charges with explicit missing/estimated-date coverage; resource/workload/device-hour attribution remains unavailable.
+  - Configured GPU hourly-max evidence, bounded read-only review previews and unverified historical action observations; no GPU resource execution or verified savings.
+  - SageMaker observed service costs and low-usage windows, with strictly matched current compute components and unavailable historical/job attribution.
+  - Bedrock observed service charges separately from actual runtime ModelId counters; no guessed model prices, fixed token averages or unverified cost ratios.
+  - Explicit inference counters and training/resource metadata keep monetary attribution unavailable; spot views expose scoped reference quotes with unavailable suitability/savings, while versioned manual declarations and dated GPU patterns retain separate provenance and unavailable confidence. See [declaration contracts](docs/technical/workload-label-observed-contracts.md). See [current GPU](docs/technical/gpu-observed-contracts.md), [SageMaker](docs/technical/sagemaker-observed-contracts.md) and [Bedrock](docs/technical/bedrock-observed-contracts.md) contracts.
 - **Autonomous Action Loops (Phase 6 Extension):** Self-optimizing AI/ML cost management:
   - 5-phase autonomous loop: Analyze → Decide → Act → Verify → Learn
   - Intelligent GPU scheduling based on real cost patterns (DynamoDB + EC2 spot price analysis)
@@ -84,154 +88,25 @@
 - **Free Tier Compliant:** Designed to operate within AWS Free Tier limits
 - **Serverless Architecture:** Built on AWS Lambda, API Gateway, DynamoDB, Amazon Bedrock, and EventBridge for automatic scaling
 
-### Future Roadmap (Phase 7-8)
+### Future Roadmap
 
 See [docs/FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md) for post-hackathon features:
 - **Phase 7:** Unit Economics + RI/SP Optimization (enterprise FinOps at SMB prices)
-- **Phase 8:** Developer Cost Transparency Tools (VS Code extension, GitHub Action, IaC cost preview)
+- **Developer tools (future):** Developer Cost Transparency Tools (VS Code extension, GitHub Action, IaC cost preview)
 
 ### Architecture
 
-CostGuard is deployed as 3 independent CloudFormation stacks for modularity and scalability:
+The current CDK app defines five stacks.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        STACK 1: CostGuardStack                              │
-│                     (Phases 1-4: Core Cost Management)                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │                     API Gateway                              │          │
-│  │  Phase 1: /api/fetch, /api/cost-data                       │          │
-│  │  Phase 1.5: /api/cost-estimation/*                          │          │
-│  │  Phase 2: /api/cost-forecast/*                              │          │
-│  │  Phase 3: /api/prevention/*                                 │          │
-│  │  Phase 4: /api/advisor/*                                    │          │
-│  └────────────────────┬────────────────────────────────────────┘          │
-│                       │                                                     │
-│                       ▼                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │              Lambda: CostGuardLambda                         │          │
-│  │  - Cost Explorer integration (historical data)              │          │
-│  │  - CloudWatch metrics collection (real-time)                │          │
-│  │  - Cost estimation algorithms                               │          │
-│  │  - Pricing data management                                  │          │
-│  │  - AI forecasting with Amazon Bedrock                       │          │
-│  │  - Budget monitoring & prevention engine                    │          │
-│  │  - Resource discovery & idle detection                      │          │
-│  │  - AI Cost Advisor with conversational interface            │          │
-│  └────┬────────────────────┬────────────────────┬─────────────┘          │
-│       │                    │                    │                          │
-│       ▼                    ▼                    ▼                          │
-│  ┌──────────┐      ┌──────────────┐    ┌─────────────────┐              │
-│  │   Cost   │      │   DynamoDB   │    │  CloudWatch,    │              │
-│  │ Explorer │      │  - Cost Data │    │  Pricing API,   │              │
-│  │  Budgets │      │  - Forecasts │    │  Bedrock Nova,  │              │
-│  │          │      │  - Config    │    │  & SNS Topics   │              │
-│  │          │      │  - Inventory │    │                 │              │
-│  │          │      │  - Audit Log │    │                 │              │
-│  │          │      │  - Advisor   │    │                 │              │
-│  │          │      │    Cache     │    │                 │              │
-│  │          │      │  - Advisor   │    │                 │              │
-│  │          │      │    History   │    │                 │              │
-│  └──────────┘      └──────────────┘    └─────────────────┘              │
-│                             ▲                                               │
-│                             │                                               │
-│                    ┌────────┴────────┐                                     │
-│                    │   EventBridge   │                                     │
-│                    │  (5-min schedule)│                                    │
-│                    └─────────────────┘                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
+| Stack | Scope | API base URL output |
+|---|---|---|
+| `CostGuardStack` | Phases 1-4; limited multi-account compatibility stubs | `APIEndpoint` |
+| `CostGuardMultiAccountStack` | Organization discovery, costs, allocation and budgets | `MultiAccountAPIEndpoint` |
+| `CostGuardAIMLStack` | GPU, SageMaker and Bedrock workload costs | `AIMLAPIEndpoint` |
+| `CostGuardAutonomousStack` | Six worker Lambdas plus a separate nine-route API | `AutonomousAPIUrl` |
+| `CostGuardBFFStack` | Cognito access-token validation and backend proxy | `BFFApiUrl` |
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                  STACK 2: CostGuardMultiAccountStack                        │
-│                   (Phase 5: Multi-Account Management)                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │                     API Gateway                              │          │
-│  │  /api/multi-account/organizations                           │          │
-│  │  /api/multi-account/accounts                                │          │
-│  │  /api/multi-account/costs                                   │          │
-│  │  /api/multi-account/budgets                                 │          │
-│  │  /api/multi-account/allocation                              │          │
-│  │  /api/multi-account/reports                                 │          │
-│  │  /api/multi-account/forecasts                               │          │
-│  │  /api/multi-account/prevention                              │          │
-│  │  /api/multi-account/advisor                                 │          │
-│  └────────────────────┬────────────────────────────────────────┘          │
-│                       │                                                     │
-│                       ▼                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │         Lambda: CostGuard-MultiAccountHandler                │          │
-│  │  - AWS Organizations integration                             │          │
-│  │  - Cross-account cost collection                            │          │
-│  │  - Tag-based cost allocation                                │          │
-│  │  - Chargeback/showback reports                              │          │
-│  │  - Hierarchical budgets                                     │          │
-│  └────┬────────────────────┬────────────────────┬─────────────┘          │
-│       │                    │                    │                          │
-│       ▼                    ▼                    ▼                          │
-│  ┌──────────┐      ┌──────────────┐    ┌─────────────────┐              │
-│  │   AWS    │      │   DynamoDB   │    │  Cross-Account  │              │
-│  │  Orgs    │      │  - Orgs      │    │  IAM Roles      │              │
-│  │          │      │  - Accounts  │    │                 │              │
-│  │          │      │  - Multi-Acct│    │                 │              │
-│  │          │      │    Costs     │    │                 │              │
-│  │          │      │  - Allocation│    │                 │              │
-│  │          │      │    Rules     │    │                 │              │
-│  └──────────┘      └──────────────┘    └─────────────────┘              │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     STACK 3: CostGuardAIMLStack                             │
-│                  (Phase 6: AI/ML Workload Cost Management)                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │                     API Gateway                              │          │
-│  │  /api/ai-ml/gpu-costs                                       │          │
-│  │  /api/ai-ml/workload-classification                         │          │
-│  │  /api/ai-ml/cost-per-inference                              │          │
-│  │  /api/ai-ml/cost-per-training                               │          │
-│  │  /api/ai-ml/spot-recommendations                            │          │
-│  │  /api/ai-ml/sagemaker-costs                                 │          │
-│  │  /api/ai-ml/bedrock-costs                                   │          │
-│  │  /api/ai-ml/gpu-prevention                                  │          │
-│  │  /api/ai-ml/multi-account/*                                 │          │
-│  └────────────────────┬────────────────────────────────────────┘          │
-│                       │                                                     │
-│                       ▼                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐          │
-│  │            Lambda: CostGuard-AIMLHandler                     │          │
-│  │  - GPU cost tracking by workload type                       │          │
-│  │  - Automated workload classification                        │          │
-│  │  - Cost-per-inference calculations                          │          │
-│  │  - Cost-per-training calculations                           │          │
-│  │  - Spot instance recommendations                            │          │
-│  │  - SageMaker cost tracking                                  │          │
-│  │  - Bedrock cost tracking                                    │          │
-│  │  - GPU prevention (idle detection)                          │          │
-│  │  - Multi-account GPU aggregation                            │          │
-│  └────┬────────────────────┬────────────────────┬─────────────┘          │
-│       │                    │                    │                          │
-│       ▼                    ▼                    ▼                          │
-│  ┌──────────┐      ┌──────────────┐    ┌─────────────────┐              │
-│  │   Cost   │      │   DynamoDB   │    │  CloudWatch     │              │
-│  │ Explorer │      │  - GPU Costs │    │  GPU Metrics    │              │
-│  │          │      │  - Workload  │    │                 │              │
-│  │          │      │    Classes   │    │                 │              │
-│  │          │      │  - AI/ML     │    │                 │              │
-│  │          │      │    Cache     │    │                 │              │
-│  └──────────┘      └──────────────┘    └─────────────────┘              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Deployment Model:**
-- **Stack 1 (CostGuardStack):** Core cost management (Phases 1-4) - 96 resources
-- **Stack 2 (CostGuardMultiAccountStack):** Multi-account support (Phase 5) - 105 resources
-- **Stack 3 (CostGuardAIMLStack):** AI/ML workload costs (Phase 6) - 126 resources
-- **Total:** 327 AWS resources deployed across 3 independent stacks
+Use each stack's API output, or configure the Cognito/BFF proxy. The dependency order is main -> multi-account -> AI/ML -> autonomous; BFF is configured separately. See [current architecture](./docs/technical/architecture.md) and [API contracts](./docs/technical/api-design.md).
 
 ## 🛠️ Tech Stack
 
@@ -415,7 +290,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Response includes:**
 - Predicted costs for each time period
-- Confidence intervals (95% when Bedrock provides, ±20% fallback otherwise)
+- Uncalibrated model ranges, or an explicitly labeled +/-20% heuristic fallback
 - Metadata (model used, cache status, historical data days)
 
 #### Phase 3: Automated Cost Prevention
@@ -456,7 +331,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Features:**
 - Automatic budget monitoring every 5 minutes via EventBridge
-- Idle resource detection across 22 AWS services: EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers (ALB/NLB/ELB), SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront (20 with idle detection)
+- Resource discovery adapters cover 22 AWS services. Active observed low-usage rules cover EC2, RDS and Lambda; unsupported or missing evidence remains unknown. Discovery does not guarantee a complete account inventory.
 - Safety guards: tag-based protection, whitelists, active usage checks
 - Dry run mode for testing (enabled by default)
 - Approval workflows with 30-minute timeout
@@ -517,7 +392,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 
 **Features:**
 - Automatic budget monitoring every 5 minutes via EventBridge
-- Idle resource detection across 22 AWS services: EC2, RDS, Lambda, EBS, S3, DynamoDB, ElastiCache, Redshift, ECS, EKS, NAT Gateway, Elastic IP, Load Balancers (ALB/NLB/ELB), SNS, SQS, API Gateway, Step Functions, Glue, SageMaker, CloudFront (20 with idle detection)
+- Resource discovery adapters cover 22 AWS services. Active observed low-usage rules cover EC2, RDS and Lambda; unsupported or missing evidence remains unknown. Discovery does not guarantee a complete account inventory.
 - Safety guards: tag-based protection, whitelists, active usage checks
 - Dry run mode for testing (enabled by default)
 - Approval workflows with 30-minute timeout
@@ -621,26 +496,28 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 
 ### Phase 5: Multi-Account Cost Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/multi-account/organizations` | Get AWS Organizations details |
-| GET | `/api/multi-account/accounts` | List all accounts in organization |
-| GET | `/api/multi-account/costs` | Get aggregated multi-account costs |
-| GET | `/api/multi-account/costs/by-account` | Get costs broken down by account |
-| GET | `/api/multi-account/costs/by-ou` | Get costs broken down by OU |
-| GET | `/api/multi-account/allocation` | Get tag-based cost allocation |
-| POST | `/api/multi-account/allocation/rules` | Create cost allocation rule |
-| GET | `/api/multi-account/reports/chargeback` | Generate chargeback report |
-| GET | `/api/multi-account/budgets` | Get hierarchical budgets |
-| GET | `/api/multi-account/forecasts` | Get cross-account forecasts |
-| GET | `/api/multi-account/prevention` | Get organization-wide prevention status |
+Use `MultiAccountAPIEndpoint`. The main API has limited compatibility stubs.
+
+| Method | Path |
+|---|---|
+| GET | `/api/organizations` |
+| GET | `/api/organizations/{org_id}/accounts` |
+| GET | `/api/costs/consolidated` |
+| GET | `/api/costs/by-account` |
+| GET | `/api/costs/account/{account_id}` |
+| GET | `/api/allocation/by-tag` |
+| GET | `/api/allocation/unallocated` |
+| POST | `/api/allocation/rules` |
+| GET | `/api/budgets/hierarchy` |
+| POST | `/api/budgets/organization` |
+| POST | `/api/budgets/ou/{ou_id}` |
 
 ### Phase 6: AI/ML Workload Cost Management
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/ai-ml/gpu-costs` | Get GPU costs by workload type |
-| GET | `/api/ai-ml/gpu-utilization` | Get GPU utilization metrics |
+| GET | `/api/ai-ml/gpu-utilization` | Configured GPU hourly-max observations |
 | GET | `/api/ai-ml/idle-gpus` | Detect idle GPU instances |
 | POST | `/api/ai-ml/gpu-prevention` | Stop/terminate idle GPUs |
 | GET | `/api/ai-ml/gpu-cost-savings` | Calculate GPU cost savings |
@@ -650,26 +527,31 @@ All documentation is organized in the `docs/` folder. See [docs/INDEX.md](./docs
 | GET | `/api/ai-ml/inference-trends` | Get inference cost trends |
 | GET | `/api/ai-ml/cost-per-training` | Calculate cost per training job |
 | GET | `/api/ai-ml/training-comparison` | Compare training job costs |
-| GET | `/api/ai-ml/spot-recommendations` | Get spot instance recommendations |
+| GET | `/api/ai-ml/spot-recommendations` | Scoped EC2 AZ/type reference quote observations |
 | GET | `/api/ai-ml/spot-savings` | Calculate spot instance savings |
 | GET | `/api/ai-ml/sagemaker-costs` | Get SageMaker cost breakdown |
-| GET | `/api/ai-ml/sagemaker-idle-endpoints` | Detect idle SageMaker endpoints |
+| GET | `/api/ai-ml/sagemaker-idle-endpoints` | Bounded observed low-usage review candidates |
 | GET | `/api/ai-ml/bedrock-costs` | Get Bedrock cost breakdown |
-| GET | `/api/ai-ml/bedrock-cost-per-invocation` | Calculate Bedrock cost per invocation |
+| GET | `/api/ai-ml/bedrock-cost-per-invocation` | Measured runtime counters; attributed cost unavailable |
 | GET | `/api/ai-ml/multi-account/gpu-costs` | Get multi-account GPU costs |
-| GET | `/api/ai-ml/multi-account/gpu-utilization` | Get multi-account GPU utilization |
+| GET | `/api/ai-ml/multi-account/gpu-utilization` | Billing scope/coverage; device utilization unavailable |
 | GET | `/api/ai-ml/multi-account/top-gpu-accounts` | Get top GPU spending accounts |
 
 ### Phase 6 Extension: Autonomous Action Loops
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/autonomous/schedule-analysis` | Trigger GPU Scheduler analysis manually |
-| GET | `/api/autonomous/action-history` | Query autonomous action history |
-| POST | `/api/autonomous/approve-action` | Approve pending autonomous action |
-| POST | `/api/autonomous/rollback` | Rollback autonomous action |
-| GET | `/api/autonomous/confidence-scores` | Get learning engine confidence scores |
-| GET | `/api/autonomous/demo-status` | Get real-time demo progress |
+Use `AutonomousAPIUrl`. Demo start requires demo mode; status progress is time-based. Approval/rollback publish asynchronous requests. The executor supports opted-in EC2 operations and resource restoration; execution defaults to disabled. See [execution contracts and recovery](./docs/technical/autonomous-execution.md).
+
+| Method | Path |
+|---|---|
+| POST | `/api/autonomous/schedule-analysis` |
+| GET | `/api/autonomous/action-history` |
+| POST | `/api/autonomous/approve-action` |
+| POST | `/api/autonomous/rollback` |
+| GET | `/api/autonomous/confidence-scores` |
+| GET | `/api/autonomous/demo-status` |
+| POST | `/api/autonomous/demo/start` |
+| POST | `/api/autonomous/demo/reset` |
+| POST | `/api/autonomous/demo/trigger-interruption` |
 
 **Query Parameters:**
 - `hours` - Time range in hours for estimation (default: 1, max: 168)
@@ -698,7 +580,7 @@ The project uses a comprehensive testing strategy:
 - **Property-Based Tests:** Validate universal properties using Hypothesis (386 tests, 100+ iterations per property)
 - **Integration Tests:** Test end-to-end flows and service interactions (101 tests)
 
-**Test Coverage:** 87%+ code coverage maintained (1,621 tests passing across all phases)
+**Historical Test Report:** 87%+ coverage and 1,621 passing tests were reported in earlier work; the suite was not rerun for this documentation review.
 
 **Key Properties Tested:**
 - **Phase 1 & 1.5:** Non-negative cost estimates, pricing data freshness, API response validation
@@ -710,7 +592,7 @@ The project uses a comprehensive testing strategy:
 
 ## 💰 Cost Optimization
 
-CostGuard is designed to operate within AWS Free Tier across 3 stacks:
+The following historical estimate covers the original three stacks. It excludes the autonomous and BFF stacks and is not a current five-stack bill or a guarantee of Free Tier eligibility.
 
 **Stack 1: CostGuardStack (Phases 1-4)**
 - **Lambda:** ~10,640 invocations/month (within 1M free tier)
@@ -757,7 +639,7 @@ CostGuard is designed to operate within AWS Free Tier across 3 stacks:
 - **Cost Explorer:** ~50 API calls/month (~$0.50/month)
 - **CloudWatch:** ~20,000 API requests/month (within 1M free tier)
 
-**Total Monthly Cost Across All Stacks:** ~$4.01
+**Historical Monthly Estimate for the Original Three Stacks:** ~$4.01
 - Stack 1 (Phases 1-4): ~$2.01
 - Stack 2 (Phase 5): ~$1.50
 - Stack 3 (Phase 6): ~$0.50

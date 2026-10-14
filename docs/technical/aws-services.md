@@ -1,237 +1,60 @@
-# AWS Services Research & Selection
+# AWS Services Used by CostGuard
 
-**Keywords:** AWS, services, Free Tier, Kiro, Bedrock, Bedrock AgentCore, Nova, Strands Agents, Lambda, DynamoDB, S3, CloudFront, Cognito, research, selection, comparison, cost optimization, CostGuard AI, cost management, cost prevention, API Gateway, SNS, Cost Explorer API, Budgets API
+**Source review:** October 13, 2026. This catalog describes services referenced by the checked-in backend and CDK app. Historical competition requirements and cost estimates are recorded separately in [competition docs](../competition/overview.md) and [project history](../PROJECT_STATUS.md).
 
-## Related Files
-- **[phase1-kiro-spec.md](./phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - AWS services usage**
-- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
-- **[../project/ideas.md](../project/ideas.md)** - CostGuard AI project idea and AWS services needed
-- **[architecture.md](./architecture.md)** - CostGuard AI architecture using these services
-- **[../competition/faq.md](../competition/faq.md)** - FAQ (What AWS resources can I use?)
-- **[../submission/requirements.md](../submission/requirements.md)** - Submission requirements
-- **[../submission/article-requirements.md](../submission/article-requirements.md)** - Article documentation requirements
-- **[../resources/research.md](../resources/research.md)** - General research and references
-- **[../resources/best-practices.md](../resources/best-practices.md)** - AWS best practices
-- **[../project/planning.md](../project/planning.md)** - CostGuard AI project planning
-- **[../INDEX.md](../INDEX.md)** - Master documentation index
+## Core Services
 
----
+| Service | Current role | Source |
+|---|---|---|
+| Lambda | Main API, multi-account handlers, AI/ML API, autonomous workers/API and BFF | Five stack modules in `infrastructure/` |
+| API Gateway | Separate REST APIs with Lambda integration; BFF proxy | `cdk_stack.py`, `multi_account_stack.py`, `aiml_stack.py`, `autonomous_stack.py`, `bff_stack.py` |
+| DynamoDB | Historical costs, caches, configuration, organization metadata and audit/checkpoint records | [Schema inventory](database-design.md) |
+| Cognito | User pool/client; access-token validation in BFF | `bff_stack.py`, `src/bff_handler.py` |
+| IAM | Lambda execution roles, service permissions and cross-account access | Stack modules and role templates |
 
-## AWS Free Tier Requirement
+## AI/ML and Cost Services
 
-**Critical Requirement:** Your application must use **AWS Free Tier only**, without exceeding free tier limits.
+| Service | Current role |
+|---|---|
+| Amazon Bedrock | Forecast and advisor model invocation; workload cost tracking |
+| Cost Explorer | Historical AWS cost retrieval and workload/multi-account cost queries |
+| CloudWatch | Usage/utilization metrics, logs, alarms and dashboards |
+| AWS Pricing | Price lookup and estimation/recommendation inputs |
+| AWS Budgets | Budget monitoring and integration with prevention/advisor services |
+| SageMaker | Training/inference/notebook workload information and cost tracking |
+| EC2 | GPU discovery, resource actions, spot and right-sizing workflows |
 
-**Judging Note:** Applications are judged on innovation, efficiency, and practical impact—**not computational scale**. Winning applications should be built entirely within Free Tier limits.
+The core forecast engine requests 30 days of stored history and accepts a minimum of 7 days. GPU utilization is implemented with GPU metrics and CPU fallback. See [API contracts](api-design.md) for behavior and [known limitations](documentation-code-sync.md) for remaining execution gaps.
 
-## Required Tools
+## Infrastructure Services
 
-### Kiro
-- **Requirement:** Must use Kiro for at least a portion of development
-- **Website:** [Kiro.dev](https://kiro.dev/)
-- **Purpose:** Agentic IDE for rapid development
-- **Integration:** Use Kiro agentic IDE on AWS Free Tier
+| Service | Current role |
+|---|---|
+| EventBridge | Scheduled collection/monitoring and custom autonomous event bus |
+| EventBridge Scheduler | One-time approved EC2 start/stop and replacement-expiry callbacks |
+| Secrets Manager | Generated autonomous approval HMAC key |
+| SQS | Dead-letter storage for failed execution/callback deliveries |
+| SNS | Warnings, action/error notifications, autonomous approval/alert topics |
+| S3 | Autonomous checkpoint storage, datasets and verified model-state results |
+| Systems Manager | Fixed EC2 reference-training command and invocation-status verification |
+| AWS Organizations | Organization, OU and account discovery |
+| STS | Cross-account role assumption |
+| CloudFormation / CDK | Stack deployment and cross-account role templates |
 
-## Recommended AWS Services
-
-When building your app using Kiro agentic IDE on the AWS Free Tier, you are **encouraged** to explore:
-
-- **Amazon Bedrock** - Foundation models and AI capabilities
-- **Amazon Bedrock AgentCore** - Agent development
-- **Amazon Nova** - Foundational models
-- **Strands Agents** - Agent capabilities
-
-## Selected AWS Services
-
-**Project:** CostGuard AI - AI-powered AWS cost prevention and forecasting platform
-
-### Core Services
-
-#### AWS Lambda
-- **Purpose:** Serverless compute for all business logic (cost data fetching, forecasting, prevention, AI advisor)
-- **Free Tier:** 1M requests/month, 400,000 GB-seconds compute time
-- **Configuration:** Node.js/Python runtime, 128-512 MB memory per function
-- **Integration:** Orchestrates all services, triggered by API Gateway and scheduled events
-- **Kiro Integration:** Kiro generates Lambda handler code, AWS SDK integration, error handling (70% of Lambda development)
-- **Justification:** Serverless, cost-effective, auto-scaling, perfect for Free Tier. No infrastructure management needed.
-- **Documentation:** [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda/)
-- **Code Reference:** Lambda functions: CostDataFetcher, ForecastingEngine, PreventionController, BudgetManager, AIAdvisorHandler, AnomalyDetector
-- **Expected Cost:** $0 (within Free Tier)
-
-#### Amazon API Gateway
-- **Purpose:** REST API layer for frontend to backend communication
-- **Free Tier:** 1M API calls/month
-- **Configuration:** REST API type, API key authentication
-- **Integration:** Routes requests to Lambda functions
-- **Kiro Integration:** Kiro generates API Gateway integration code and request/response handling
-- **Justification:** Managed API layer, scales automatically, Free Tier sufficient for MVP
-- **Documentation:** [AWS API Gateway Documentation](https://docs.aws.amazon.com/apigateway/)
-- **Expected Cost:** $0 (within Free Tier)
-
-#### Amazon DynamoDB
-- **Purpose:** NoSQL database for user preferences, cached forecasts, budget settings, alert history
-- **Free Tier:** 25 GB storage, 25 read capacity units, 25 write capacity units
-- **Configuration:** On-demand billing, single table design with sparse indexes
-- **Integration:** Lambda functions read/write data, TTL for old data
-- **Kiro Integration:** Kiro generates DynamoDB client code and query patterns
-- **Justification:** Serverless, auto-scaling, no capacity planning, Free Tier sufficient
-- **Documentation:** [AWS DynamoDB Documentation](https://docs.aws.amazon.com/dynamodb/)
-- **Tables:** UserSettings, Forecasts, Budgets, Alerts
-- **Expected Cost:** $0 (within Free Tier)
-
-### AI/ML Services
-
-#### Amazon Bedrock (Nova Models)
-- **Purpose:** AI models for cost forecasting and conversational cost advisor
-- **Free Tier:** Check current Bedrock Free Tier (typically includes some model invocations)
-- **Use Case:** 
-  - Cost forecasting: Predicts future AWS costs using ML models (Nova Pro/Lite)
-  - Conversational AI: Natural language cost advisor answering user questions (Nova)
-- **Alternatives Considered:** Amazon SageMaker (too complex, requires model training), External AI APIs (not AWS-native)
-- **Why Selected:** Managed service, no model training needed, Nova models optimized for AWS, cost-effective, Free Tier available
-- **Documentation:** [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- **Kiro Integration:** Kiro generates Bedrock client code, prompt templates, and response parsing logic (80% of Bedrock integration)
-- **Expected Cost:** $0 (within Free Tier limits)
-
-#### AWS Cost Explorer API
-- **Purpose:** Programmatic access to AWS cost and usage data (historical billing data)
-- **Free Tier:** Free (data retrieval only, no charges for API calls)
-- **Use Case:** Fetch historical cost data (12 months) for forecasting and analysis
-- **Limitation:** Actual billing data has 24-hour delay (fundamental AWS limitation)
-- **Justification:** Required for historical cost data access, free API calls
-- **Documentation:** [AWS Cost Explorer API Documentation](https://docs.aws.amazon.com/cost-management/latest/APIReference/)
-- **Kiro Integration:** Kiro generates Cost Explorer API client code and data processing logic
-- **Expected Cost:** $0 (free API access)
-
-#### CloudWatch Metrics API
-- **Purpose:** Real-time usage metrics for near-real-time cost estimation
-- **Free Tier:** Free (standard CloudWatch metrics included, custom metrics may have costs)
-- **Use Case:** Monitor usage metrics (EC2 CPU, Lambda invocations, S3 requests, DynamoDB read/write units) every 5-15 minutes to estimate costs in near-real-time (minutes vs. 24hr billing delay)
-- **Justification:** Enables near-real-time cost estimation when actual billing data has 24-hour delay. Provides usage-based anomaly detection.
-- **Documentation:** [AWS CloudWatch Metrics Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/working_with_metrics.html)
-- **Kiro Integration:** Kiro generates CloudWatch Metrics API client code, cost estimation logic, and anomaly detection algorithms
-- **Expected Cost:** $0 (standard metrics within Free Tier)
-
-#### AWS Budgets API
-- **Purpose:** Programmatic budget management and monitoring
-- **Free Tier:** 2 budgets per account (free)
-- **Use Case:** Create/update budgets programmatically, monitor budget thresholds
-- **Justification:** Enables automated budget protection and budget guard system
-- **Documentation:** [AWS Budgets API Documentation](https://docs.aws.amazon.com/cost-management/latest/APIReference/)
-- **Kiro Integration:** Kiro generates Budgets API integration code
-- **Expected Cost:** $0 (within Free Tier)
-
-#### Amazon SNS (Simple Notification Service)
-- **Purpose:** Send alerts and notifications (budget thresholds, anomalies, summaries)
-- **Free Tier:** 1M publishes, 100 deliveries/month
-- **Use Case:** Email/SMS alerts for cost anomalies, budget warnings, daily summaries
-- **Justification:** Reliable notification delivery, Free Tier sufficient
-- **Documentation:** [AWS SNS Documentation](https://docs.aws.amazon.com/sns/)
-- **Kiro Integration:** Kiro generates SNS publish code and notification templates
-- **Expected Cost:** $0 (within Free Tier)
-
-#### Amazon S3
-- **Purpose:** Static frontend hosting and file storage (cost reports, exports)
-- **Free Tier:** 5 GB storage, 20,000 GET requests/month
-- **Use Case:** Host React/Next.js frontend, store cost reports
-- **Justification:** Cost-effective storage and hosting, Free Tier sufficient
-- **Documentation:** [AWS S3 Documentation](https://docs.aws.amazon.com/s3/)
-- **Expected Cost:** $0 (within Free Tier)
-
-#### AWS IAM
-- **Purpose:** Security and permissions management
-- **Free Tier:** Always free
-- **Use Case:** IAM roles for Lambda functions, API access permissions
-- **Justification:** Security requirement, always free
-- **Documentation:** [AWS IAM Documentation](https://docs.aws.amazon.com/iam/)
-- **Expected Cost:** $0 (always free)
-
-### Infrastructure Services
-
-#### [Infrastructure Service Name]
-[Same structure as above]
-
-## Service Comparison
-
-### [Service Category] Comparison
-
-| Service | Pros | Cons | Free Tier | Selected? |
-|---------|------|------|-----------|-----------|
-| [Service A] | [Pros] | [Cons] | [Details] | Yes/No |
-| [Service B] | [Pros] | [Cons] | [Details] | Yes/No |
-
-## Free Tier Utilization
-
-| Service | Free Tier Limit | Expected Usage | Within Limit? | Monitoring Plan |
-|---------|----------------|----------------|---------------|-----------------|
-| [Service 1] | [Limit] | [Usage] | Yes/No | [How to monitor] |
-| [Service 2] | [Limit] | [Usage] | Yes/No | [How to monitor] |
+The frontend is maintained in a separate repository. Static-site hosting choices from earlier planning documents are not defined by this backend's five-stack CDK app.
 
 ## Service Integration
 
-### Integration Patterns
-- [Pattern 1]: [Description]
-- [Pattern 2]: [Description]
+The main stack provides historical data, estimates, forecasts, prevention and advisor APIs. Multi-account has its own organization/cost/allocation/budget routes. AI/ML has its own API and GPU tables. Autonomous has six workers plus a separate nine-route API and consumes the AI/ML GPU-cost table. BFF validates Cognito tokens and forwards requests to the configured backend URLs.
 
-### Service Dependencies
-```
-[Service A] → [Service B] → [Service C]
-```
+## Costs and Quotas
 
-### Kiro Integration
-- [How Kiro integrates with selected services]
-- [Kiro workflow with AWS services]
+The source uses caching, TTL, scheduled work and on-demand tables to manage resource usage. It does not guarantee zero cost, Free Tier eligibility, current AWS prices/quotas or realized savings. Earlier numeric estimates and demo timings are historical scenarios; measure the deployed account before treating them as operating costs or performance guarantees.
 
-## Cost Estimates
+## References
 
-| Service | Estimated Monthly Cost | Notes |
-|---------|----------------------|-------|
-| [Service 1] | $0 | Within Free Tier |
-| [Service 2] | $0 | Within Free Tier |
-
-**Total Expected Cost:** $0 (all within Free Tier)
-
-## Resource Optimization Strategies
-
-**For Builder Center Article:** Must document resource optimization strategies
-
-### Strategies
-1. [Strategy 1]: [Description]
-2. [Strategy 2]: [Description]
-3. [Strategy 3]: [Description]
-
-### Monitoring
-- [How to monitor usage]
-- [Alerts setup]
-- [Cost tracking]
-
-## Research Notes
-
-### [Service Name] Research
-- **Use Cases:** [Use cases found]
-- **Best Practices:** [Best practices]
-- **Limitations:** [Limitations to be aware of]
-- **Free Tier Details:** [Detailed Free Tier information]
-- **References:** [Links to resources]
-
-## Documentation for Article
-
-**Required for Builder Center Article:**
-- List of AWS services used
-- Brief justification for each service
-- Resource optimization strategies
-- Expected running costs
-
-See [../submission/article-requirements.md](../submission/article-requirements.md) for article requirements.
-
----
-
-## See Also
-
-- **[../project/ideas.md](../project/ideas.md)** - CostGuard AI project idea and AWS services needed
-- **[architecture.md](./architecture.md)** - CostGuard AI architecture using these services
-- **[../submission/requirements.md](../submission/requirements.md)** - Submission requirements
-- **[../submission/article-requirements.md](../submission/article-requirements.md)** - Article requirements
-- **[../resources/research.md](../resources/research.md)** - General research
-- **[../resources/best-practices.md](../resources/best-practices.md)** - AWS best practices
-- **[../project/planning.md](../project/planning.md)** - CostGuard AI project planning
-- **[../INDEX.md](../INDEX.md)** - Master documentation index
+- [Architecture](architecture.md)
+- [API design](api-design.md)
+- [Database design](database-design.md)
+- [Current project status](../PROJECT_STATUS.md)
+- [BFF deployment](../deployment/BFF_AUTH_DEPLOYMENT.md)

@@ -5,6 +5,7 @@ Manages IAM roles for cross-account access to member accounts.
 Handles role assumption using AWS STS for secure access to cost data.
 """
 import logging
+import os
 import json
 from typing import Dict, Optional
 from dataclasses import dataclass
@@ -42,7 +43,7 @@ class CrossAccountRoleManager:
             sts_client: Optional STS client (for testing)
         """
         self.sts = sts_client or boto3.client('sts')
-        self.default_role_name = 'CostGuardCollectorRole'
+        self.default_role_name = os.environ.get('CROSS_ACCOUNT_ROLE_NAME', 'CostGuardCrossAccountRole')
         self.session_duration = 3600  # 1 hour
     
     def generate_role_template(self, management_account_id: str, external_id: str) -> str:
@@ -143,7 +144,7 @@ class CrossAccountRoleManager:
         
         Args:
             account_id: AWS account ID
-            role_name: Optional role name (defaults to CostGuardCollectorRole)
+            role_name: Optional role name (defaults to configured CostGuardCrossAccountRole)
             
         Returns:
             Role ARN

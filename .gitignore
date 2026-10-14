@@ -23,3 +23,6 @@ Thumbs.db
 cdk.out/
 *.cdk.out
 infrastructure/cdk.out/
+
+# Local AMI preparation bundles and dependency wheels
+.artifacts/

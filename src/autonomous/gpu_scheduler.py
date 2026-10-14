@@ -17,7 +17,8 @@ Requirements: 1.1-1.10, 8.2
 import json
 import os
 import time
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -512,7 +513,7 @@ def generate_recommendation(window: OptimizationWindow) -> Optional[ScheduleReco
     
     # Generate recommendation ID
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    recommendation_id = f"rec_{timestamp}"
+    recommendation_id = f"rec_{timestamp}_{uuid.uuid4().hex[:12]}"
     
     return ScheduleRecommendation(
         recommendation_id=recommendation_id,
@@ -523,7 +524,7 @@ def generate_recommendation(window: OptimizationWindow) -> Optional[ScheduleReco
     )
 
 
-def publish_recommendation_event(recommendation: ScheduleRecommendation) -> None:
+def publish_recommendation_event(recommendation: ScheduleRecommendation, workload=None) -> None:
     """
     Publish ScheduleRecommendation event to EventBridge.
     
@@ -534,6 +535,14 @@ def publish_recommendation_event(recommendation: ScheduleRecommendation) -> None
     dry_run = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
     
     event_detail = recommendation.to_dict()
+    event_detail["timestamp"] = datetime.utcnow().isoformat()
+    if workload:
+        event_detail["workload"] = dict(workload,
+            window_start=recommendation.window.window_start.replace(tzinfo=timezone.utc).isoformat()
+                if recommendation.window.window_start.tzinfo is None else recommendation.window.window_start.isoformat(),
+            window_end=recommendation.window.window_end.replace(tzinfo=timezone.utc).isoformat()
+                if recommendation.window.window_end.tzinfo is None else recommendation.window.window_end.isoformat(),
+            region=recommendation.window.region)
     
     event = {
         "Source": "costguard.autonomous.scheduler",
@@ -543,7 +552,9 @@ def publish_recommendation_event(recommendation: ScheduleRecommendation) -> None
     }
     
     if not dry_run:
-        events_client.put_events(Entries=[event])
+        response = events_client.put_events(Entries=[event])
+        if response.get("FailedEntryCount", 0):
+            raise RuntimeError("Recommendation event was not accepted")
         print(f"Published ScheduleRecommendation event: {recommendation.recommendation_id}")
     else:
         print(f"[DRY-RUN] Would publish ScheduleRecommendation event: {recommendation.recommendation_id}")
@@ -564,7 +575,7 @@ def record_action(recommendation: ScheduleRecommendation) -> None:
         "action_id": f"act_{recommendation.recommendation_id}",
         "timestamp": timestamp,
         "action_type": "schedule",
-        "status": "completed" if not DRY_RUN_MODE else "dry_run",
+        "status": "recommended" if not DRY_RUN_MODE else "dry_run",
         "parameters": {
             "window_start": recommendation.window.window_start.isoformat(),
             "window_end": recommendation.window.window_end.isoformat(),
@@ -609,9 +620,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         dry_run = body.get("dry_run", DRY_RUN_MODE)
     else:
         # EventBridge scheduled event
-        days = 7
-        confidence_threshold = CONFIDENCE_THRESHOLD
-        dry_run = DRY_RUN_MODE
+        body = event
+        days = body.get("days", 7)
+        confidence_threshold = body.get("confidence_threshold", CONFIDENCE_THRESHOLD)
+        dry_run = body.get("dry_run", DRY_RUN_MODE)
     
     # Analyze cost patterns
     print(f"Analyzing {days} days of GPU cost patterns...")
@@ -624,15 +636,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     for window in optimization_windows:
         recommendation = generate_recommendation(window)
-        if recommendation:
+        if recommendation and recommendation.confidence_score >= confidence_threshold:
             recommendations.append(recommendation)
             total_confidence += recommendation.confidence_score
             
-            # Publish event
-            publish_recommendation_event(recommendation)
-            
-            # Record action
-            record_action(recommendation)
+            if not dry_run:
+                publish_recommendation_event(recommendation, workload=body.get("workload"))
+                record_action(recommendation)
     
     print(f"Generated {len(recommendations)} recommendations")
     

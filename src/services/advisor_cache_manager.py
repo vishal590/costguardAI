@@ -11,6 +11,7 @@ This module manages response caching to minimize Bedrock API calls:
 from typing import Optional
 from datetime import datetime, timedelta, UTC
 import logging
+import json
 from botocore.exceptions import ClientError
 
 from ..utils.types import AdvisorResponse
@@ -80,7 +81,10 @@ class AdvisorCacheManager:
             cached_at = datetime.fromisoformat(item['cached_at']['S'])
             expiry = cached_at + timedelta(hours=self.ttl_hours)
             
-            if datetime.now(UTC) > expiry:
+            if cached_at.tzinfo is None or cached_at > datetime.now(UTC)+timedelta(minutes=5):
+                return None
+            expiry = min(expiry, datetime.fromtimestamp(int(item['ttl']['N']), UTC))
+            if datetime.now(UTC) >= expiry:
                 logger.debug(f"Cache expired for query {query_hash[:8]}...")
                 self.cache_misses += 1
                 self._update_aggregate_metrics(hit=False)
@@ -90,8 +94,8 @@ class AdvisorCacheManager:
             cached_response = AdvisorResponse(
                 response_text=item['response_text']['S'],
                 recommendations=[],  # Simplified: not storing recommendations
-                cost_data={},
-                confidence=float(item.get('confidence', {}).get('N', 0.8)),
+                cost_data=json.loads(item.get('cost_data', {'S': '{}'})['S']),
+                confidence=None,  # Legacy constant confidence is not calibrated.
                 cached=True
             )
             
@@ -133,7 +137,9 @@ class AdvisorCacheManager:
             item = {
                 "query_hash": {"S": query_hash},
                 "response_text": {"S": response.response_text},
-                "confidence": {"N": str(response.confidence)},
+                "cost_data": {"S": json.dumps(response.cost_data, default=str)},
+                "confidence": {"NULL": True},
+                "confidence_method": {"S": "unavailable"},
                 "cached_at": {"S": now.isoformat()},
                 "ttl": {"N": str(ttl_timestamp)}
             }

@@ -1,5 +1,7 @@
 # Test Coverage Report - Phase 3 Service Expansion
 
+> **Current source boundary (October 14, 2026):** This file preserves an earlier design/review/report. Use the [current Phase 3 overview](README.md) and [active implementation contracts](../access-and-feature-contracts.md). Earlier completion, idle-coverage, confidence, execution and test claims do not validate the current source. All further validation is deferred.
+
 **Date:** January 2026  
 **Scope:** Resource Discovery & Idle Detection for 22 AWS Services
 

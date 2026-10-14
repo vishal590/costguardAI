@@ -4,7 +4,7 @@ Historical Data Retriever for forecast input preparation.
 This module retrieves and preprocesses historical cost data:
 1. Data retrieval from DynamoDB (Phase 1 data)
 2. Aggregation by service and date
-3. Gap interpolation using linear interpolation
+3. Explicit missing-date coverage (no active-path interpolation)
 4. Data validation and completeness checking
 """
 
@@ -49,57 +49,32 @@ class HistoricalDataRetriever:
         Raises:
             InsufficientDataError: Less than minimum required data
         """
-        # Calculate date range
-        end_date = datetime.now(UTC).date()
-        start_date = end_date - timedelta(days=days_back)
-        
-        # Query DynamoDB for historical data
-        raw_data = self._query_dynamodb(start_date, end_date, service)
-        
-        # Check we have enough raw data before processing (min 7 so 7-day forecast can run with limited history)
-        MIN_DATA_POINTS = 7
-        if len(raw_data) < MIN_DATA_POINTS:
-            raise InsufficientDataError(
-                f"Insufficient historical data: need at least {MIN_DATA_POINTS} data points, found {len(raw_data)}"
-            )
-        
-        # Aggregate by service and date
-        aggregated = self.aggregate_by_service_and_date(raw_data)
-        
-        # Interpolate gaps for each service
-        interpolated = {}
-        for svc, data_points in aggregated.items():
-            interpolated[svc] = self.interpolate_gaps(data_points, start_date, end_date)
-        
-        # Convert to ProcessedData format (timestamps and costs lists)
-        # If service-specific, use that service's data; otherwise aggregate all
-        if service and service in interpolated:
-            data_points = interpolated[service]
-        else:
-            # Aggregate all services by date
-            date_totals = {}
-            for svc, data_points in interpolated.items():
-                for point in data_points:
-                    date = point['date']
-                    cost = point['cost']
-                    date_totals[date] = date_totals.get(date, 0.0) + cost
-            
-            data_points = [
-                {'date': date, 'cost': cost}
-                for date, cost in sorted(date_totals.items())
-            ]
-        
-        timestamps = [point['date'] for point in data_points]
-        costs = [point['cost'] for point in data_points]
-        
-        # Build ProcessedData
-        return ProcessedData(
-            timestamps=timestamps,
-            costs=costs,
-            service=service,
-            total_days=len(timestamps)
-        )
-    
+        # Forecasts use completed daily observations, never monthly aggregates
+        # or interpolated records counted as observed days.
+        end_date = datetime.now(UTC).date() - timedelta(days=1)
+        start_date = end_date - timedelta(days=days_back-1)
+        raw = self._query_dynamodb(start_date, end_date, service)
+        unique = {}
+        for item in raw:
+            if item.get('granularity') != 'DAILY': continue
+            key = (item['service'], item['date'])
+            if key not in unique or item.get('sk', '').endswith('#DAILY'): unique[key] = item
+        daily = list(unique.values())
+        observed = sorted({item['date'] for item in daily})
+        if len(observed) < 7:
+            raise InsufficientDataError('At least 7 distinct DAILY observations are required; legacy records without granularity need an authorized daily backfill')
+        if any(item.get('currency') != 'USD' for item in daily): raise InsufficientDataError('Forecasting requires consistent USD daily observations')
+        aggregated = self.aggregate_by_service_and_date(daily)
+        totals = {}
+        for points in aggregated.values():
+            for point in points: totals[point['date']] = totals.get(point['date'], 0.0) + point['cost']
+        expected = {(start_date+timedelta(days=index)).isoformat() for index in range(days_back)}
+        return ProcessedData(timestamps=sorted(totals), costs=[totals[day] for day in sorted(totals)], service=service,
+            total_days=len(totals), observed_days=len(observed), missing_dates=sorted(expected-set(observed)),
+            history_method='observed_only', cost_metric='BlendedCost',
+            estimated_dates=sorted({item['date'] for item in daily if item.get('is_estimated') is True}),
+            unknown_estimate_dates=sorted({item['date'] for item in daily if item.get('is_estimated') is None}))
+
     def _query_dynamodb(
         self,
         start_date,
@@ -165,8 +140,10 @@ class HistoricalDataRetriever:
         for item in data:
             service = item.get('service', 'Unknown')
             date = item.get('date')
-            cost = item.get('cost') or item.get('blendedCost') or item.get('unblendedCost') or Decimal('0')
+            cost = next((item[key] for key in ('blendedCost', 'cost', 'unblendedCost') if key in item), None)
+            if cost is None: raise InsufficientDataError('A historical cost observation has no amount')
             cost = Decimal(str(cost)) if not isinstance(cost, Decimal) else cost
+            if not cost.is_finite(): raise InsufficientDataError('Historical cost observations must be finite')
             
             if service not in aggregated:
                 aggregated[service] = {}

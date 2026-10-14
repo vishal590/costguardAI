@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 from decimal import Decimal
 import boto3
+import math
 from botocore.exceptions import ClientError
 
 from src.utils.types import (
@@ -34,6 +35,17 @@ class CloudWatchMetricsCollector:
         self.client = client or boto3.client('cloudwatch', region_name=region)
         self.region = region
     
+    @staticmethod
+    def _list_all(client, operation, result_key, **parameters):
+        if client.can_paginate(operation):
+            pages = client.get_paginator(operation).paginate(**parameters)
+        else:
+            response = getattr(client, operation)(**parameters)
+            if any(response.get(key) for key in ('NextToken', 'NextMarker', 'Marker', 'ContinuationToken', 'NextContinuationToken', 'LastEvaluatedTableName', 'IsTruncated')):
+                raise ValueError('Resource list is truncated but the installed SDK has no paginator')
+            pages = [response]
+        return {result_key: [item for page in pages for item in page.get(result_key, [])]}
+
     def collect_metrics(
         self,
         services: List[str],
@@ -213,7 +225,7 @@ class CloudWatchMetricsCollector:
         try:
             # Get list of EC2 instances
             ec2_client = boto3.client('ec2', region_name=self.region)
-            instances_response = ec2_client.describe_instances(
+            instances_response = self._list_all(ec2_client, 'describe_instances', 'Reservations',
                 Filters=[{'Name': 'instance-state-name', 'Values': ['running', 'stopped']}]
             )
             
@@ -272,7 +284,8 @@ class CloudWatchMetricsCollector:
                         network_in=network_in,
                         network_out=network_out,
                         disk_read_bytes=disk_read,
-                        running_hours=running_hours
+                        running_hours=running_hours,
+                        billing_profile='linux_shared_ondemand' if instance.get('PlatformDetails') == 'Linux/UNIX' and instance.get('Placement', {}).get('Tenancy') == 'default' and not instance.get('InstanceLifecycle') else 'unsupported'
                     )
                     
                     ec2_metrics_list.append(ec2_metrics)
@@ -315,18 +328,26 @@ class CloudWatchMetricsCollector:
                 Dimensions=dimensions,
                 StartTime=start_time,
                 EndTime=end_time,
-                Period=period,
-                Statistics=[statistic]
+                Period=max(period, math.ceil((end_time-start_time).total_seconds()/1439/60)*60),
+                Statistics=[statistic, 'SampleCount'] if statistic == 'Average' else [statistic]
             )
             
             datapoints = response.get('Datapoints', [])
             
             if not datapoints:
-                return Decimal('0')
-            
-            # Aggregate all datapoints
-            total = sum(dp.get(statistic, 0) for dp in datapoints)
-            return Decimal(str(total))
+                raise ValueError(f'No observed {namespace}/{metric_name} datapoints')
+            values = [Decimal(str(point[statistic])) for point in datapoints]
+            if any(not value.is_finite() or value < 0 for value in values):
+                raise ValueError('Invalid nonnegative usage observation')
+            if statistic == 'Average':
+                counts = [Decimal(str(point['SampleCount'])) for point in datapoints]
+                if any(not count.is_finite() or count <= 0 for count in counts):
+                    raise ValueError('Invalid metric sample count')
+                return sum((value*count for value, count in zip(values, counts)), Decimal('0')) / sum(counts)
+            if statistic == 'Sum': return sum(values, Decimal('0'))
+            if statistic == 'Minimum': return min(values)
+            if statistic == 'Maximum': return max(values)
+            raise ValueError('Unsupported metric aggregation')
             
         except ClientError as e:
             error_info = format_error(e)
@@ -350,7 +371,7 @@ class CloudWatchMetricsCollector:
         try:
             # Get list of Lambda functions
             lambda_client = boto3.client('lambda', region_name=self.region)
-            functions_response = lambda_client.list_functions()
+            functions_response = self._list_all(lambda_client, 'list_functions', 'Functions')
             
             lambda_metrics_list = []
             
@@ -391,7 +412,8 @@ class CloudWatchMetricsCollector:
                     invocations=int(invocations),
                     duration_ms=duration,
                     memory_mb=memory_mb,
-                    errors=int(errors)
+                    errors=int(errors),
+                    billing_profile='x86_lambda' if function.get('Architectures', ['x86_64']) == ['x86_64'] else 'unsupported'
                 )
                 
                 lambda_metrics_list.append(lambda_metrics)
@@ -420,11 +442,13 @@ class CloudWatchMetricsCollector:
         try:
             # Get list of DynamoDB tables
             dynamodb_client = boto3.client('dynamodb', region_name=self.region)
-            tables_response = dynamodb_client.list_tables()
+            tables_response = self._list_all(dynamodb_client, 'list_tables', 'TableNames')
             
             dynamodb_metrics_list = []
             
             for table_name in tables_response.get('TableNames', []):
+                description = dynamodb_client.describe_table(TableName=table_name)['Table']
+                profile = 'standard_ondemand' if description.get('BillingModeSummary', {}).get('BillingMode') == 'PAY_PER_REQUEST' and description.get('TableClassSummary', {}).get('TableClass', 'STANDARD') == 'STANDARD' else 'unsupported'
                 # Collect metrics for this table
                 read_capacity = self._get_metric_statistics(
                     namespace='AWS/DynamoDB',
@@ -447,7 +471,7 @@ class CloudWatchMetricsCollector:
                 dynamodb_metrics = DynamoDBMetrics(
                     table_name=table_name,
                     consumed_read_capacity=read_capacity,
-                    consumed_write_capacity=write_capacity
+                    consumed_write_capacity=write_capacity, billing_profile=profile
                 )
                 
                 dynamodb_metrics_list.append(dynamodb_metrics)
@@ -476,7 +500,7 @@ class CloudWatchMetricsCollector:
         try:
             # Get list of S3 buckets
             s3_client = boto3.client('s3', region_name=self.region)
-            buckets_response = s3_client.list_buckets()
+            buckets_response = self._list_all(s3_client, 'list_buckets', 'Buckets')
             
             s3_metrics_list = []
             
@@ -517,7 +541,7 @@ class CloudWatchMetricsCollector:
                     number_of_objects=int(num_objects),
                     bucket_size_bytes=bucket_size,
                     get_requests=int(get_requests),
-                    put_requests=int(put_requests)
+                    put_requests=int(put_requests), billing_profile='storage_only_missing_requests'
                 )
                 
                 s3_metrics_list.append(s3_metrics)
@@ -546,7 +570,7 @@ class CloudWatchMetricsCollector:
         try:
             # Get list of RDS instances
             rds_client = boto3.client('rds', region_name=self.region)
-            instances_response = rds_client.describe_db_instances()
+            instances_response = self._list_all(rds_client, 'describe_db_instances', 'DBInstances')
             
             rds_metrics_list = []
             
@@ -594,7 +618,8 @@ class CloudWatchMetricsCollector:
                     read_iops=read_iops,
                     write_iops=write_iops,
                     storage_gb=storage_gb,
-                    running_hours=running_hours
+                    running_hours=running_hours,
+                    billing_profile='postgres_singleaz_gp2' if db_instance.get('Engine') == 'postgres' and db_instance.get('MultiAZ') is False and db_instance.get('StorageType') == 'gp2' else 'unsupported'
                 )
                 
                 rds_metrics_list.append(rds_metrics)

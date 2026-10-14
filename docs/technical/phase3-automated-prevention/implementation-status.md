@@ -1,5 +1,9 @@
 # Phase 3 Implementation Status
 
+> **Current source boundary (October 14, 2026):** This file preserves an earlier design/review/report. Use the [current Phase 3 overview](README.md) and [active implementation contracts](../access-and-feature-contracts.md). Earlier completion, idle-coverage, confidence, execution and test claims do not validate the current source. All further validation is deferred.
+
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 **Date:** January 2026  
 **Overall Status:** ✅ **FULLY IMPLEMENTED** (Core Features Complete)
 

@@ -1,5 +1,7 @@
 # Phase 1: Misleading or Overstated Claims Analysis
 
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 **Date:** January 2026  
 **Status:** Critical Issues Identified  
 **Purpose:** Identify discrepancies between Phase 1 claims and actual implementation

@@ -94,7 +94,7 @@ Symptom: "Can't delete cdk.out folder"
 
 **How to use:**
 1. Identify relevant tags
-2. Search in [Search by Tag](./DOCUMENTATION_INDEX.md#-search-by-tag)
+2. Search in [Search by Tag](./DOCUMENTATION_INDEX.md#️-search-by-tag)
 3. Find all related documents
 
 **Example:**

@@ -655,7 +655,7 @@ After fix:
 
 ### Related Documentation
 
-- [CDK_ASSET_PATH_BUG_FIX.md](./CDK_ASSET_PATH_BUG_FIX.md) - Detailed analysis and prevention guidelines
+- [CDK_ASSET_PATH_BUG_FIX.md](../CDK_ASSET_PATH_BUG_FIX.md) - Detailed analysis and prevention guidelines
 - `infrastructure/aiml_stack.py` - Fixed file (line 287)
 - `.cdkignore` - Exclude patterns for CDK assets
 

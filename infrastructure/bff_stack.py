@@ -14,6 +14,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     aws_cognito as cognito,
+    aws_dynamodb as dynamodb,
     aws_lambda as lambda_,
     aws_apigateway as apigateway,
     aws_iam as iam,
@@ -64,7 +65,15 @@ class BFFStack(Stack):
         # BFF Lambda
         # ---------------------------------------------------------------------
         repo_root = os.path.join(os.path.dirname(__file__), "..")
+        user_access_table = dynamodb.Table(self, "UserAccessTable", table_name="costguard-user-access",
+            partition_key=dynamodb.Attribute(name="subject", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST, removal_policy=RemovalPolicy.RETAIN)
         bff_env = {
+            "BFF_ACCESS_GRANTS_TABLE": user_access_table.table_name,
+            "BFF_ACCESS_GRANTS": self.node.try_get_context("bff_access_grants") or os.environ.get("BFF_ACCESS_GRANTS", "{}"),
+            "BFF_ACCOUNT_ID": Stack.of(self).account,
+            "BFF_USER_POOL_ID": user_pool.user_pool_id,
+            "BFF_USER_POOL_CLIENT_ID": user_pool_client.user_pool_client_id,
             "BFF_MAIN_BASE_URL": self.node.try_get_context("bff_main_url") or os.environ.get("BFF_MAIN_BASE_URL", ""),
             "BFF_MAIN_API_KEY": self.node.try_get_context("bff_main_key") or os.environ.get("BFF_MAIN_API_KEY", ""),
             "BFF_MULTI_ACCOUNT_BASE_URL": self.node.try_get_context("bff_multi_account_url") or os.environ.get("BFF_MULTI_ACCOUNT_BASE_URL", ""),
@@ -82,6 +91,11 @@ class BFFStack(Stack):
             code=lambda_.Code.from_asset(
                 repo_root,
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out", "infrastructure/cdk.out", "infrastructure/*", ".git", ".github",
                     "tests", "docs", "scripts", "*.md", ".venv", "venv", "__pycache__", "*.pyc",
                     "*.txt", ".hypothesis", ".kiro", ".ruff_cache", ".pytest_cache", "*.log",
@@ -92,6 +106,7 @@ class BFFStack(Stack):
             environment=bff_env,
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
+        bff_lambda.add_to_role_policy(iam.PolicyStatement(actions=["dynamodb:GetItem"], resources=[user_access_table.table_arn]))
         bff_lambda.add_to_role_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=["cognito-idp:GetUser"],
@@ -119,6 +134,7 @@ class BFFStack(Stack):
         # ---------------------------------------------------------------------
         # Outputs
         # ---------------------------------------------------------------------
+        CfnOutput(self, "UserAccessTableName", value=user_access_table.table_name)
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id, description="Cognito User Pool ID (set VITE_COGNITO_USER_POOL_ID)")
         CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id, description="Cognito App Client ID (set VITE_COGNITO_CLIENT_ID)")
         CfnOutput(self, "BFFApiUrl", value=bff_api.url, description="BFF API base URL (set VITE_BFF_BASE_URL in frontend)")

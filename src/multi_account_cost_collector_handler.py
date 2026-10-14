@@ -36,7 +36,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     try:
         logger.info("Starting multi-account cost collection")
-        logger.info(f"Event: {json.dumps(event)}")
+        logger.info("Cost collection invocation received")
         
         # Get configuration from environment variables
         org_id = os.environ.get('ORGANIZATION_ID')
@@ -44,7 +44,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         days_to_collect = int(os.environ.get('DAYS_TO_COLLECT', '7'))
         
         if not org_id:
-            raise ValueError("ORGANIZATION_ID environment variable is required")
+            org_id = OrganizationDiscoveryService().discover_organization().id
         
         # Calculate date range
         end_date = date.today()
@@ -58,7 +58,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         try:
             org_data = discovery_service.discover_organization()
-            account_ids = [acc.id for acc in org_data.accounts]
+            if org_data.id != org_id: raise ValueError('Configured organization differs from discovered organization')
+            account_ids = [acc.id for acc in discovery_service.get_all_accounts(org_id)]
             
             logger.info(f"Found {len(account_ids)} accounts in organization")
             
@@ -182,14 +183,14 @@ def manual_trigger_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any
     """
     try:
         logger.info("Manual trigger received")
-        logger.info(f"Event: {json.dumps(event)}")
+        logger.info("Cost collection invocation received")
         
         # Parse event parameters
         org_id = event.get('org_id') or os.environ.get('ORGANIZATION_ID')
         external_id = event.get('external_id') or os.environ.get('EXTERNAL_ID')
         
         if not org_id:
-            raise ValueError("org_id is required in event or ORGANIZATION_ID environment variable")
+            org_id = OrganizationDiscoveryService().discover_organization().id
         
         # Parse date range
         if 'start_date' in event and 'end_date' in event:
@@ -200,16 +201,23 @@ def manual_trigger_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any
             end_date = date.today()
             start_date = end_date - timedelta(days=7)
         
+        # Validate explicit selections against the actual organization as well.
+        selected_organization = OrganizationDiscoveryService()
+        actual_org = selected_organization.discover_organization()
+        if actual_org.id != org_id: raise ValueError('Configured organization differs from discovered organization')
+        permitted = {account.id for account in selected_organization.get_all_accounts(org_id)}
         # Get account IDs
         if 'account_ids' in event:
             account_ids = event['account_ids']
+            if not isinstance(account_ids, list) or not account_ids or not set(account_ids).issubset(permitted): raise ValueError('Select accounts in the discovered organization')
             logger.info(f"Using provided account IDs: {len(account_ids)} accounts")
         else:
             # Discover accounts
             logger.info("Discovering organization accounts")
             discovery_service = OrganizationDiscoveryService()
             org_data = discovery_service.discover_organization()
-            account_ids = [acc.id for acc in org_data.accounts]
+            if org_data.id != org_id: raise ValueError('Configured organization differs from discovered organization')
+            account_ids = [acc.id for acc in discovery_service.get_all_accounts(org_id)]
             logger.info(f"Discovered {len(account_ids)} accounts")
         
         # Collect costs
@@ -225,7 +233,7 @@ def manual_trigger_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any
             org_id=org_id,
             account_ids=account_ids,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date, external_id=external_id
         )
         
         # Log summary

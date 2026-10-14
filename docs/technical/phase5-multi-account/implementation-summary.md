@@ -1,5 +1,7 @@
 # Phase 5: Multi-Account Cost Management - Implementation Summary
 
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 **Status:** ✅ **CODE COMPLETE**  
 **Last Updated:** February 2026
 
@@ -445,15 +447,15 @@ Phase 5 implements comprehensive multi-account cost management capabilities for 
 1. **[README.md](./README.md)** - Overview, features, getting started
 2. **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference
 3. **[implementation-summary.md](./implementation-summary.md)** - This document
-4. **[../../infrastructure/CROSS_ACCOUNT_SETUP.md](../../infrastructure/CROSS_ACCOUNT_SETUP.md)** - Cross-account IAM setup
-5. **[../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)** - Member account setup
-6. **[../../DEPLOYMENT_SCRIPTS.md](../../DEPLOYMENT_SCRIPTS.md)** - Deployment and rollback scripts
+4. **[../../infrastructure/CROSS_ACCOUNT_SETUP.md](../../../infrastructure/CROSS_ACCOUNT_SETUP.md)** - Cross-account IAM setup
+5. **[../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md](../../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)** - Member account setup
+6. **[../../DEPLOYMENT_SCRIPTS.md](../../deployment/DEPLOYMENT_SCRIPTS.md)** - Deployment and rollback scripts
 
 ### Specification Documents
 
-1. **[Requirements](../../.kiro/specs/multi-account-cost-management/requirements.md)** - Detailed requirements
-2. **[Design](../../.kiro/specs/multi-account-cost-management/design.md)** - System design
-3. **[Tasks](../../.kiro/specs/multi-account-cost-management/tasks.md)** - Implementation tasks (33 tasks, all complete)
+1. **[Requirements](../../../.kiro/specs/multi-account-cost-management/requirements.md)** - Detailed requirements
+2. **[Design](../../../.kiro/specs/multi-account-cost-management/design.md)** - System design
+3. **[Tasks](../../../.kiro/specs/multi-account-cost-management/tasks.md)** - Implementation tasks (33 tasks, all complete)
 
 ---
 
@@ -490,7 +492,7 @@ Phase 5 implements comprehensive multi-account cost management capabilities for 
 4. Configure cost collection schedule
 5. Test with pilot accounts
 
-**Deployment Guide:** [DEPLOYMENT_SCRIPTS.md](../../DEPLOYMENT_SCRIPTS.md)
+**Deployment Guide:** [DEPLOYMENT_SCRIPTS.md](../../deployment/DEPLOYMENT_SCRIPTS.md)
 
 ### Testing (Complete)
 - ✅ All unit tests passing

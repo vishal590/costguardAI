@@ -1,479 +1,192 @@
-"""
-Spot Instance Recommender for AI/ML workloads.
-
-This module identifies training workloads suitable for spot instances,
-calculates potential savings, assesses interruption risk, and generates
-what-if scenarios for cost optimization.
-"""
-
+"""Scoped EC2 rate-reference observations, without suitability/risk/savings inference."""
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
-import boto3
+from datetime import datetime, timedelta, UTC
 from decimal import Decimal
-from botocore.exceptions import ClientError
+from typing import Optional, List
+import json
+import math
+import re
+import boto3
+from .error_handler import AIMLError
+from ..time_values import parse_utc_timestamp
 
-from .error_handler import (
-    retry_with_exponential_backoff,
-    handle_pricing_error,
-    AIMLError,
-    DataNotFoundError
-)
+
+class SpotQuoteUnavailable(AIMLError):
+    pass
 
 
 @dataclass
 class SpotRecommendation:
-    """Spot instance recommendation with savings and risk assessment."""
     workload_id: str
     current_instance: str
-    current_cost: float
-    recommended_spot_instance: str
-    spot_cost: float
-    savings: float
-    savings_percent: float
-    interruption_risk: float  # 0-1
-    suitable: bool
+    current_cost: Optional[float]
+    recommended_spot_instance: Optional[str]
+    spot_cost: Optional[float]
+    savings: Optional[float]
+    savings_percent: Optional[float]
+    interruption_risk: Optional[float]
+    suitable: Optional[bool]
     reason: str
 
 
 @dataclass
 class SpotSavings:
-    """Spot instance savings calculation."""
     current_instance: str
     spot_instance: str
-    on_demand_price: float
-    spot_price: float
-    savings_per_hour: float
-    savings_percent: float
-    estimated_monthly_savings: float
+    on_demand_price: Optional[float] = None
+    spot_price: Optional[float] = None
+    savings_per_hour: Optional[float] = None
+    savings_percent: Optional[float] = None
+    estimated_monthly_savings: Optional[float] = None
+    status: str = 'unavailable_without_matched_AZ_profile_and_workload'
 
 
 @dataclass
 class WhatIfScenario:
-    """What-if scenario for spot instance usage."""
     scenario_name: str
     workload_id: str
     instance_type: str
-    spot_usage_percent: float  # 0-100
-    estimated_savings: float
-    estimated_interruptions: int
+    spot_usage_percent: float
+    estimated_savings: Optional[float]
+    estimated_interruptions: Optional[int]
     recommendation: str
 
 
 class SpotInstanceRecommender:
-    """Recommends spot instances for training workloads."""
-    
-    def __init__(self, region: str = 'us-east-1', pricing_client=None, ec2_client=None, cloudwatch_client=None):
-        """Initialize spot instance recommender."""
-        self.region = region
-        self.ec2_client = ec2_client or boto3.client('ec2', region_name=region)
+    def __init__(self, region=None, pricing_client=None, ec2_client=None, cloudwatch_client=None):
+        self.ec2_client = ec2_client or boto3.client('ec2', **({'region_name': region} if region else {}))
+        self.region = self.ec2_client.meta.region_name
+        if region is not None and region != self.region: raise ValueError('EC2 client region does not match requested region')
         self.pricing_client = pricing_client or boto3.client('pricing', region_name='us-east-1')
-        self.cloudwatch_client = cloudwatch_client or boto3.client('cloudwatch', region_name=region)
-        
-        # Spot suitability criteria
-        self.min_training_duration = 1.0  # hours
-        self.max_interruption_tolerance = 0.15  # 15%
-        
-    def recommend_spot_instances(self, workload_id: str) -> List[SpotRecommendation]:
-        """
-        Recommend spot instances for a training workload.
-        
-        Args:
-            workload_id: ID of the workload (instance ID or job ID)
-            
-        Returns:
-            List of spot instance recommendations
-        """
-        # Get workload metadata
-        workload_metadata = self._get_workload_metadata(workload_id)
-        
-        if not workload_metadata:
-            return []
-        
-        current_instance = workload_metadata.get('instance_type')
-        workload_type = workload_metadata.get('workload_type')
-        
-        # Check if workload is suitable for spot
-        is_suitable, reason = self._is_spot_suitable(workload_metadata)
-        
-        if not is_suitable:
-            return [SpotRecommendation(
-                workload_id=workload_id,
-                current_instance=current_instance,
-                current_cost=0.0,
-                recommended_spot_instance=current_instance,
-                spot_cost=0.0,
-                savings=0.0,
-                savings_percent=0.0,
-                interruption_risk=0.0,
-                suitable=False,
-                reason=reason
-            )]
-        
-        # Get current instance pricing
-        on_demand_price = self._get_on_demand_price(current_instance)
-        
-        # Get spot pricing for current instance type
-        spot_price = self._get_spot_price(current_instance)
-        
-        # Calculate savings
-        savings_per_hour = on_demand_price - spot_price
-        savings_percent = (savings_per_hour / on_demand_price * 100) if on_demand_price > 0 else 0
-        
-        # Get interruption risk
-        interruption_risk = self._get_interruption_risk(current_instance)
-        
-        # Calculate current cost (estimate based on typical training duration)
-        training_hours = workload_metadata.get('duration_hours', 24.0)
-        current_cost = on_demand_price * training_hours
-        spot_cost = spot_price * training_hours
-        total_savings = current_cost - spot_cost
-        
-        return [SpotRecommendation(
-            workload_id=workload_id,
-            current_instance=current_instance,
-            current_cost=current_cost,
-            recommended_spot_instance=current_instance,
-            spot_cost=spot_cost,
-            savings=total_savings,
-            savings_percent=savings_percent,
-            interruption_risk=interruption_risk,
-            suitable=True,
-            reason=f"Training workload suitable for spot instances. Estimated savings: ${total_savings:.2f} ({savings_percent:.1f}%)"
-        )]
-    
-    def identify_spot_suitable_workloads(self) -> List[str]:
-        """
-        Identify training workloads suitable for spot instances.
-        
-        Returns:
-            List of workload IDs suitable for spot instances
-        """
-        suitable_workloads = []
-        
-        # Query EC2 instances with training classification
+        self.cloudwatch_client = cloudwatch_client
+        self.last_quote_report = None
+
+    def recommend_spot_instances(self, workload_id) -> List[SpotRecommendation]:
+        self.observe_instance_quotes(workload_id)
+        return []  # Price references alone do not establish a workload recommendation.
+
+    def observe_instance_quotes(self, workload_id):
+        if not isinstance(workload_id, str) or not re.fullmatch(r'i-(?:[a-f0-9]{8}|[a-f0-9]{17})', workload_id):
+            raise ValueError('Supply an EC2 instance ID; SageMaker/job-to-EC2 price mapping is not supported')
+        response = self.ec2_client.describe_instances(InstanceIds=[workload_id])
+        matches = [instance for reservation in response.get('Reservations', []) for instance in reservation.get('Instances', []) if instance.get('InstanceId') == workload_id]
+        if len(matches) != 1: raise SpotQuoteUnavailable('Selected instance metadata is unavailable')
+        instance = matches[0]
+        placement = instance.get('Placement', {})
+        kind, az = instance.get('InstanceType'), placement.get('AvailabilityZone')
+        report = {'data_contract': 'spot_quote_observations_v2', 'workload_id': workload_id,
+            'instance_type': kind, 'region': self.region, 'availability_zone': az,
+            'observed_lifecycle': instance.get('InstanceLifecycle') or 'standard',
+            'observed_state': instance.get('State', {}).get('Name'), 'observed_at': datetime.now(UTC).isoformat(),
+            'status': 'unavailable', 'recommendations': [], 'suitable': None, 'interruption_risk': None,
+            'current_billed_cost': None, 'realized_savings': None, 'estimated_monthly_savings': None,
+            'on_demand_reference_usd_per_hour': None, 'spot_quote_usd_per_hour': None,
+            'quoted_rate_difference_usd_per_hour': None, 'quoted_rate_difference_percent': None,
+            'quote_profile': 'Linux_shared_on_demand_reference_vs_same_type_AZ_spot',
+            'capacity_available_verified': False, 'workload_compatibility_verified': False,
+            'future_price_verified': False}
+        self.last_quote_report = report
+        if (instance.get('PlatformDetails') != 'Linux/UNIX' or placement.get('Tenancy') != 'default'
+                or not isinstance(kind, str) or not kind or not isinstance(az, str) or not az):
+            report['reason'] = 'Instance profile is not covered by the Linux/shared quote adapter'
+            return report
+        reference = self._on_demand_reference(kind)
+        quote = self._spot_quote(kind, az)
+        if reference is not None:
+            report['on_demand_reference_usd_per_hour'] = reference['price']
+            report['on_demand_provenance'] = reference
+        if quote is not None:
+            report['spot_quote_usd_per_hour'] = quote['price']
+            report['spot_provenance'] = quote
+        if reference is not None and quote is not None:
+            difference = reference['price']-quote['price']
+            report['quoted_rate_difference_usd_per_hour'] = difference
+            report['quoted_rate_difference_percent'] = difference/reference['price']*100.0
+            report['status'] = 'observed_quote_comparison'
+        elif reference is not None or quote is not None:
+            report['status'] = 'partial_quote_observation'
+        report['reason'] = 'Reference quotes do not establish billed cost, interruption probability, suitability or realized savings'
+        return report
+
+    def _on_demand_reference(self, instance_type):
+        attributes = {'regionCode': self.region, 'instanceType': instance_type, 'operatingSystem': 'Linux',
+                      'tenancy': 'Shared', 'preInstalledSw': 'NA', 'capacitystatus': 'Used', 'operation': 'RunInstances'}
+        request = {'ServiceCode': 'AmazonEC2', 'MaxResults': 100,
+            'Filters': [{'Type': 'TERM_MATCH', 'Field': key, 'Value': value} for key, value in attributes.items()]}
+        matches, seen = {}, set()
         try:
-            response = self.ec2_client.describe_instances(
-                Filters=[
-                    {'Name': 'instance-state-name', 'Values': ['running']},
-                    {'Name': 'tag:WorkloadType', 'Values': ['training']}
-                ]
-            )
-            
-            for reservation in response.get('Reservations', []):
-                for instance in reservation.get('Instances', []):
-                    instance_id = instance['InstanceId']
-                    instance_type = instance['InstanceType']
-                    
-                    # Check if GPU instance
-                    if self._is_gpu_instance(instance_type):
-                        # Get workload metadata
-                        metadata = self._get_workload_metadata(instance_id)
-                        is_suitable, _ = self._is_spot_suitable(metadata)
-                        
-                        if is_suitable:
-                            suitable_workloads.append(instance_id)
-        
-        except Exception as e:
-            print(f"Error identifying spot suitable workloads: {e}")
-        
-        return suitable_workloads
-    
-    def calculate_spot_savings(self, current_instance: str, spot_instance: str) -> SpotSavings:
-        """
-        Calculate potential savings from switching to spot instances.
-        
-        Args:
-            current_instance: Current instance type
-            spot_instance: Spot instance type (usually same as current)
-            
-        Returns:
-            Spot savings calculation
-        """
-        # Get pricing
-        on_demand_price = self._get_on_demand_price(current_instance)
-        spot_price = self._get_spot_price(spot_instance)
-        
-        # Calculate savings
-        savings_per_hour = on_demand_price - spot_price
-        savings_percent = (savings_per_hour / on_demand_price * 100) if on_demand_price > 0 else 0
-        
-        # Estimate monthly savings (assume 24/7 usage)
-        hours_per_month = 730  # average
-        estimated_monthly_savings = savings_per_hour * hours_per_month
-        
-        return SpotSavings(
-            current_instance=current_instance,
-            spot_instance=spot_instance,
-            on_demand_price=on_demand_price,
-            spot_price=spot_price,
-            savings_per_hour=savings_per_hour,
-            savings_percent=savings_percent,
-            estimated_monthly_savings=estimated_monthly_savings
-        )
-    
-    def get_spot_interruption_risk(self, instance_type: str, az: Optional[str] = None) -> float:
-        """
-        Get spot instance interruption risk from historical data.
-        
-        Args:
-            instance_type: EC2 instance type
-            az: Availability zone (optional)
-            
-        Returns:
-            Interruption risk (0-1, where 0 is no risk and 1 is high risk)
-        """
-        return self._get_interruption_risk(instance_type, az)
-    
-    def generate_what_if_scenarios(self, workload_id: str) -> List[WhatIfScenario]:
-        """
-        Generate what-if scenarios for spot instance usage.
-        
-        Args:
-            workload_id: ID of the workload
-            
-        Returns:
-            List of what-if scenarios
-        """
-        scenarios = []
-        
-        # Get workload metadata
-        metadata = self._get_workload_metadata(workload_id)
-        if not metadata:
-            return scenarios
-        
-        instance_type = metadata.get('instance_type')
-        training_hours = metadata.get('duration_hours', 24.0)
-        
-        # Get pricing
-        on_demand_price = self._get_on_demand_price(instance_type)
-        spot_price = self._get_spot_price(instance_type)
-        interruption_risk = self._get_interruption_risk(instance_type)
-        
-        # Scenario 1: 100% spot usage
-        savings_100 = (on_demand_price - spot_price) * training_hours
-        interruptions_100 = int(training_hours * interruption_risk)
-        scenarios.append(WhatIfScenario(
-            scenario_name="100% Spot Usage",
-            workload_id=workload_id,
-            instance_type=instance_type,
-            spot_usage_percent=100.0,
-            estimated_savings=savings_100,
-            estimated_interruptions=interruptions_100,
-            recommendation="Maximum savings but higher interruption risk"
-        ))
-        
-        # Scenario 2: 50% spot, 50% on-demand
-        savings_50 = savings_100 * 0.5
-        interruptions_50 = interruptions_100 // 2
-        scenarios.append(WhatIfScenario(
-            scenario_name="50% Spot, 50% On-Demand",
-            workload_id=workload_id,
-            instance_type=instance_type,
-            spot_usage_percent=50.0,
-            estimated_savings=savings_50,
-            estimated_interruptions=interruptions_50,
-            recommendation="Balanced approach with moderate savings and lower risk"
-        ))
-        
-        # Scenario 3: 0% spot (current state)
-        scenarios.append(WhatIfScenario(
-            scenario_name="0% Spot (Current)",
-            workload_id=workload_id,
-            instance_type=instance_type,
-            spot_usage_percent=0.0,
-            estimated_savings=0.0,
-            estimated_interruptions=0,
-            recommendation="No savings but no interruption risk"
-        ))
-        
-        return scenarios
-    
-    def _get_workload_metadata(self, workload_id: str) -> Dict[str, Any]:
-        """Get workload metadata from EC2 or SageMaker."""
+            for page_number in range(20):
+                response = self.pricing_client.get_products(**request)
+                for encoded in response.get('PriceList', []):
+                    item = json.loads(encoded) if isinstance(encoded, str) else encoded
+                    product = item['product']
+                    attrs = product['attributes']
+                    if product.get('productFamily') != 'Compute Instance' or any(attrs.get(key) != value for key, value in attributes.items()): continue
+                    rates = []
+                    for term in item.get('terms', {}).get('OnDemand', {}).values():
+                        if term.get('offerTermCode') != 'JRTCKXETXF' or term.get('termAttributes'): continue
+                        if parse_utc_timestamp(term['effectiveDate']) > datetime.now(UTC): continue
+                        for dimension in term.get('priceDimensions', {}).values():
+                            if (dimension.get('unit') != 'Hrs' or dimension.get('beginRange') != '0' or dimension.get('endRange') != 'Inf'
+                                    or dimension.get('appliesTo') or set(dimension.get('pricePerUnit', {})) != {'USD'}): continue
+                            rate = Decimal(dimension['pricePerUnit']['USD'])
+                            if not rate.is_finite() or rate <= 0 or not math.isfinite(float(rate)): return None
+                            rates.append(float(rate))
+                    if len(rates) != 1: return None
+                    sku = product['sku']
+                    if sku in matches and matches[sku] != rates[0]: return None
+                    matches[sku] = rates[0]
+                token = response.get('NextToken')
+                if not token: break
+                if token in seen: return None
+                seen.add(token)
+                request['NextToken'] = token
+            else: return None
+            if len(matches) != 1: return None
+            sku, price = next(iter(matches.items()))
+            return {'price': price, 'sku': sku, 'region': self.region, 'source': 'aws_pricing', 'unit': 'Hrs',
+                    'currency': 'USD', 'scope': 'undiscounted_compute_reference_only', 'queried_at': datetime.now(UTC).isoformat()}
+        except Exception: return None
+
+    def _spot_quote(self, instance_type, az):
+        end = datetime.now(UTC)
+        request = {'InstanceTypes': [instance_type], 'AvailabilityZone': az,
+            'ProductDescriptions': ['Linux/UNIX'], 'StartTime': end-timedelta(days=1), 'EndTime': end, 'MaxResults': 100}
+        seen, points = set(), {}
         try:
-            # Try EC2 first
-            response = self.ec2_client.describe_instances(InstanceIds=[workload_id])
-            
-            if response['Reservations']:
-                instance = response['Reservations'][0]['Instances'][0]
-                
-                # Get workload type from tags
-                workload_type = 'unknown'
-                for tag in instance.get('Tags', []):
-                    if tag['Key'] == 'WorkloadType':
-                        workload_type = tag['Value']
-                        break
-                
-                # Estimate duration from launch time
-                launch_time = instance.get('LaunchTime')
-                if launch_time:
-                    duration = datetime.now(launch_time.tzinfo) - launch_time
-                    duration_hours = duration.total_seconds() / 3600
-                else:
-                    duration_hours = 24.0  # default
-                
-                return {
-                    'instance_type': instance['InstanceType'],
-                    'workload_type': workload_type,
-                    'duration_hours': duration_hours,
-                    'state': instance['State']['Name']
-                }
-        
-        except Exception as e:
-            print(f"Error getting workload metadata: {e}")
-        
-        return {}
-    
-    def _is_spot_suitable(self, metadata: Dict[str, Any]) -> tuple[bool, str]:
-        """Check if workload is suitable for spot instances."""
-        workload_type = metadata.get('workload_type', 'unknown')
-        duration_hours = metadata.get('duration_hours', 0)
-        
-        # Only training workloads are suitable
-        if workload_type != 'training':
-            return False, f"Workload type '{workload_type}' not suitable for spot instances (only training workloads)"
-        
-        # Must run for minimum duration
-        if duration_hours < self.min_training_duration:
-            return False, f"Training duration too short ({duration_hours:.1f}h < {self.min_training_duration}h)"
-        
-        return True, "Workload suitable for spot instances"
-    
-    def _is_gpu_instance(self, instance_type: str) -> bool:
-        """Check if instance type is a GPU instance."""
-        gpu_families = ['p3', 'p4', 'p4d', 'p5', 'g4', 'g5', 'g6']
-        return any(instance_type.startswith(family) for family in gpu_families)
-    
-    def _get_on_demand_price(self, instance_type: str) -> float:
-        """Get on-demand price for instance type using Pricing API."""
-        try:
-            # Query AWS Pricing API for on-demand pricing
-            response = self.pricing_client.get_products(
-                ServiceCode='AmazonEC2',
-                Filters=[
-                    {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
-                    {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
-                    {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
-                    {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
-                    {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'}
-                ],
-                MaxResults=1
-            )
-            
-            if response.get('PriceList'):
-                import json
-                price_data = json.loads(response['PriceList'][0])
-                
-                # Extract on-demand price from pricing structure
-                terms = price_data.get('terms', {}).get('OnDemand', {})
-                for term_key, term_value in terms.items():
-                    price_dimensions = term_value.get('priceDimensions', {})
-                    for dim_key, dim_value in price_dimensions.items():
-                        price_per_unit = dim_value.get('pricePerUnit', {}).get('USD', '0')
-                        return float(price_per_unit)
-        
-        except Exception as e:
-            # Fallback to simplified pricing if API call fails
-            pricing_map = {
-                'p3.2xlarge': 3.06,
-                'p3.8xlarge': 12.24,
-                'p3.16xlarge': 24.48,
-                'p4d.24xlarge': 32.77,
-                'p5.48xlarge': 98.32,
-                'g4dn.xlarge': 0.526,
-                'g4dn.2xlarge': 0.752,
-                'g4dn.4xlarge': 1.204,
-                'g4dn.8xlarge': 2.176,
-                'g5.xlarge': 1.006,
-                'g5.2xlarge': 1.212,
-                'g5.4xlarge': 1.624,
-                'g5.8xlarge': 2.448,
-            }
-            return pricing_map.get(instance_type, 1.0)
-        
-        # Default fallback
-        return 1.0
-    
-    @retry_with_exponential_backoff(max_retries=3)
-    def _get_spot_price(self, instance_type: str) -> float:
-        """Get current spot price for instance type."""
-        try:
-            response = self.ec2_client.describe_spot_price_history(
-                InstanceTypes=[instance_type],
-                MaxResults=1,
-                ProductDescriptions=['Linux/UNIX']
-            )
-            
-            if response['SpotPriceHistory']:
-                return float(response['SpotPriceHistory'][0]['SpotPrice'])
-        
-        except ClientError as e:
-            # Handle pricing errors with fallback
-            on_demand_price = self._get_on_demand_price(instance_type)
-            estimated_spot_price = on_demand_price * 0.3
-            error_result = handle_pricing_error(e, estimated_spot_price)
-            if 'price' in error_result:
-                return error_result['price']
-        except Exception as e:
-            print(f"Error getting spot price: {e}")
-        
-        # Fallback: estimate 70% discount
-        on_demand_price = self._get_on_demand_price(instance_type)
-        return on_demand_price * 0.3
-    
-    def _get_interruption_risk(self, instance_type: str, az: Optional[str] = None) -> float:
-        """Get interruption risk for spot instance using historical data."""
-        try:
-            # Query CloudWatch for spot interruption history
-            # Use SpotInstanceInterruption metric if available
-            end_time = datetime.utcnow()
-            start_time = end_time - timedelta(days=30)  # Last 30 days
-            
-            try:
-                response = self.cloudwatch_client.get_metric_statistics(
-                    Namespace='AWS/EC2Spot',
-                    MetricName='SpotInstanceInterruption',
-                    Dimensions=[
-                        {'Name': 'InstanceType', 'Value': instance_type}
-                    ],
-                    StartTime=start_time,
-                    EndTime=end_time,
-                    Period=86400,  # Daily
-                    Statistics=['Sum']
-                )
-                
-                # Calculate interruption rate from historical data
-                total_interruptions = sum(float(dp['Sum']) for dp in response.get('Datapoints', []))
-                total_days = len(response.get('Datapoints', []))
-                
-                if total_days > 0:
-                    # Estimate risk as interruptions per day
-                    daily_risk = total_interruptions / total_days
-                    # Normalize to 0-1 range (assuming max 1 interruption per day = 100% risk)
-                    risk = min(daily_risk, 1.0)
-                    return risk
-                    
-            except Exception:
-                # Fallback to instance family-based risk assessment
-                pass
-        
-        except Exception:
-            pass
-        
-        # Fallback: Use instance family-based risk assessment
-        # GPU instances typically have lower interruption rates
-        risk_map = {
-            'p3': 0.05,   # 5% risk
-            'p4': 0.08,   # 8% risk
-            'p5': 0.10,   # 10% risk
-            'g4': 0.12,   # 12% risk
-            'g5': 0.10,   # 10% risk
-            'g6': 0.15,   # 15% risk
-        }
-        
-        for family, risk in risk_map.items():
-            if instance_type.startswith(family):
-                return risk
-        
-        return 0.20  # default 20% risk
+            for page_number in range(20):
+                response = self.ec2_client.describe_spot_price_history(**request)
+                for point in response.get('SpotPriceHistory', []):
+                    if point.get('InstanceType') != instance_type or point.get('AvailabilityZone') != az or point.get('ProductDescription') != 'Linux/UNIX': continue
+                    stamp = parse_utc_timestamp(point['Timestamp'])
+                    price = Decimal(point['SpotPrice'])
+                    if stamp > end or not price.is_finite() or price <= 0 or not math.isfinite(float(price)): return None
+                    if stamp in points and points[stamp] != price: return None
+                    points[stamp] = price
+                token = response.get('NextToken')
+                if not token: break
+                if token in seen: return None
+                seen.add(token)
+                request['NextToken'] = token
+            else: return None
+            if not points: return None
+            stamp = max(points)
+            return {'price': float(points[stamp]), 'price_change_time': stamp.isoformat(), 'queried_at': end.isoformat(),
+                'region': self.region, 'availability_zone': az, 'instance_type': instance_type,
+                'product': 'Linux/UNIX', 'source': 'ec2_spot_price_history', 'currency': 'USD', 'unit': 'Hrs',
+                'scope': 'matching_AZ_type_effective_historical_quote_not_capacity_guarantee'}
+        except Exception: return None
+
+    def identify_spot_suitable_workloads(self): return []
+    def calculate_spot_savings(self, current_instance, spot_instance): return SpotSavings(current_instance, spot_instance)
+    def get_spot_interruption_risk(self, instance_type, az=None): return None
+    def generate_what_if_scenarios(self, workload_id): return []
+    def _get_workload_metadata(self, workload_id):
+        return self.observe_instance_quotes(workload_id)
+    def _is_spot_suitable(self, metadata): return None, 'Workload interruption tolerance and compatibility are unverified'
+    def _is_gpu_instance(self, instance_type): return isinstance(instance_type, str) and re.fullmatch(r'[gp][0-9][a-z0-9-]*\.[a-z0-9]+', instance_type) is not None
+    def _get_on_demand_price(self, instance_type):
+        reference = self._on_demand_reference(instance_type)
+        return reference['price'] if reference else None
+    def _get_spot_price(self, instance_type): return None  # An explicit AZ is required.
+    def _get_interruption_risk(self, instance_type, az=None): return None

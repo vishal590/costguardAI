@@ -137,7 +137,7 @@ def record_action(action: Action) -> None:
         raise
 
 
-def record_outcome(action_id: str, outcome: Outcome) -> None:
+def record_outcome(action_id: str, outcome: Outcome, action_timestamp=None) -> None:
     """
     Record the outcome of an autonomous action.
     
@@ -146,25 +146,31 @@ def record_outcome(action_id: str, outcome: Outcome) -> None:
         outcome: Outcome object with results
     """
     try:
-        # Update action record with outcome
-        action_history_table.update_item(
-            Key={"action_id": action_id, "timestamp": outcome.timestamp.isoformat()},
-            UpdateExpression="SET #status = :status, #success = :success, "
-                           "#cost_impact = :cost_impact, #perf_impact = :perf_impact",
-            ExpressionAttributeNames={
-                "#status": "status",
-                "#success": "success",
-                "#cost_impact": "actual_cost_impact",
-                "#perf_impact": "performance_impact",
-            },
-            ExpressionAttributeValues={
-                ":status": "completed",
-                ":success": outcome.success,
-                ":cost_impact": Decimal(str(outcome.cost_impact)),
-                ":perf_impact": Decimal(str(outcome.performance_impact)),
-            },
-        )
-        
+        if action_timestamp:
+            values = {":success": outcome.success, ":recorded": True}
+            names = {"#success": "success"}
+            expression = "SET #success = :success, learning_recorded = :recorded"
+            if outcome.cost_impact is not None:
+                expression += ", actual_cost_impact = :cost"
+                values[":cost"] = Decimal(str(outcome.cost_impact))
+            if outcome.performance_impact is not None:
+                expression += ", performance_impact = :performance"
+                values[":performance"] = Decimal(str(outcome.performance_impact))
+            action_history_table.update_item(
+                Key={"action_id": action_id, "timestamp": action_timestamp},
+                UpdateExpression=expression, ExpressionAttributeNames=names,
+                ExpressionAttributeValues=values, ConditionExpression="attribute_exists(action_id)")
+        else:
+            # Legacy completion publishers do not provide the canonical key.
+            action_history_table.update_item(
+                Key={"action_id": action_id, "timestamp": outcome.timestamp.isoformat()},
+                UpdateExpression="SET #status = :status, #success = :success, "
+                                 "actual_cost_impact = :cost_impact, performance_impact = :perf_impact",
+                ExpressionAttributeNames={"#status": "status", "#success": "success"},
+                ExpressionAttributeValues={":status": "completed", ":success": outcome.success,
+                    ":cost_impact": Decimal(str(outcome.cost_impact or 0)),
+                    ":perf_impact": Decimal(str(outcome.performance_impact or 0))})
+
         print(f"Recorded outcome for action {action_id}: success={outcome.success}, "
               f"cost_impact={outcome.cost_impact}, perf_impact={outcome.performance_impact}")
         
@@ -696,11 +702,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             outcome = Outcome(
                 action_id=action_id,
                 success=detail.get("success", False),
-                cost_impact=detail.get("outcome", {}).get("actual_cost_impact", 0.0),
-                performance_impact=detail.get("outcome", {}).get("performance_impact", 0.0),
+                cost_impact=detail.get("outcome", {}).get("actual_cost_impact"),
+                performance_impact=detail.get("outcome", {}).get("performance_impact"),
             )
             
-            record_outcome(action_id, outcome)
+            if detail.get("action_timestamp"):
+                record_outcome(action_id, outcome, action_timestamp=detail["action_timestamp"])
+            else:
+                record_outcome(action_id, outcome)
             
             # Calculate success rate
             success_rate = calculate_success_rate(action_type)

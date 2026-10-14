@@ -1,5 +1,9 @@
 # Phase 6: AI/ML Workload Cost Management - Deployment Guide
 
+> **GPU source update (October 14, 2026):** [Current GPU evidence/review/history contracts](../technical/gpu-observed-contracts.md) supersede earlier CPU-fallback, simulated-prevention and verified-savings examples. Aggregate GPU billing/classification/spot paths retain separate gaps. All configuration/runtime validation is deferred.
+
+> **SageMaker source update (October 14, 2026):** Use the [current observed contracts](../technical/sagemaker-observed-contracts.md) for cost/null/coverage/low-usage behavior. Older pricing, waste and inactivity examples below do not establish current behavior. New source requires deployment and all further validation remains deferred.
+
 **Version:** 1.0  
 **Last Updated:** February 2026  
 **Status:** Ready for Deployment  
@@ -1726,7 +1730,7 @@ After successful deployment:
 - **[Phase 6 API Documentation](../api/phase6-api-documentation.md)** - Complete API reference
 - **[Phase 6 Tasks](/.kiro/specs/ai-ml-workload-costs/tasks.md)** - Implementation task list
 - **[Infrastructure README](../../infrastructure/README.md)** - General infrastructure guide
-- **[Deployment Checklist](../../DEPLOYMENT_CHECKLIST.md)** - Phase 4 deployment reference
+- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Phase 4 deployment reference
 
 ---
 

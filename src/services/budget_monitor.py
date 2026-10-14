@@ -8,8 +8,13 @@ approaches warning (80%) or action (90%) thresholds.
 from typing import List, Optional, Dict, Any
 from datetime import datetime, UTC
 import logging
+import math
 
 logger = logging.getLogger(__name__)
+
+
+class BudgetDataUnavailable(RuntimeError):
+    """Budget coverage cannot be established from current data."""
 
 
 class BudgetMonitor:
@@ -39,26 +44,25 @@ class BudgetMonitor:
         threshold_events = []
         
         try:
-            # Get all budgets for the account
-            response = self.budgets_client.describe_budgets(
-                AccountId=self._get_account_id()
-            )
-            
-            for budget in response.get('Budgets', []):
-                budget_status = self._create_budget_status(budget)
-                threshold_event = self.check_thresholds(budget_status)
-                
-                if threshold_event:
-                    threshold_events.append(threshold_event)
-                    
+            request = {'AccountId': self._get_account_id()}
+            seen = set()
+            while True:
+                response = self.budgets_client.describe_budgets(**request)
+                for budget in response.get('Budgets', []):
+                    if not budget.get('BudgetType'): raise BudgetDataUnavailable('Budget type is unavailable')
+                    if budget['BudgetType'] != 'COST': continue
+                    threshold_event = self.check_thresholds(self._create_budget_status(budget))
+                    if threshold_event: threshold_events.append(threshold_event)
+                token = response.get('NextToken')
+                if not token: break
+                if token in seen: raise BudgetDataUnavailable('Repeated budget page token')
+                seen.add(token)
+                request['NextToken'] = token
         except Exception as e:
-            logger.error(f"Failed to poll budgets: {e}")
-            # Fall back to cost estimates
-            budget_status = self._get_fallback_budget_status()
-            threshold_event = self.check_thresholds(budget_status)
-            if threshold_event:
-                threshold_events.append(threshold_event)
-        
+            logger.error('Budget monitoring unavailable: %s', type(e).__name__)
+            # A partial poll cannot justify a successful prevention cycle.
+            raise BudgetDataUnavailable('Budget data is unavailable; no fallback limit or zero spending was invented') from e
+
         return threshold_events
     
     def check_thresholds(self, budget_status) -> Optional[Any]:
@@ -105,9 +109,11 @@ class BudgetMonitor:
         elif actual:
             spend = float(actual['Amount'])
         else:
-            spend = 0.0
+            raise BudgetDataUnavailable('Calculated spending is unavailable')
         
-        return spend / limit if limit > 0 else 0.0
+        if not math.isfinite(limit) or limit <= 0 or not math.isfinite(spend):
+            raise BudgetDataUnavailable('Budget limit or spending is invalid')
+        return spend / limit
     
     def _create_budget_status(self, budget: Dict[str, Any]):
         """Create BudgetStatus from AWS budget dict."""
@@ -117,9 +123,16 @@ class BudgetMonitor:
         currency = budget['BudgetLimit']['Unit']
         
         calculated_spend = budget.get('CalculatedSpend', {})
-        actual_spend = float(calculated_spend.get('ActualSpend', {}).get('Amount', 0))
-        forecasted_spend = float(calculated_spend.get('ForecastedSpend', {}).get('Amount', 0))
+        if 'ActualSpend' not in calculated_spend:
+            raise BudgetDataUnavailable('Actual spending is unavailable')
+        actual_spend = float(calculated_spend['ActualSpend']['Amount'])
+        forecasted = calculated_spend.get('ForecastedSpend')
+        forecasted_spend = float(forecasted['Amount']) if forecasted else None
+        if calculated_spend['ActualSpend'].get('Unit') != currency or (forecasted and forecasted.get('Unit') != currency):
+            raise BudgetDataUnavailable('Budget and spending units differ')
         
+        if not math.isfinite(actual_spend) or (forecasted_spend is not None and not math.isfinite(forecasted_spend)):
+            raise BudgetDataUnavailable("Calculated spending is invalid")
         utilization = self.calculate_utilization(budget)
         
         time_period = budget.get('TimePeriod', {})
@@ -154,19 +167,5 @@ class BudgetMonitor:
         return sts.get_caller_identity()['Account']
     
     def _get_fallback_budget_status(self):
-        """Get budget status using cost estimator as fallback."""
-        from ..utils.types import BudgetStatus
-        
-        logger.info("Using cost estimator as fallback for budget status")
-        
-        # This would use the cost estimator to get current spend
-        # For now, return a placeholder
-        return BudgetStatus(
-            budget_name="fallback-budget",
-            limit=1000.0,
-            actual_spend=0.0,
-            forecasted_spend=0.0,
-            utilization_percent=0.0,
-            currency="USD",
-            time_period="current"
-        )
+        """An estimator alone cannot establish a configured budget limit or MTD spend."""
+        raise BudgetDataUnavailable("No verified fallback budget data is configured")

@@ -198,8 +198,8 @@ class TestCheckpointSaveRestore:
     
     @patch('autonomous.spot_manager.s3_client')
     @patch('autonomous.spot_manager.training_checkpoints_table')
-    def test_restore_from_checkpoint_success(self, mock_table, mock_s3):
-        """Test successful checkpoint restoration."""
+    def test_metadata_only_checkpoint_cannot_claim_training_restore(self, mock_table, mock_s3):
+        """Progress metadata does not prove model restoration."""
         training_state = {
             "training_job_id": "job_123",
             "epoch": 5,
@@ -229,10 +229,10 @@ class TestCheckpointSaveRestore:
         # Restore checkpoint
         result = restore_from_checkpoint("ckpt_test", "i-new123")
         
-        assert result is True
-        mock_table.query.assert_called_once()
-        mock_s3.get_object.assert_called_once()
-        mock_table.update_item.assert_called_once()
+        assert result is False
+        mock_table.query.assert_not_called()
+        mock_s3.get_object.assert_not_called()
+        mock_table.update_item.assert_not_called()
     
     @patch('autonomous.spot_manager.training_checkpoints_table')
     def test_restore_from_checkpoint_not_found(self, mock_table):
@@ -321,54 +321,31 @@ class TestCheckpointSaveRestore:
 class TestSpotInstanceReplacement:
     """Test spot instance replacement functions."""
     
-    @patch('autonomous.spot_manager.check_spot_availability')
-    def test_acquire_replacement_instance_spot_success(self, mock_availability):
-        """Test successful spot instance acquisition."""
-        mock_availability.return_value = True
-        
-        instance_id, instance_mode = acquire_replacement_instance(
-            "us-east-1", "g4dn.xlarge", "job_123"
-        )
-        
-        assert instance_id is not None
-        assert instance_mode == "spot"
-        assert instance_id.startswith("i-spot-")
-    
-    @patch('autonomous.spot_manager.check_spot_availability')
-    @patch('autonomous.spot_manager.request_ondemand_approval')
-    @patch('autonomous.spot_manager.SPOT_TIMEOUT_SECONDS', 0)
-    def test_acquire_replacement_instance_ondemand_fallback(
-        self, mock_approval, mock_availability
-    ):
-        """Test on-demand fallback when spot unavailable."""
-        mock_availability.return_value = False
-        mock_approval.return_value = True
-        
-        instance_id, instance_mode = acquire_replacement_instance(
-            "us-east-1", "g4dn.xlarge", "job_123"
-        )
-        
-        assert instance_id is not None
-        assert instance_mode == "ondemand"
-        assert instance_id.startswith("i-ondemand-")
-        mock_approval.assert_called_once()
-    
-    @patch('autonomous.spot_manager.check_spot_availability')
-    @patch('autonomous.spot_manager.request_ondemand_approval')
-    @patch('autonomous.spot_manager.SPOT_TIMEOUT_SECONDS', 0)
-    def test_acquire_replacement_instance_approval_denied(
-        self, mock_approval, mock_availability
-    ):
-        """Test when on-demand approval is denied."""
-        mock_availability.return_value = False
-        mock_approval.return_value = False
-        
-        instance_id, instance_mode = acquire_replacement_instance(
-            "us-east-1", "g4dn.xlarge", "job_123"
-        )
-        
-        assert instance_id is None
-        assert instance_mode == "cancelled"
+    @patch('autonomous.spot_manager.events_client')
+    @patch('autonomous.spot_manager.check_spot_availability', return_value=True)
+    def test_acquire_replacement_instance_spot_success(self, availability, events):
+        events.put_events.return_value = {"FailedEntryCount": 0}
+        instance_id, mode = acquire_replacement_instance("us-east-1", "g4dn.xlarge", "job-1", parameters={"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"})
+        assert instance_id is None and mode == "pending_approval"
+        payload = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
+        assert payload["action_type"] == "spot_migration"
+        assert payload["approval_required"] is True
+
+    @patch('autonomous.spot_manager.events_client')
+    @patch('autonomous.spot_manager.check_spot_availability', return_value=False)
+    def test_acquire_replacement_instance_ondemand_fallback(self, availability, events):
+        events.put_events.return_value = {"FailedEntryCount": 0}
+        instance_id, mode = acquire_replacement_instance("us-east-1", "g4dn.xlarge", "job-1", parameters={"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"})
+        assert instance_id is None and mode == "pending_approval"
+        payload = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
+        assert payload["action_type"] == "ondemand_fallback"
+
+    @patch('autonomous.spot_manager.events_client')
+    @patch('autonomous.spot_manager.check_spot_availability', return_value=False)
+    def test_acquire_replacement_instance_approval_denied(self, availability, events):
+        instance_id, mode = acquire_replacement_instance("us-east-1", "g4dn.xlarge", "job-1")
+        assert instance_id is None and mode == "failed"
+        events.put_events.assert_not_called()
     
     def test_check_spot_availability_returns_boolean(self):
         """Test that spot availability check returns boolean."""
@@ -377,30 +354,18 @@ class TestSpotInstanceReplacement:
         assert isinstance(result, bool)
     
     @patch('autonomous.spot_manager.events_client')
-    def test_request_ondemand_approval_success(self, mock_events):
-        """Test successful on-demand approval request."""
-        mock_events.put_events.return_value = {}
-        
-        result = request_ondemand_approval("job_123", "g4dn.xlarge", "us-east-1")
-        
-        assert result is True
-        mock_events.put_events.assert_called_once()
-        
-        # Verify event structure
-        call_args = mock_events.put_events.call_args
-        entries = call_args[1]["Entries"]
-        assert len(entries) == 1
-        assert entries[0]["Source"] == "costguard.autonomous.spotmanager"
-        assert entries[0]["DetailType"] == "ActionRequest"
+    def test_request_ondemand_approval_success(self, events):
+        events.put_events.return_value = {"FailedEntryCount": 0}
+        result = request_ondemand_approval("job-1", "g4dn.xlarge", "us-east-1", parameters={"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"})
+        assert isinstance(result, str) and result.startswith("req_")
+        payload = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
+        assert payload["action_id"] and payload["parameters"]["training_job_id"] == "job-1"
     
     @patch('autonomous.spot_manager.events_client')
-    def test_request_ondemand_approval_failure(self, mock_events):
-        """Test on-demand approval request failure."""
-        mock_events.put_events.side_effect = Exception("EventBridge error")
-        
-        result = request_ondemand_approval("job_123", "g4dn.xlarge", "us-east-1")
-        
-        assert result is False
+    def test_request_ondemand_approval_failure(self, events):
+        events.put_events.return_value = {"FailedEntryCount": 1}
+        with pytest.raises(RuntimeError):
+            request_ondemand_approval("job-1", "g4dn.xlarge", "us-east-1", parameters={"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"})
 
 
 # ============================================================================
@@ -515,167 +480,50 @@ class TestCostTracking:
 class TestLambdaHandler:
     """Test Lambda handler function."""
     
-    @patch('autonomous.spot_manager.save_checkpoint')
+    @patch('autonomous.spot_manager.acquire_replacement_instance', return_value=(None, "pending_approval"))
+    @patch('autonomous.spot_manager.save_checkpoint', return_value="checkpoint-1")
+    def test_handler_spot_interruption_success(self, save, acquire):
+        event = {"id": "event-1", "region": "us-east-1", "detail": {"instance_id": "i-old", "training_job_id": "job-1", "parameters": {"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"}, "training_state": {"epoch": 5}}}
+        with patch.dict(os.environ, {"DRY_RUN_MODE": "false"}):
+            response = handler(event, None)
+        assert response["statusCode"] == 202
+        body = json.loads(response["body"])
+        assert body["status"] == "pending_approval" and "new_instance_id" not in body
+        assert body["checkpoint_id"] == "checkpoint-1"
+        save.assert_called_once()
+    
     @patch('autonomous.spot_manager.acquire_replacement_instance')
+    @patch('autonomous.spot_manager.save_checkpoint', side_effect=RuntimeError("Checkpoint unavailable"))
+    def test_handler_checkpoint_save_failure(self, save, acquire):
+        event = {"region": "us-east-1", "detail": {"instance_id": "i-old", "training_job_id": "job-1", "parameters": {"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"}, "training_state": {"epoch": 5}}}
+        with patch.dict(os.environ, {"DRY_RUN_MODE": "false"}), pytest.raises(RuntimeError):
+            handler(event, None)
+        acquire.assert_not_called()
+
+    @patch('autonomous.spot_manager.acquire_replacement_instance', return_value=(None, "failed"))
+    def test_handler_instance_acquisition_failure(self, acquire):
+        event = {"region": "us-east-1", "detail": {"instance_id": "i-old", "training_job_id": "job-1", "parameters": {"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"}}}
+        with patch.dict(os.environ, {"DRY_RUN_MODE": "false"}):
+            response = handler(event, None)
+        assert response["statusCode"] == 400
+        assert json.loads(response["body"])["status"] == "failed"
+    
     @patch('autonomous.spot_manager.restore_from_checkpoint')
-    @patch('autonomous.spot_manager.track_spot_cost')
-    @patch('autonomous.spot_manager.calculate_total_training_cost')
-    @patch('autonomous.spot_manager.action_history_table')
-    def test_handler_spot_interruption_success(
-        self, mock_table, mock_total_cost, mock_track_cost,
-        mock_restore, mock_acquire, mock_save
-    ):
-        """Test successful spot interruption handling."""
-        # Setup mocks
-        mock_save.return_value = "ckpt_test123"
-        mock_acquire.return_value = ("i-new123", "spot")
-        mock_restore.return_value = True
-        mock_track_cost.return_value = Decimal("0.294")
-        mock_total_cost.return_value = {
-            "spot_cost": Decimal("0.294"),
-            "ondemand_cost": Decimal("0"),
-            "total_cost": Decimal("0.294"),
-        }
-        mock_table.put_item.return_value = {}
-        
-        # Create event
-        event = {
-            "detail": {
-                "instance_id": "i-old123",
-                "training_job_id": "job_123",
-                "instance_type": "g4dn.xlarge",
-                "epoch": 5,
-                "step": 1000,
-                "loss": 0.25,
-                "model_name": "resnet50",
-            },
-            "region": "us-east-1"
-        }
-        context = {}
-        
-        # Call handler
-        response = handler(event, context)
-        
-        # Verify response
-        assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert body["message"] == "Migration completed successfully"
-        assert body["checkpoint_id"] == "ckpt_test123"
-        assert body["new_instance_id"] == "i-new123"
-        assert body["instance_mode"] == "spot"
-        
-        # Verify all steps were called
-        mock_save.assert_called_once()
-        mock_acquire.assert_called_once()
-        mock_restore.assert_called_once()
-        mock_table.put_item.assert_called_once()
-    
-    @patch('autonomous.spot_manager.save_checkpoint')
-    def test_handler_checkpoint_save_failure(self, mock_save):
-        """Test handler when checkpoint save fails."""
-        mock_save.side_effect = Exception("S3 error")
-        
-        event = {
-            "detail": {
-                "instance_id": "i-test",
-                "training_job_id": "job_test",
-            },
-            "region": "us-east-1"
-        }
-        context = {}
-        
-        response = handler(event, context)
-        
-        assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert "error" in body
-        assert "Checkpoint save failed" in body["error"]
-    
-    @patch('autonomous.spot_manager.save_checkpoint')
     @patch('autonomous.spot_manager.acquire_replacement_instance')
-    def test_handler_instance_acquisition_failure(self, mock_acquire, mock_save):
-        """Test handler when instance acquisition fails."""
-        mock_save.return_value = "ckpt_test"
-        mock_acquire.return_value = (None, "failed")
-        
-        event = {
-            "detail": {
-                "instance_id": "i-test",
-                "training_job_id": "job_test",
-            },
-            "region": "us-east-1"
-        }
-        context = {}
-        
-        response = handler(event, context)
-        
-        assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert "error" in body
-        assert "Failed to acquire replacement instance" in body["error"]
+    def test_handler_restore_failure(self, acquire, restore):
+        event = {"region": "us-east-1", "detail": {"instance_id": "i-old", "training_job_id": "job-1"}}
+        with patch.dict(os.environ, {"DRY_RUN_MODE": "false"}):
+            assert handler(event, None)["statusCode"] == 400
+        acquire.assert_not_called()
+        restore.assert_not_called()
     
-    @patch('autonomous.spot_manager.save_checkpoint')
     @patch('autonomous.spot_manager.acquire_replacement_instance')
-    @patch('autonomous.spot_manager.restore_from_checkpoint')
-    def test_handler_restore_failure(self, mock_restore, mock_acquire, mock_save):
-        """Test handler when checkpoint restore fails."""
-        mock_save.return_value = "ckpt_test"
-        mock_acquire.return_value = ("i-new", "spot")
-        mock_restore.return_value = False
-        
-        event = {
-            "detail": {
-                "instance_id": "i-test",
-                "training_job_id": "job_test",
-            },
-            "region": "us-east-1"
-        }
-        context = {}
-        
-        response = handler(event, context)
-        
-        assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert "error" in body
-        assert "Failed to restore from checkpoint" in body["error"]
-    
-    @patch('autonomous.spot_manager.save_checkpoint')
-    @patch('autonomous.spot_manager.acquire_replacement_instance')
-    @patch('autonomous.spot_manager.restore_from_checkpoint')
-    @patch('autonomous.spot_manager.track_ondemand_cost')
-    @patch('autonomous.spot_manager.calculate_total_training_cost')
-    @patch('autonomous.spot_manager.action_history_table')
-    def test_handler_ondemand_fallback(
-        self, mock_table, mock_total_cost, mock_track_cost,
-        mock_restore, mock_acquire, mock_save
-    ):
-        """Test handler with on-demand fallback."""
-        mock_save.return_value = "ckpt_test"
-        mock_acquire.return_value = ("i-ondemand-new", "ondemand")
-        mock_restore.return_value = True
-        mock_track_cost.return_value = Decimal("0.526")
-        mock_total_cost.return_value = {
-            "spot_cost": Decimal("0"),
-            "ondemand_cost": Decimal("0.526"),
-            "total_cost": Decimal("0.526"),
-        }
-        mock_table.put_item.return_value = {}
-        
-        event = {
-            "detail": {
-                "instance_id": "i-test",
-                "training_job_id": "job_test",
-            },
-            "region": "us-east-1"
-        }
-        context = {}
-        
-        response = handler(event, context)
-        
-        assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert body["instance_mode"] == "ondemand"
-        assert body["costs"]["ondemand_cost"] > 0
+    def test_handler_ondemand_fallback(self, acquire):
+        event = {"region": "us-east-1", "detail": {"instance_id": "i-old", "training_job_id": "job-1", "parameters": {"launch_template_id": "lt-test", "launch_template_version": "1", "max_runtime_minutes": 10, "max_hourly_cost": "0.1", "region": "us-east-1"}}}
+        with patch.dict(os.environ, {"DRY_RUN_MODE": "true"}):
+            response = handler(event, None)
+        assert json.loads(response["body"])["status"] == "dry_run"
+        acquire.assert_not_called()
 
 
 # ============================================================================

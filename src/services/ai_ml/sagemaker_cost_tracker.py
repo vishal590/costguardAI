@@ -7,8 +7,9 @@ Identifies idle endpoints and recommends cost-optimized instance types.
 Requirements: FR-6.1, FR-6.2, FR-6.3, FR-6.4, FR-6.5, FR-6.6
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, UTC
+import math
 from typing import List, Dict, Optional, Tuple
 import boto3
 from decimal import Decimal
@@ -30,37 +31,52 @@ class JobCost:
     """Cost breakdown for a SageMaker job"""
     job_name: str
     job_type: str  # "training", "inference", "notebook"
-    instance_type: str
-    start_time: datetime
+    instance_type: Optional[str]
+    start_time: Optional[datetime]
     end_time: Optional[datetime]
-    duration_hours: float
-    compute_cost: float
-    storage_cost: float
-    data_transfer_cost: float
-    total_cost: float
+    duration_hours: Optional[float]
+    compute_cost: Optional[float]
+    storage_cost: Optional[float]
+    data_transfer_cost: Optional[float]
+    total_cost: Optional[float]
+
+    cost_status: str = "unavailable"
+    cost_basis: str = "resource_metadata_without_verified_billing_profile"
 
 
 @dataclass
 class SageMakerCosts:
     """Aggregated SageMaker costs"""
     date: datetime
-    training_costs: float
-    inference_costs: float
-    notebook_costs: float
-    total_cost: float
+    training_costs: Optional[float]
+    inference_costs: Optional[float]
+    notebook_costs: Optional[float]
+    total_cost: Optional[float]
     job_breakdown: List[JobCost]
+
+    unclassified_costs: Optional[float] = None
+    currency: Optional[str] = None
+    data_quality: Dict = field(default_factory=dict)
 
 
 @dataclass
 class EndpointMetrics:
-    """Metrics for a SageMaker endpoint"""
+    """Observed endpoint evidence; unavailable values are never zero-filled."""
     endpoint_name: str
-    instance_type: str
-    instance_count: int
-    requests_per_hour: float
-    avg_latency_ms: float
-    cost_per_hour: float
+    instance_type: Optional[str]
+    instance_count: Optional[int]
+    requests_per_hour: Optional[float]
+    avg_latency_ms: Optional[float]
+    cost_per_hour: Optional[float]
     is_idle: bool
+    observation_status: str = 'unavailable'
+    reason: Optional[str] = None
+    window_start: Optional[str] = None
+    window_end: Optional[str] = None
+    cost_status: str = 'unavailable'
+    latency_basis: str = 'unavailable'
+    cost_scope: str = 'unavailable'
+    pricing_provenance: Optional[Dict] = None
 
 
 @dataclass
@@ -73,6 +89,10 @@ class InstanceRecommendation:
     savings_per_hour: float
     savings_percent: float
     reason: str
+
+
+class SageMakerDataUnavailable(AIMLError):
+    """Provider cost observations do not satisfy the reporting contract."""
 
 
 class SageMakerCostTracker:
@@ -93,228 +113,161 @@ class SageMakerCostTracker:
         self.cloudwatch = cloudwatch_client or boto3.client('cloudwatch')
         self.pricing = pricing_client or boto3.client('pricing', region_name='us-east-1')
         self.cache_manager = cache_manager
+        self._compute_rates = {}
     
     @retry_with_exponential_backoff(max_retries=3)
     def track_sagemaker_costs(self, start_date: datetime, end_date: datetime) -> SageMakerCosts:
-        """
-        Track SageMaker costs by job type.
-        
-        Args:
-            start_date: Start date for cost tracking
-            end_date: End date for cost tracking
-            
-        Returns:
-            SageMakerCosts with breakdown by job type
-            
-        Requirements: FR-6.1, FR-6.2, FR-6.3, FR-6.4
-        """
-        # Try to get cached data first
-        cache_data = None
-        if self.cache_manager:
-            cache_key = f"sagemaker_costs_{start_date.strftime('%Y-%m-%d')}_{end_date.strftime('%Y-%m-%d')}"
-            cache_data = self.cache_manager.get(cache_key)
-            if cache_data:
-                return cache_data
-        
+        """Aggregate all observed USD usage categories over a bounded exclusive period."""
+        start, end = start_date.date(), end_date.date()
+        days = (end-start).days
+        if not 1 <= days <= 31 or end > datetime.now(UTC).date():
+            raise ValueError('SageMaker costs require 1-31 completed daily dates with an exclusive end')
+        expected = {(start+timedelta(days=offset)).isoformat() for offset in range(days)}
+        request = {'TimePeriod': {'Start': start.isoformat(), 'End': end.isoformat()},
+                   'Granularity': 'DAILY', 'Metrics': ['UnblendedCost'],
+                   'Filter': {'Dimensions': {'Key': 'SERVICE', 'Values': ['Amazon SageMaker']}},
+                   'GroupBy': [{'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}]}
+        rows, flags, seen = {}, {}, set()
         try:
-            # Get all SageMaker costs from Cost Explorer
-            response = self.cost_explorer.get_cost_and_usage(
-                TimePeriod={
-                    'Start': start_date.strftime('%Y-%m-%d'),
-                    'End': end_date.strftime('%Y-%m-%d')
-                },
-                Granularity='DAILY',
-                Metrics=['UnblendedCost'],
-                Filter={
-                    'Dimensions': {
-                        'Key': 'SERVICE',
-                        'Values': ['Amazon SageMaker']
-                    }
-                },
-                GroupBy=[
-                    {'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}
-                ]
-            )
-        except ClientError as e:
-            # Handle Cost Explorer errors with fallback to cached data
-            error_result = handle_cost_explorer_error(e, cache_data)
-            if 'data' in error_result:
-                return error_result['data']
-            raise
-        
-        # Parse costs by job type
-        training_costs = 0.0
-        inference_costs = 0.0
-        notebook_costs = 0.0
-        job_breakdown = []
-        
-        for result in response.get('ResultsByTime', []):
-            for group in result.get('Groups', []):
-                usage_type = group['Keys'][0]
-                cost = float(group['Metrics']['UnblendedCost']['Amount'])
-                
-                # Classify by usage type
-                if 'Training' in usage_type or 'TrainingJob' in usage_type:
-                    training_costs += cost
-                elif 'Hosting' in usage_type or 'Endpoint' in usage_type:
-                    inference_costs += cost
-                elif 'Notebook' in usage_type:
-                    notebook_costs += cost
-        
-        # Get detailed job breakdown
-        job_breakdown = self._get_job_breakdown(start_date, end_date)
-        
-        return SageMakerCosts(
-            date=start_date,
-            training_costs=training_costs,
-            inference_costs=inference_costs,
-            notebook_costs=notebook_costs,
-            total_cost=training_costs + inference_costs + notebook_costs,
-            job_breakdown=job_breakdown
-        )
-    
+            while True:
+                response = self.cost_explorer.get_cost_and_usage(**request)
+                for period in response.get('ResultsByTime', []):
+                    day = period['TimePeriod']['Start']
+                    if day not in expected or period['TimePeriod']['End'] != (datetime.fromisoformat(day).date()+timedelta(days=1)).isoformat():
+                        raise ValueError('Unexpected daily provider period')
+                    flag = period.get('Estimated')
+                    flag = flag if isinstance(flag, bool) else None
+                    if day not in flags: flags[day] = flag
+                    elif flags[day] is True or flag is True: flags[day] = True
+                    elif flags[day] is None or flag is None: flags[day] = None
+                    for group in period.get('Groups', []):
+                        keys = group.get('Keys')
+                        if not isinstance(keys, list) or len(keys) != 1 or not isinstance(keys[0], str) or not keys[0]:
+                            raise ValueError('Invalid usage type')
+                        metric = group['Metrics']['UnblendedCost']
+                        if metric.get('Unit') != 'USD' or isinstance(metric.get('Amount'), bool): raise ValueError('Unsupported cost observation unit')
+                        amount = Decimal(str(metric['Amount']))
+                        if not amount.is_finite() or not math.isfinite(float(amount)): raise ValueError('Invalid cost amount')
+                        identity = (day, keys[0])
+                        if identity in rows and rows[identity] != amount: raise ValueError('Conflicting duplicate cost observations')
+                        rows[identity] = amount
+                token = response.get('NextPageToken')
+                if not token: break
+                if token in seen: raise ValueError('Repeated cost page token')
+                seen.add(token)
+                request['NextPageToken'] = token
+        except Exception as error:
+            raise SageMakerDataUnavailable('SageMaker provider cost observations are unavailable') from error
+        categories = {'training': [], 'inference': [], 'notebook': [], 'unclassified': []}
+        for (_, usage), amount in rows.items():
+            category = 'training' if 'Training' in usage else 'inference' if 'Hosting' in usage or 'Endpoint' in usage else 'notebook' if 'Notebook' in usage else 'unclassified'
+            categories[category].append(amount)
+        def observed_sum(values):
+            if not values: return None
+            total = float(sum(values, Decimal('0')))
+            if not math.isfinite(total): raise SageMakerDataUnavailable('Cost total is unavailable')
+            return total
+        observed_dates = {day for day, _ in rows}
+        quality = {'status': 'observed' if rows else 'no_observations', 'metric': 'UnblendedCost',
+            'granularity': 'DAILY', 'missing_dates': sorted(expected-observed_dates),
+            'complete_date_coverage': expected == observed_dates, 'invoice_coverage_verified': False,
+            'estimated_dates': sorted(day for day in observed_dates if flags.get(day) is True),
+            'unknown_estimate_dates': sorted(day for day in observed_dates if flags.get(day) is None),
+            'category_method': 'usage_type_name_heuristic_with_unclassified_residual',
+            'job_breakdown_scope': 'jobs_created_in_requested_window_not_attributed_billing',
+            'observed_at': datetime.now(UTC).isoformat()}
+        breakdown = self._get_job_breakdown(start_date, end_date)
+        quality['job_metadata'] = self.last_job_breakdown_report
+        return SageMakerCosts(start_date, observed_sum(categories['training']), observed_sum(categories['inference']),
+            observed_sum(categories['notebook']), observed_sum(list(rows.values())),
+            breakdown, observed_sum(categories['unclassified']),
+            'USD' if rows else None, quality)
+
     @retry_with_exponential_backoff(max_retries=3)
     def get_training_job_costs(self, job_name: str) -> JobCost:
-        """
-        Get costs for a specific training job.
-        
-        Args:
-            job_name: SageMaker training job name
-            
-        Returns:
-            JobCost with detailed cost breakdown
-            
-        Requirements: FR-6.1
-        """
-        try:
-            # Get training job details
-            response = self.sagemaker.describe_training_job(TrainingJobName=job_name)
-        except ClientError as e:
-            # Handle SageMaker errors
-            error_result = handle_sagemaker_error(e)
-            if isinstance(error_result, dict) and 'data' in error_result:
-                return error_result['data']
-            raise
-        
-        instance_type = response['ResourceConfig']['InstanceType']
-        instance_count = response['ResourceConfig']['InstanceCount']
-        start_time = response['TrainingStartTime']
-        end_time = response.get('TrainingEndTime')
-        
-        # Calculate duration
-        if end_time:
-            duration = (end_time - start_time).total_seconds() / 3600
-        else:
-            duration = (datetime.now() - start_time).total_seconds() / 3600
-        
-        # Get instance pricing
-        cost_per_hour = self._get_instance_price(instance_type, 'training')
-        compute_cost = cost_per_hour * instance_count * duration
-        
-        # Estimate storage and data transfer costs (typically 5-10% of compute)
-        storage_cost = compute_cost * 0.05
-        data_transfer_cost = compute_cost * 0.03
-        
-        return JobCost(
-            job_name=job_name,
-            job_type='training',
-            instance_type=instance_type,
-            start_time=start_time,
-            end_time=end_time,
-            duration_hours=duration,
-            compute_cost=compute_cost,
-            storage_cost=storage_cost,
-            data_transfer_cost=data_transfer_cost,
-            total_cost=compute_cost + storage_cost + data_transfer_cost
-        )
-    
+        """Observe job metadata without inventing attributable billing charges."""
+        from ..time_values import parse_utc_timestamp
+        response = self.sagemaker.describe_training_job(TrainingJobName=job_name)
+        resource = response.get('ResourceConfig', {})
+        start = parse_utc_timestamp(response['TrainingStartTime']) if response.get('TrainingStartTime') else None
+        end = parse_utc_timestamp(response['TrainingEndTime']) if response.get('TrainingEndTime') else None
+        now = datetime.now(UTC)
+        duration = None
+        if start is not None and start <= (end or now) <= now:
+            duration = ((end or now)-start).total_seconds()/3600.0
+        instance_type = None if resource.get('InstanceGroups') else resource.get('InstanceType')
+        return JobCost(job_name, 'training', instance_type, start, end, duration, None, None, None, None)
+
     @retry_with_exponential_backoff(max_retries=3)
-    def get_endpoint_costs(self, endpoint_name: str, start_date: datetime, 
-                          end_date: datetime) -> JobCost:
-        """
-        Get costs for a specific inference endpoint.
-        
-        Args:
-            endpoint_name: SageMaker endpoint name
-            start_date: Start date for cost calculation
-            end_date: End date for cost calculation
-            
-        Returns:
-            JobCost with detailed cost breakdown
-            
-        Requirements: FR-6.2
-        """
-        try:
-            # Get endpoint details
-            response = self.sagemaker.describe_endpoint(EndpointName=endpoint_name)
-            endpoint_config = self.sagemaker.describe_endpoint_config(
-                EndpointConfigName=response['EndpointConfigName']
-            )
-        except ClientError as e:
-            # Handle SageMaker errors
-            error_result = handle_sagemaker_error(e)
-            if isinstance(error_result, dict) and 'data' in error_result:
-                return error_result['data']
-            raise
-        
-        # Get instance details from first production variant
-        variant = endpoint_config['ProductionVariants'][0]
-        instance_type = variant['InstanceType']
-        instance_count = variant['InitialInstanceCount']
-        
-        # Calculate duration
-        duration = (end_date - start_date).total_seconds() / 3600
-        
-        # Get instance pricing
-        cost_per_hour = self._get_instance_price(instance_type, 'hosting')
-        compute_cost = cost_per_hour * instance_count * duration
-        
-        # Estimate storage and data transfer costs
-        storage_cost = compute_cost * 0.02
-        data_transfer_cost = compute_cost * 0.05
-        
-        return JobCost(
-            job_name=endpoint_name,
-            job_type='inference',
-            instance_type=instance_type,
-            start_time=start_date,
-            end_time=end_date,
-            duration_hours=duration,
-            compute_cost=compute_cost,
-            storage_cost=storage_cost,
-            data_transfer_cost=data_transfer_cost,
-            total_cost=compute_cost + storage_cost + data_transfer_cost
-        )
-    
+    def get_endpoint_costs(self, endpoint_name: str, start_date: datetime, end_date: datetime) -> JobCost:
+        """Return requested-period metadata; current capacity cannot reconstruct past charges."""
+        if end_date <= start_date: raise ValueError('Endpoint period must have a positive duration')
+        response = self.sagemaker.describe_endpoint(EndpointName=endpoint_name)
+        config = self.sagemaker.describe_endpoint_config(EndpointConfigName=response['EndpointConfigName'])
+        variants = config.get('ProductionVariants', [])
+        instance_type = variants[0].get('InstanceType') if len(variants) == 1 else None
+        return JobCost(endpoint_name, 'inference', instance_type, start_date, end_date,
+                       (end_date-start_date).total_seconds()/3600.0, None, None, None, None)
+
     def identify_idle_endpoints(self, threshold: int = 10) -> List[EndpointMetrics]:
-        """
-        Identify endpoints with <threshold requests/hour.
-        
-        Args:
-            threshold: Minimum requests per hour (default: 10)
-            
-        Returns:
-            List of idle endpoint metrics
-            
-        Requirements: FR-6.6
-        """
-        idle_endpoints = []
-        
-        # List all endpoints
-        paginator = self.sagemaker.get_paginator('list_endpoints')
-        for page in paginator.paginate(StatusEquals='InService'):
-            for endpoint in page['Endpoints']:
-                endpoint_name = endpoint['EndpointName']
-                
-                # Get endpoint metrics
-                metrics = self._get_endpoint_metrics(endpoint_name)
-                
-                if metrics.requests_per_hour < threshold:
-                    metrics.is_idle = True
-                    idle_endpoints.append(metrics)
-        
-        return idle_endpoints
-    
+        """Return bounded fully observed low-invocation review candidates."""
+        if isinstance(threshold, bool) or not isinstance(threshold, int) or not 0 <= threshold <= 1000000:
+            raise ValueError('Threshold must be an integer from 0 to 1000000')
+        candidates, seen = [], set()
+        self._compute_rates = {}
+        report = {'observed_endpoint_count': 0, 'unavailable_evidence_count': 0,
+                  'unavailable_examples': [], 'inventory_completeness': 'unverified',
+                  'method': 'observed_single_variant_hour', 'workload_inactivity_verified': False,
+                  'endpoint_detail_limit': 20, 'list_page_limit': 5, 'list_pages_read': 0,
+                  'has_more': False, 'duplicate_list_observations': 0}
+        self.last_idle_report = report
+        try:
+            paginator = self.sagemaker.get_paginator('list_endpoints')
+            for page in paginator.paginate(StatusEquals='InService', PaginationConfig={'PageSize': 100}):
+                report['list_pages_read'] += 1
+                for endpoint in page['Endpoints']:
+                    name = endpoint['EndpointName']
+                    if name in seen:
+                        report['duplicate_list_observations'] += 1
+                        continue
+                    if report['observed_endpoint_count'] >= report['endpoint_detail_limit']:
+                        report['has_more'] = True
+                        return candidates
+                    seen.add(name)
+                    metrics = self._get_endpoint_metrics(name)
+                    report['observed_endpoint_count'] += 1
+                    if metrics.observation_status != 'available':
+                        report['unavailable_evidence_count'] += 1
+                        if len(report['unavailable_examples']) < 20:
+                            report['unavailable_examples'].append({'endpoint_name': metrics.endpoint_name, 'reason': metrics.reason})
+                    elif metrics.requests_per_hour < threshold:
+                        metrics.is_idle = True
+                        self._attach_compute_component(metrics)
+                        candidates.append(metrics)
+                if report['list_pages_read'] >= report['list_page_limit'] and page.get('NextToken'):
+                    report['has_more'] = True
+                    return candidates
+        except Exception as error:
+            raise SageMakerDataUnavailable('SageMaker endpoint listing is unavailable') from error
+        finally:
+            report['unavailable_examples_truncated'] = report['unavailable_evidence_count'] > len(report['unavailable_examples'])
+        return candidates
+
+    def _attach_compute_component(self, metrics):
+        from .sagemaker_pricing import lookup_compute_rate
+        region = self.sagemaker.meta.region_name
+        key = (region, metrics.instance_type)
+        if key not in self._compute_rates:
+            self._compute_rates[key] = lookup_compute_rate(self.pricing, region, metrics.instance_type, 'hosting')
+        rate = self._compute_rates[key]
+        if rate is not None:
+            component = float(rate.hourly_usd)*metrics.instance_count
+            if math.isfinite(component) and component >= 0:
+                metrics.cost_per_hour = component
+                metrics.cost_status = 'partial_compute_component'
+                metrics.cost_scope = rate.scope
+                metrics.pricing_provenance = rate.provenance()
+
     def recommend_instance_types(self, job_type: str, current_instance: str, 
                                  workload_characteristics: Optional[Dict] = None) -> List[InstanceRecommendation]:
         """
@@ -331,9 +284,12 @@ class SageMakerCostTracker:
         Requirements: FR-6.5
         """
         recommendations = []
-        
+        # Product rates alone do not establish workload/hardware compatibility.
+        compatible = (workload_characteristics or {}).get('compatible_instance_types')
+        if not isinstance(compatible, list) or not compatible or any(not isinstance(item, str) for item in compatible): return []
         # Get current instance price
         current_price = self._get_instance_price(current_instance, job_type)
+        if current_price is None: return []
         
         # Define alternative instances based on job type
         if job_type == 'training':
@@ -343,9 +299,10 @@ class SageMakerCostTracker:
         
         # Calculate savings for each alternative
         for alt_instance in alternatives:
+            if alt_instance not in compatible: continue
             alt_price = self._get_instance_price(alt_instance, job_type)
             
-            if alt_price < current_price:
+            if alt_price is not None and alt_price < current_price:
                 savings = current_price - alt_price
                 savings_percent = (savings / current_price) * 100
                 
@@ -369,170 +326,120 @@ class SageMakerCostTracker:
         return recommendations
     
     def _get_job_breakdown(self, start_date: datetime, end_date: datetime) -> List[JobCost]:
-        """Get detailed breakdown of all jobs in date range"""
-        job_breakdown = []
-        
-        # Get training jobs
+        """Bound detail reads independently of provider cost aggregation."""
+        rows, seen = [], set()
+        report = {'scope': 'jobs_created_in_requested_window', 'detail_attempt_limit': 50,
+                  'attempted_jobs': 0, 'omitted_jobs': 0, 'duplicate_list_observations': 0,
+                  'list_page_limit': 5, 'list_pages_read': 0,
+                  'omission_examples': [], 'listing_status': 'observed', 'has_more': False,
+                  'billing_attribution_verified': False}
+        self.last_job_breakdown_report = report
         try:
             paginator = self.sagemaker.get_paginator('list_training_jobs')
-            for page in paginator.paginate(
-                CreationTimeAfter=start_date,
-                CreationTimeBefore=end_date
-            ):
+            for page in paginator.paginate(CreationTimeAfter=start_date, CreationTimeBefore=end_date,
+                                           PaginationConfig={'PageSize': 100}):
+                report['list_pages_read'] += 1
                 for job in page['TrainingJobSummaries']:
+                    name = job['TrainingJobName']
+                    if name in seen:
+                        report['duplicate_list_observations'] += 1
+                        continue
+                    if report['attempted_jobs'] >= report['detail_attempt_limit']:
+                        report['has_more'] = True
+                        report['listing_status'] = 'bounded_selection'
+                        return rows
+                    seen.add(name)
+                    report['attempted_jobs'] += 1
                     try:
-                        job_cost = self.get_training_job_costs(job['TrainingJobName'])
-                        job_breakdown.append(job_cost)
+                        rows.append(self.get_training_job_costs(name))
                     except Exception:
-                        # Skip jobs we can't get details for
-                        pass
+                        report['omitted_jobs'] += 1
+                        if len(report['omission_examples']) < 20:
+                            report['omission_examples'].append({'job_name': name, 'reason': 'Job metadata unavailable'})
+                if report['list_pages_read'] >= report['list_page_limit'] and page.get('NextToken'):
+                    report['has_more'] = True
+                    report['listing_status'] = 'bounded_selection'
+                    return rows
         except Exception:
-            # If listing fails, continue without training jobs
-            pass
-        
-        return job_breakdown
-    
+            report['listing_status'] = 'unavailable_or_partial'
+            report['has_more'] = None
+        finally:
+            report['returned_rows'] = len(rows)
+            report['omission_examples_truncated'] = report['omitted_jobs'] > len(report['omission_examples'])
+        return rows
+
     def _get_endpoint_metrics(self, endpoint_name: str) -> EndpointMetrics:
-        """Get CloudWatch metrics for an endpoint"""
-        # Get endpoint details
-        response = self.sagemaker.describe_endpoint(EndpointName=endpoint_name)
-        endpoint_config = self.sagemaker.describe_endpoint_config(
-            EndpointConfigName=response['EndpointConfigName']
-        )
-        
-        variant = endpoint_config['ProductionVariants'][0]
-        instance_type = variant['InstanceType']
-        instance_count = variant['InitialInstanceCount']
-        
-        # Get invocation metrics from CloudWatch
-        end_time = datetime.now()
-        start_time = end_time - timedelta(hours=1)
-        
+        """Observe one supported real-time variant over a complete dated hour."""
+        from ..time_values import parse_utc_timestamp
+        result = EndpointMetrics(endpoint_name, None, None, None, None, None, False)
         try:
-            invocations_response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/SageMaker',
-                MetricName='Invocations',
-                Dimensions=[
-                    {'Name': 'EndpointName', 'Value': endpoint_name},
-                    {'Name': 'VariantName', 'Value': variant['VariantName']}
-                ],
-                StartTime=start_time,
-                EndTime=end_time,
-                Period=3600,
-                Statistics=['Sum']
-            )
-            
-            requests_per_hour = 0.0
-            if invocations_response['Datapoints']:
-                requests_per_hour = invocations_response['Datapoints'][0]['Sum']
+            if self.sagemaker.meta.region_name != self.cloudwatch.meta.region_name:
+                raise ValueError('Resource and metric regions differ')
+            endpoint = self.sagemaker.describe_endpoint(EndpointName=endpoint_name)
+            config = self.sagemaker.describe_endpoint_config(EndpointConfigName=endpoint['EndpointConfigName'])
+            variants, live = config.get('ProductionVariants', []), endpoint.get('ProductionVariants', [])
+            if (endpoint.get('EndpointStatus') != 'InService' or len(variants) != 1 or len(live) != 1
+                    or config.get('AsyncInferenceConfig') or config.get('ShadowProductionVariants')):
+                raise ValueError('Unsupported endpoint profile; only one real-time production variant is covered')
+            variant, current = variants[0], live[0]
+            if (variant.get('ServerlessConfig') or variant.get('InstancePools') or current.get('InstancePools')
+                    or not variant.get('InstanceType') or variant.get('VariantName') != current.get('VariantName')):
+                raise ValueError('Unsupported or mismatched endpoint variant')
+            count = current.get('CurrentInstanceCount')
+            if isinstance(count, bool) or not isinstance(count, int) or count <= 0: raise ValueError('Current instance count is unavailable')
+            result.instance_type, result.instance_count = variant['InstanceType'], count
+            end_epoch = int(datetime.now(UTC).timestamp())//300*300-300
+            start_epoch = end_epoch-3600
+            start, end = datetime.fromtimestamp(start_epoch, UTC), datetime.fromtimestamp(end_epoch, UTC)
+            dimensions = [{'Name': 'EndpointName', 'Value': endpoint_name}, {'Name': 'VariantName', 'Value': variant['VariantName']}]
+            response = self.cloudwatch.get_metric_statistics(Namespace='AWS/SageMaker', MetricName='Invocations',
+                Dimensions=dimensions, StartTime=start, EndTime=end, Period=300, Statistics=['Sum', 'SampleCount'])
+            points = {}
+            for point in response.get('Datapoints', []):
+                stamp = int(parse_utc_timestamp(point['Timestamp']).timestamp())
+                value, samples = float(point['Sum']), float(point['SampleCount'])
+                if not math.isfinite(value) or value < 0 or not math.isfinite(samples) or samples <= 0: raise ValueError('Invalid invocation evidence')
+                if stamp in points and points[stamp] != value: raise ValueError('Conflicting invocation buckets')
+                points[stamp] = value
+            if set(points) != set(range(start_epoch, end_epoch, 300)): raise ValueError('Incomplete invocation buckets; missing metrics are not zero requests')
+            result.requests_per_hour = sum(points.values())
+            if not math.isfinite(result.requests_per_hour): raise ValueError('Invalid invocation total')
+            result.window_start, result.window_end = start.isoformat(), end.isoformat()
+            result.observation_status = 'available'
+            result.reason = 'Observed invocation threshold is a review signal, not verified workload inactivity'
+            try:
+                latency = self.cloudwatch.get_metric_statistics(Namespace='AWS/SageMaker', MetricName='ModelLatency',
+                    Dimensions=dimensions, StartTime=start, EndTime=end, Period=300,
+                    Statistics=['Average', 'SampleCount'], Unit='Microseconds')
+                weighted, samples = 0.0, 0.0
+                for point in latency.get('Datapoints', []):
+                    stamp = parse_utc_timestamp(point['Timestamp'])
+                    value, amount = float(point['Average']), float(point['SampleCount'])
+                    if not start <= stamp < end or not math.isfinite(value) or value < 0 or not math.isfinite(amount) or amount <= 0: raise ValueError('Invalid latency sample')
+                    weighted += value*amount
+                    samples += amount
+                if samples > 0 and math.isfinite(weighted) and math.isfinite(samples):
+                    result.avg_latency_ms = weighted/samples/1000.0
+                    result.latency_basis = 'sample_weighted_observed_microseconds_to_ms'
+            except Exception:
+                pass  # Latency absence does not establish zero latency or invocation coverage.
+            return result
+        except ValueError as error:
+            result.reason = str(error)
         except Exception:
-            requests_per_hour = 0.0
-        
-        # Get latency metrics
-        try:
-            latency_response = self.cloudwatch.get_metric_statistics(
-                Namespace='AWS/SageMaker',
-                MetricName='ModelLatency',
-                Dimensions=[
-                    {'Name': 'EndpointName', 'Value': endpoint_name},
-                    {'Name': 'VariantName', 'Value': variant['VariantName']}
-                ],
-                StartTime=start_time,
-                EndTime=end_time,
-                Period=3600,
-                Statistics=['Average']
-            )
-            
-            avg_latency_ms = 0.0
-            if latency_response['Datapoints']:
-                avg_latency_ms = latency_response['Datapoints'][0]['Average']
-        except Exception:
-            avg_latency_ms = 0.0
-        
-        # Get instance pricing
-        cost_per_hour = self._get_instance_price(instance_type, 'hosting') * instance_count
-        
-        return EndpointMetrics(
-            endpoint_name=endpoint_name,
-            instance_type=instance_type,
-            instance_count=instance_count,
-            requests_per_hour=requests_per_hour,
-            avg_latency_ms=avg_latency_ms,
-            cost_per_hour=cost_per_hour,
-            is_idle=False
-        )
-    
-    def _get_instance_price(self, instance_type: str, job_type: str) -> float:
-        """
-        Get hourly price for a SageMaker instance type.
-        
-        Args:
-            instance_type: Instance type (e.g., "ml.p3.2xlarge")
-            job_type: "training" or "hosting"
-            
-        Returns:
-            Hourly price in USD
-        """
-        # Map job type to SageMaker usage type
-        usage_type_map = {
-            'training': 'TrainingJob',
-            'hosting': 'Hosting'
-        }
-        
-        try:
-            # Query AWS Pricing API
-            response = self.pricing.get_products(
-                ServiceCode='AmazonSageMaker',
-                Filters=[
-                    {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
-                    {'Type': 'TERM_MATCH', 'Field': 'usagetype', 'Value': usage_type_map.get(job_type, 'TrainingJob')}
-                ],
-                MaxResults=1
-            )
-            
-            if response['PriceList']:
-                import json
-                price_data = json.loads(response['PriceList'][0])
-                on_demand = price_data['terms']['OnDemand']
-                price_dimensions = list(on_demand.values())[0]['priceDimensions']
-                price_per_hour = float(list(price_dimensions.values())[0]['pricePerUnit']['USD'])
-                return price_per_hour
-        except ClientError as e:
-            # Handle pricing API errors with fallback
-            estimated_price = self._get_estimated_price(instance_type, job_type)
-            error_result = handle_pricing_error(e, estimated_price)
-            if 'price' in error_result:
-                return error_result['price']
-        except Exception:
-            pass
-        
-        # Fallback to estimated prices if API fails
-        return self._get_estimated_price(instance_type, job_type)
-    
-    def _get_estimated_price(self, instance_type: str, job_type: str) -> float:
-        """Fallback estimated prices for common instance types"""
-        # Estimated prices (USD per hour) - training prices
-        training_prices = {
-            'ml.m5.large': 0.115,
-            'ml.m5.xlarge': 0.23,
-            'ml.m5.2xlarge': 0.46,
-            'ml.p3.2xlarge': 3.825,
-            'ml.p3.8xlarge': 14.688,
-            'ml.p3.16xlarge': 28.152,
-            'ml.p4d.24xlarge': 37.688,
-            'ml.g4dn.xlarge': 0.736,
-            'ml.g4dn.2xlarge': 1.052,
-            'ml.g5.xlarge': 1.408,
-            'ml.g5.2xlarge': 1.515,
-        }
-        
-        # Hosting prices are typically 20% higher
-        if job_type == 'hosting':
-            base_price = training_prices.get(instance_type, 1.0)
-            return base_price * 1.2
-        
-        return training_prices.get(instance_type, 1.0)
-    
+            result.reason = 'Endpoint evidence could not be retrieved'
+        return result
+
+    def _get_instance_price(self, instance_type: str, job_type: str) -> Optional[float]:
+        """Return a strictly matched regional on-demand compute rate, without fallback."""
+        from .sagemaker_pricing import lookup_compute_rate
+        rate = lookup_compute_rate(self.pricing, self.sagemaker.meta.region_name, instance_type, 'hosting' if job_type == 'inference' else job_type)
+        return float(rate.hourly_usd) if rate is not None else None
+
+    def _get_estimated_price(self, instance_type: str, job_type: str) -> Optional[float]:
+        """Unknown profiles have no monetary fallback."""
+        return None
+
     def _get_training_alternatives(self, current_instance: str) -> List[str]:
         """Get alternative instance types for training"""
         # Map instance families to alternatives

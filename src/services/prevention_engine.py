@@ -15,6 +15,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, UTC
 import logging
 import os
+import math
+import time
 from dataclasses import asdict
 
 from ..utils.types import (
@@ -24,6 +26,14 @@ from ..utils.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class PreventionConfigurationUnavailable(RuntimeError):
+    """Durable monitoring configuration could not be read or written."""
+
+
+class PreventionConfigurationConflict(RuntimeError):
+    """A newer monitoring configuration must be read before retrying."""
 
 
 class PreventionEngine:
@@ -66,6 +76,7 @@ class PreventionEngine:
         self.rollback_manager = rollback_manager
         self.notification_service = notification_service
         self.dynamodb_client = dynamodb_client
+        self.config_version = 0
         
         # Load or use provided configuration
         if config is not None:
@@ -95,7 +106,7 @@ class PreventionEngine:
         return {
             "enabled": False,
             "dry_run_mode": True,  # Start in dry run mode for safety
-            "approval_required": False,
+            "approval_required": True,
             "enabled_services": [
                 "ec2", "rds", "lambda", "ebs", "s3", "dynamodb",
                 "elasticache", "redshift", "nat_gateway", "elastic_ip",
@@ -126,6 +137,7 @@ class PreventionEngine:
         Raises:
             ValueError: If configuration is invalid
         """
+        if not isinstance(config, dict): raise ValueError('Prevention config must be an object')
         # Start with defaults
         validated = self._get_default_config()
         
@@ -146,12 +158,16 @@ class PreventionEngine:
             warning = thresholds.get("warning", 80)
             action = thresholds.get("action", 90)
             
+            if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+                   for value in (warning, action)):
+                raise ValueError('Budget thresholds must be finite numbers')
             if not (0 < warning < 100):
                 raise ValueError("Warning threshold must be between 0 and 100")
             if not (0 < action <= 100):
                 raise ValueError("Action threshold must be between 0 and 100")
             if warning >= action:
                 raise ValueError("Warning threshold must be less than action threshold")
+            validated['budget_thresholds'] = {'warning': warning, 'action': action}
         
         # Validate enabled_services
         if "enabled_services" in config:
@@ -159,12 +175,16 @@ class PreventionEngine:
                 raise ValueError("enabled_services must be a list")
             if not all(isinstance(s, str) for s in config["enabled_services"]):
                 raise ValueError("All enabled_services must be strings")
+            supported = set(self._get_default_config()['enabled_services'])
+            if any(service not in supported for service in config['enabled_services']):
+                raise ValueError('enabled_services contains an unsupported service')
+            validated['enabled_services'] = list(dict.fromkeys(config['enabled_services']))
         
         # Validate intervals
         for field in ["poll_interval_minutes", "inventory_refresh_minutes"]:
             if field in config:
                 value = config[field]
-                if not isinstance(value, (int, float)) or value <= 0:
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
                     raise ValueError(f"{field} must be a positive number")
         
         logger.info("Configuration validated successfully")
@@ -176,10 +196,14 @@ class PreventionEngine:
             table_name = os.environ.get("PREVENTION_CONFIG_TABLE", "costguard-prevention-config")
             response = self.dynamodb_client.get_item(
                 TableName=table_name,
-                Key={"config_key": {"S": "main"}}
+                Key={"config_key": {"S": "main"}}, ConsistentRead=True
             )
             
             if "Item" in response:
+                version = response['Item'].get('config_version', {}).get('N', '0')
+                self.config_version = int(version)
+                if self.config_version < 0: raise ValueError('Invalid config version')
+                if 'config_value' not in response['Item']: raise ValueError('Missing stored config')
                 # Parse DynamoDB item to dict (config_value is stored as {"M": {...}})
                 config_value = response["Item"].get("config_value", {})
                 config = self._parse_dynamodb_item(config_value)
@@ -193,8 +217,8 @@ class PreventionEngine:
                 return self._get_default_config()
                 
         except Exception as e:
-            logger.warning(f"Failed to load config from DynamoDB: {e}, using defaults")
-            return self._get_default_config()
+            logger.warning('Prevention configuration read unavailable: %s', type(e).__name__)
+            raise PreventionConfigurationUnavailable('Monitoring configuration is unavailable') from e
     
     def _parse_dynamodb_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """Parse DynamoDB item format to plain dict."""
@@ -207,6 +231,8 @@ class PreventionEngine:
                 result[key] = value["S"]
             elif "N" in value:
                 result[key] = float(value["N"]) if "." in value["N"] else int(value["N"])
+            elif "NULL" in value:
+                result[key] = None
             elif "BOOL" in value:
                 result[key] = value["BOOL"]
             elif "L" in value:
@@ -230,29 +256,101 @@ class PreventionEngine:
             return self._parse_dynamodb_item(value["M"])
         return None
     
-    def _save_config_to_dynamodb(self) -> None:
-        """Save current configuration to DynamoDB."""
-        if not self.dynamodb_client:
-            logger.warning("No DynamoDB client, cannot save configuration")
-            return
-
+    def _save_config_to_dynamodb(self, candidate=None) -> None:
+        """Save a whole configuration only if its read version is still current."""
+        if self.dynamodb_client is None:
+            raise PreventionConfigurationUnavailable('Monitoring configuration storage is unavailable')
+        candidate = self.config if candidate is None else candidate
         try:
-            table_name = os.environ.get("PREVENTION_CONFIG_TABLE", "costguard-prevention-config")
-            item = {
-                "config_key": {"S": "main"},
-                "config_value": self._to_dynamodb_item(self.config),
-                "updated_at": {"S": datetime.now(UTC).isoformat()}
+            parameters = {
+                'TableName': os.environ.get('PREVENTION_CONFIG_TABLE', 'costguard-prevention-config'),
+                'Item': {'config_key': {'S': 'main'}, 'config_value': self._to_dynamodb_item(candidate),
+                         'config_version': {'N': str(self.config_version+1)},
+                         'updated_at': {'S': datetime.now(UTC).isoformat()}},
+                'ConditionExpression': 'attribute_not_exists(config_version)' if self.config_version == 0 else 'config_version = :version'
             }
-            
-            self.dynamodb_client.put_item(
-                TableName=table_name,
-                Item=item
-            )
-            logger.info("Configuration saved to DynamoDB")
-            
-        except Exception as e:
-            logger.error(f"Failed to save config to DynamoDB: {e}")
-    
+            if self.config_version:
+                parameters['ExpressionAttributeValues'] = {':version': {'N': str(self.config_version)}}
+            self.dynamodb_client.put_item(**parameters)
+        except Exception as error:
+            if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
+                raise PreventionConfigurationConflict('Monitoring configuration changed; refresh before retrying') from error
+            logger.warning('Prevention configuration save unavailable: %s', type(error).__name__)
+            raise PreventionConfigurationUnavailable('Monitoring configuration could not be saved') from error
+        self.config_version += 1
+        self.config = candidate
+
+    def _record_cycle_outcome(self, status, started_at, *, summary=None, error_code=None, reason=None):
+        """Atomically retain the latest outcome and preserve the prior successful summary."""
+        if self.dynamodb_client is None: return 'unavailable'
+        completed_at = datetime.now(UTC).isoformat()
+        inventory_at = getattr(self, '_last_inventory_observed_at', None)
+        observation = {'status': status, 'started_at': started_at, 'completed_at': completed_at,
+                       'summary': summary, 'error_code': error_code, 'reason': reason,
+                       'inventory_observed_at': inventory_at}
+        try:
+            from .monitoring_observations import validate_outcome
+            validate_outcome(observation)
+        except Exception as error:
+            logger.warning('Monitoring outcome is unavailable: %s', type(error).__name__)
+            return 'unavailable'
+        order = str(time.time_ns())
+        assignments = ['schema_version = :schema', 'completed_order = :order', 'observation = :observation']
+        values = {':schema': {'N': '1'}, ':order': {'N': order}, ':observation': self._to_dynamodb_item(observation)}
+        if status == 'success' and summary is not None:
+            assignments += ['last_successful_summary = :summary', 'last_successful_at = :completed']
+            values.update({':summary': self._to_dynamodb_item(summary), ':completed': {'S': completed_at}})
+        if inventory_at:
+            assignments.append('last_inventory_observed_at = :inventory')
+            values[':inventory'] = {'S': inventory_at}
+        try:
+            self.dynamodb_client.update_item(
+                TableName=os.environ.get('PREVENTION_CONFIG_TABLE', 'costguard-prevention-config'),
+                Key={'config_key': {'S': 'last_cycle'}},
+                UpdateExpression='SET '+', '.join(assignments),
+                ConditionExpression='attribute_not_exists(completed_order) OR completed_order < :order',
+                ExpressionAttributeValues=values)
+            return 'stored'
+        except Exception as error:
+            if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException': return 'superseded'
+            logger.warning('Monitoring outcome could not be stored: %s', type(error).__name__)
+            return 'unavailable'
+
+    def _latest_cycle_status(self):
+        # Legacy successful summary/timestamps remain fallback-only until a new observation exists.
+        from .monitoring_observations import validate_outcome, validate_summary
+        result = {'latest_cycle': None, 'latest_cycle_read_status': 'not_recorded',
+                  'last_cycle_summary': None,
+                  'last_run': self.config.get('last_run'),
+                  'last_inventory_refresh': self.config.get('last_inventory_refresh')}
+        try:
+            if self.config.get('last_cycle_summary') is not None:
+                result['last_cycle_summary'] = validate_summary(self.config['last_cycle_summary'])
+            if self.dynamodb_client is None: raise ValueError('Observation storage unavailable')
+            response = self.dynamodb_client.get_item(
+                TableName=os.environ.get('PREVENTION_CONFIG_TABLE', 'costguard-prevention-config'),
+                Key={'config_key': {'S': 'last_cycle'}}, ConsistentRead=True)
+            item = response.get('Item')
+            if not item: return result
+            if item.get('schema_version', {}).get('N') != '1': raise ValueError('Unknown observation schema')
+            observation = validate_outcome(self._parse_dynamodb_item(item['observation']['M']))
+            if observation.get('status') not in ('success', 'failed', 'skipped'): raise ValueError('Unknown observation status')
+            result.update({'latest_cycle': observation, 'latest_cycle_read_status': 'available'})
+            if 'last_successful_summary' in item:
+                result['last_cycle_summary'] = validate_summary(self._parse_dynamodb_item(item['last_successful_summary']['M']))
+                result['last_run'] = item.get('last_successful_at', {}).get('S')
+            elif observation['status'] == 'success':
+                result['last_cycle_summary'] = observation.get('summary')
+                result['last_run'] = observation.get('completed_at')
+            result['last_inventory_refresh'] = item.get('last_inventory_observed_at', {}).get('S') or observation.get('inventory_observed_at') or result['last_inventory_refresh']
+            return result
+        except Exception as error:
+            logger.warning('Monitoring outcome read unavailable: %s', type(error).__name__)
+            result['latest_cycle_read_status'] = 'unavailable'
+            result['latest_cycle'] = None
+            result['last_cycle_summary'] = None
+            return result
+
     def _to_dynamodb_item(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Convert dict to DynamoDB item format."""
         result = {}
@@ -291,51 +389,70 @@ class PreventionEngine:
             - actions_taken: int (number of actions executed)
             - timestamp: str
         """
+        cycle_start = datetime.now(UTC)
+        self._last_inventory_observed_at = None
         if not self.config.get("enabled", False):
+            persistence = self._record_cycle_outcome('skipped', cycle_start.isoformat(), reason='monitoring_disabled')
             logger.info("Prevention engine is disabled, skipping cycle")
             return {
                 "success": True,
                 "skipped": True,
+                "outcome_persistence": persistence,
                 "reason": "disabled",
                 "timestamp": datetime.now(UTC).isoformat()
             }
         
         logger.info("Starting prevention cycle")
-        cycle_start = datetime.now(UTC)
         
         try:
             # Step 1: Check budgets
+            thresholds = self.config['budget_thresholds']
+            self.budget_monitor.warning_threshold = thresholds['warning']/100.0
+            self.budget_monitor.action_threshold = thresholds['action']/100.0
             budget_events = self.budget_monitor.poll_budgets()
             logger.info(f"Found {len(budget_events)} budget events")
             
             actions_taken = 0
             
-            # Step 2: Process threshold events
+            action_events = []
+            self._cycle_summary = {'discovery_performed': False, 'inventory_completeness': 'unverified',
+                                   'budget_scope_verified': False, 'planned_review_candidates': 0,
+                                   'candidate_examples': []}
+            # Warnings remain budget-specific. Shared discovery/planning runs once per cycle.
             for event in budget_events:
-                if event.threshold_type == "warning":
-                    logger.info(f"Warning threshold reached for {event.budget_name}")
+                if event.threshold_type == 'warning':
                     self.notification_service.send_warning(event.budget_status)
-                elif event.threshold_type == "action":
-                    logger.info(f"Action threshold reached for {event.budget_name}")
-                    actions_taken += self._execute_prevention_workflow(event)
-            
-            # Update last run timestamp
-            self.config["last_run"] = datetime.now(UTC).isoformat()
-            self._save_config_to_dynamodb()
-            
+                elif event.threshold_type == 'action':
+                    action_events.append(event)
+            if action_events:
+                actions_taken = self._execute_prevention_workflow(action_events[0])
+            self._cycle_summary.update({
+                'completed_at': datetime.now(UTC).isoformat(),
+                'triggering_budget_count': len(action_events),
+                'triggering_budget_examples': [event.budget_name for event in action_events[:20]],
+                'triggering_budget_examples_truncated': len(action_events) > 20,
+                'action_requests_accepted': actions_taken, 'resource_outcomes_verified': False,
+                'effective_dry_run_mode': self.get_status(include_cycle=False)['effective_dry_run_mode']})
+
+            persistence = self._record_cycle_outcome('success', cycle_start.isoformat(), summary=self._cycle_summary)
             cycle_duration = (datetime.now(UTC) - cycle_start).total_seconds()
             logger.info(f"Prevention cycle completed in {cycle_duration:.2f}s")
             
             return {
                 "success": True,
                 "budget_events": len(budget_events),
+                "cycle_summary": self._cycle_summary,
+                "outcome_persistence": persistence,
                 "actions_taken": actions_taken,
+                "execution_enabled": self.get_status(include_cycle=False)["execution_enabled"],
+                "effective_dry_run_mode": self.get_status(include_cycle=False)["effective_dry_run_mode"],
                 "cycle_duration_seconds": cycle_duration,
                 "timestamp": datetime.now(UTC).isoformat()
             }
             
         except Exception as e:
             logger.error(f"Prevention cycle failed: {e}", exc_info=True)
+            persistence = self._record_cycle_outcome('failed', cycle_start.isoformat(), error_code='MONITORING_CYCLE_FAILED')
             self.notification_service.send_error_notification(e, {
                 "cycle_start": cycle_start.isoformat(),
                 "config": self.config
@@ -343,6 +460,7 @@ class PreventionEngine:
             return {
                 "success": False,
                 "error": str(e),
+                "outcome_persistence": persistence,
                 "timestamp": datetime.now(UTC).isoformat()
             }
     
@@ -358,6 +476,7 @@ class PreventionEngine:
         """
         logger.info(f"Executing prevention workflow for {threshold_event.budget_name}")
         workflow_start = datetime.now(UTC)
+        if not isinstance(getattr(self, '_cycle_summary', None), dict): self._cycle_summary = {}
         
         try:
             # Step 1: Discover resources (with inventory refresh check)
@@ -370,14 +489,23 @@ class PreventionEngine:
             
             # Step 3: Check safety and plan actions
             planned_actions = self._plan_actions(idle_resources)
-            logger.info(f"Planned {len(planned_actions)} safe actions")
+            logger.info(f"Planned {len(planned_actions)} review candidates")
+            self._cycle_summary.update({'discovery_performed': True, 'discovered_resources': len(resources),
+                'discovery_report': self.resource_manager.last_discovery_report,
+                'low_usage_rule_matches': len(idle_resources), 'evidence_counts': self._idle_evidence_counts,
+                'unavailable_evidence_reasons': self._unavailable_evidence_reasons,
+                'unavailable_evidence_examples': self._unavailable_evidence_examples,
+                'unavailable_evidence_examples_truncated': self._idle_evidence_counts['unavailable'] > len(self._unavailable_evidence_examples),
+                'planned_review_candidates': len(planned_actions),
+                'candidate_examples': [asdict(action) for action in planned_actions[:20]],
+                'candidate_examples_truncated': len(planned_actions) > 20})
             
             if not planned_actions:
-                logger.info("No safe actions to execute")
+                logger.info("No review candidates passed the available checks")
                 return 0
             
             # Step 4: Execute based on mode
-            if self.config.get("dry_run_mode", False):
+            if self.get_status(include_cycle=False)["effective_dry_run_mode"]:
                 self._handle_dry_run(planned_actions)
                 return 0  # No actual actions in dry run
             elif self.config.get("approval_required", False):
@@ -387,50 +515,14 @@ class PreventionEngine:
                 
         except Exception as e:
             logger.error(f"Prevention workflow failed: {e}", exc_info=True)
-            self.notification_service.send_error_notification(e, {
-                "threshold_event": asdict(threshold_event),
-                "workflow_start": workflow_start.isoformat()
-            })
-            return 0
+            raise RuntimeError('Prevention workflow could not complete') from e
     
     def _discover_resources_with_cache(self) -> List[Resource]:
-        """
-        Discover resources with inventory caching.
-        
-        Refreshes inventory only if it's older than configured interval.
-        
-        Returns:
-            List of discovered resources
-        """
-        last_refresh = self.config.get("last_inventory_refresh")
-        refresh_interval = self.config.get("inventory_refresh_minutes", 15)
-        
-        should_refresh = True
-        if last_refresh:
-            try:
-                last_refresh_dt = datetime.fromisoformat(last_refresh)
-                minutes_since_refresh = (datetime.now(UTC) - last_refresh_dt).total_seconds() / 60
-                should_refresh = minutes_since_refresh >= refresh_interval
-            except Exception:
-                should_refresh = True
-        
-        if should_refresh:
-            logger.info("Refreshing resource inventory")
-            resources = self.resource_manager.discover_resources(
-                self.config.get("enabled_services", [])
-            )
-            self.resource_manager.update_inventory(resources)
-            self.config["last_inventory_refresh"] = datetime.now(UTC).isoformat()
-            self._save_config_to_dynamodb()
-            return resources
-        else:
-            logger.info("Using cached resource inventory")
-            # In a real implementation, would load from DynamoDB
-            # For now, do a fresh discovery
-            return self.resource_manager.discover_resources(
-                self.config.get("enabled_services", [])
-            )
-    
+        """Read fresh discovery; persisted observations are not a runtime cache."""
+        resources = self.resource_manager.discover_resources(self.config.get('enabled_services', []))
+        self._last_inventory_observed_at = datetime.now(UTC).isoformat()
+        return resources
+
     def _detect_idle_resources(self, resources: List[Resource]) -> List[tuple]:
         """
         Detect which resources are idle.
@@ -442,22 +534,37 @@ class PreventionEngine:
             List of tuples (resource, metadata, idle_status) for idle resources
         """
         idle_resources = []
-        
+        self._idle_evidence_counts = {'rule_matched': 0, 'rule_not_matched': 0, 'unavailable': 0}
+        self._unavailable_evidence_reasons = {}
+        self._unavailable_evidence_examples = []
         for resource in resources:
             try:
-                metadata = self.resource_manager.get_resource_metadata(resource)
+                metadata = None  # The observed-window adapter owns evidence retrieval.
                 idle_status = self.idle_detector.is_resource_idle(resource, metadata)
                 
-                if idle_status.is_idle:
+                evidence = idle_status.observation_status
+                self._idle_evidence_counts[evidence if evidence in self._idle_evidence_counts else 'unavailable'] += 1
+                if evidence not in ('rule_matched', 'rule_not_matched'):
+                    self._record_unavailable_evidence(resource, idle_status.reason or 'Evidence unavailable')
+                if idle_status.is_idle and evidence == 'rule_matched':
                     idle_resources.append((resource, metadata, idle_status))
                     logger.debug(f"Resource {resource.resource_id} is idle: {idle_status.metrics_used}")
                     
             except Exception as e:
+                self._idle_evidence_counts['unavailable'] += 1
+                self._record_unavailable_evidence(resource, 'Evidence evaluation could not complete')
                 logger.warning(f"Failed to check idle status for {resource.resource_id}: {e}")
                 continue
         
         return idle_resources
     
+    def _record_unavailable_evidence(self, resource, reason):
+        reason = str(reason)[:256]
+        self._unavailable_evidence_reasons[reason] = self._unavailable_evidence_reasons.get(reason, 0)+1
+        if len(self._unavailable_evidence_examples) < 20:
+            self._unavailable_evidence_examples.append({'resource_id': resource.resource_id,
+                'service': resource.service, 'region': resource.region, 'reason': reason})
+
     def _plan_actions(self, idle_resources: List[tuple]) -> List[PlannedAction]:
         """
         Plan actions for idle resources after safety checks.
@@ -474,19 +581,22 @@ class PreventionEngine:
             try:
                 # Determine action based on resource type
                 action = self._determine_action(resource)
+                if action is None:
+                    logger.info('No supported reversible action for service %s', resource.service)
+                    continue
                 
                 # Check safety
-                safety_check = self.safety_guard.is_action_safe(resource, action)
+                safety_check = self.safety_guard.is_action_safe(resource, action, idle_status, for_preview=True)
                 
                 if safety_check.is_safe:
                     # Calculate estimated savings (monthly)
-                    estimated_savings = metadata.cost_per_hour * 24 * 30
+                    estimated_savings = None  # Generic resource metadata cannot establish avoidable charges.
                     
                     planned_action = PlannedAction(
                         resource_id=resource.resource_id,
                         resource_type=resource.resource_type,
                         action=action,
-                        reason=f"Idle for {idle_status.idle_duration} minutes",
+                        reason=f"Observed low-usage rule over {idle_status.idle_duration} minutes; workload inactivity is unverified",
                         estimated_savings=estimated_savings
                     )
                     planned_actions.append(planned_action)
@@ -514,15 +624,8 @@ class PreventionEngine:
         Returns:
             Action string (e.g., "stop", "delete", "limit_concurrency")
         """
-        action_map = {
-            "ec2": "stop",
-            "rds": "stop",
-            "lambda": "limit_concurrency",
-            "ebs": "snapshot_and_delete",
-            "dynamodb": "switch_to_ondemand",
-            "nat_gateway": "delete"
-        }
-        return action_map.get(resource.resource_type, "stop")
+        from .resource_actions import supported_action
+        return supported_action(resource)
     
     def _handle_dry_run(self, planned_actions: List[PlannedAction]) -> None:
         """
@@ -533,17 +636,11 @@ class PreventionEngine:
         """
         logger.info(f"DRY RUN: Would execute {len(planned_actions)} actions")
         
-        total_savings = sum(action.estimated_savings for action in planned_actions)
-        
+        values = [action.estimated_savings for action in planned_actions]
+        total_savings = sum(values) if values and all(value is not None for value in values) else None
         for action in planned_actions:
-            logger.info(
-                f"DRY RUN: Would {action.action} {action.resource_id} "
-                f"(type: {action.resource_type}, reason: {action.reason}, "
-                f"savings: ${action.estimated_savings:.2f}/month)"
-            )
-        
-        logger.info(f"DRY RUN: Total estimated savings: ${total_savings:.2f}/month")
-        
+            logger.info('DRY RUN: planned %s for %s (%s); monetary opportunity unavailable', action.action, action.resource_id, action.reason)
+
         # Send dry run report
         self.notification_service.send_dry_run_report(planned_actions, total_savings)
     
@@ -575,7 +672,7 @@ class PreventionEngine:
                 
         except Exception as e:
             logger.error(f"Approval workflow failed: {e}")
-            return 0
+            raise RuntimeError('Approval workflow could not complete') from e
     
     def _execute_actions(self, planned_actions: List[PlannedAction]) -> int:
         """
@@ -587,28 +684,37 @@ class PreventionEngine:
         Returns:
             Number of successfully executed actions
         """
+        if self.get_status(include_cycle=False)['effective_dry_run_mode']:
+            logger.info('Resource execution is unavailable or disabled; no actions submitted')
+            return 0
         logger.info(f"Executing {len(planned_actions)} actions")
         
         # Sort by cost impact (highest first) - Property 13
-        planned_actions.sort(key=lambda x: x.estimated_savings, reverse=True)
+        planned_actions.sort(key=lambda x: x.estimated_savings if x.estimated_savings is not None else 0.0, reverse=True)
         
         results = []
         successful_count = 0
         
         for planned_action in planned_actions:
             try:
-                # Create Resource object from planned action
-                # In real implementation, would load full resource from inventory
-                resource = Resource(
-                    resource_id=planned_action.resource_id,
-                    resource_type=planned_action.resource_type,
-                    service=planned_action.resource_type,
-                    region="us-east-1",  # Would be loaded from inventory
-                    tags={},
-                    state="running",
-                    creation_date=datetime.now(UTC).isoformat()
-                )
-                
+                # Re-resolve real metadata before execution; never invent region,
+                # tags or state for a planned resource.
+                matches = [resource for resource in self.resource_manager.discover_resources(
+                    self.config.get('enabled_services', []))
+                    if resource.resource_id == planned_action.resource_id and resource.resource_type == planned_action.resource_type]
+                if len(matches) != 1:
+                    raise ValueError('Resource is unavailable or ambiguous; action blocked')
+                resource = matches[0]
+                if self._determine_action(resource) != planned_action.action:
+                    raise ValueError('Planned action no longer matches resource metadata')
+                fresh_idle_status = self.idle_detector.is_resource_idle(resource, None)
+                safety = self.safety_guard.is_action_safe(resource, planned_action.action, fresh_idle_status)
+                if not safety.is_safe:
+                    raise ValueError('Resource failed current safety checks')
+                client = self.action_executor.clients.get(resource.service)
+                if client is None or getattr(getattr(client, 'meta', None), 'region_name', None) != resource.region:
+                    raise ValueError('Execution client does not match observed resource region')
+
                 # Store pre-action state for rollback
                 self.rollback_manager.store_pre_action_state(
                     resource,
@@ -640,7 +746,7 @@ class PreventionEngine:
         logger.info(f"Executed {successful_count}/{len(planned_actions)} actions successfully")
         return successful_count
     
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self, include_cycle=True) -> Dict[str, Any]:
         """
         Get current prevention status.
         
@@ -654,28 +760,51 @@ class PreventionEngine:
             - last_run: str (ISO timestamp)
             - last_inventory_refresh: str (ISO timestamp)
         """
+        try:
+            configured_schedule = int(os.environ.get('BUDGET_POLL_INTERVAL_MINUTES', ''))
+            if configured_schedule <= 0: configured_schedule = None
+        except ValueError:
+            configured_schedule = None
+        deployment_execution = os.environ.get('PREVENTION_EXECUTION_ENABLED', 'false').lower() == 'true'
+        execution_configured = self.action_executor.audit_logger is not None and all(self.action_executor.clients.get(service) is not None for service in ('ec2', 'rds', 'lambda'))
         return {
+            "config_version": self.config_version,
+            "execution_enabled": deployment_execution,
+            "execution_configured": execution_configured,
+            "effective_dry_run_mode": bool(self.config.get('dry_run_mode', True) or not deployment_execution or not execution_configured),
+            "readiness": {
+                "budget_client_configured": self.budget_monitor.budgets_client is not None,
+                "metrics_client_configured": self.idle_detector.cloudwatch is not None,
+                "audit_configured": self.action_executor.audit_logger is not None,
+                "notification_topics_configured": all(getattr(self.notification_service, field, None) for field in ('warning_topic_arn', 'action_topic_arn', 'error_topic_arn')),
+                "aws_access_verified": False,
+            },
             "enabled": self.config.get("enabled", False),
             "dry_run_mode": self.config.get("dry_run_mode", False),
             "approval_required": self.config.get("approval_required", False),
             "enabled_services": self.config.get("enabled_services", []),
             "budget_thresholds": self.config.get("budget_thresholds", {}),
             "poll_interval_minutes": self.config.get("poll_interval_minutes", 5),
+            "schedule": {'configured_interval_minutes': configured_schedule,
+                         'source': 'deployment_configuration', 'live_schedule_verified': False,
+                         'runtime_preference_applied': False},
+            "inventory_read_mode": "fresh_discovery",
+            "inventory_refresh_preference_applied": False,
             "inventory_refresh_minutes": self.config.get("inventory_refresh_minutes", 15),
             "last_run": self.config.get("last_run"),
+            "last_cycle_summary": self.config.get('last_cycle_summary'),
             "last_inventory_refresh": self.config.get("last_inventory_refresh"),
+            **(self._latest_cycle_status() if include_cycle else {}),
         }
     
     def enable(self) -> None:
         """Enable automated prevention."""
-        self.config["enabled"] = True
-        self._save_config_to_dynamodb()
+        self._save_config_to_dynamodb({**self.config, 'enabled': True})
         logger.info("Automated prevention enabled")
     
     def disable(self) -> None:
         """Disable automated prevention."""
-        self.config["enabled"] = False
-        self._save_config_to_dynamodb()
+        self._save_config_to_dynamodb({**self.config, 'enabled': False})
         logger.info("Automated prevention disabled")
     
     def update_config(self, new_config: Dict[str, Any]) -> None:
@@ -689,14 +818,16 @@ class PreventionEngine:
             ValueError: If configuration is invalid
         """
         # Merge with existing config
+        if not isinstance(new_config, dict): raise ValueError('Prevention config must be an object')
         merged_config = {**self.config, **new_config}
+        if 'budget_thresholds' in new_config and isinstance(new_config['budget_thresholds'], dict):
+            merged_config['budget_thresholds'] = {**self.config['budget_thresholds'], **new_config['budget_thresholds']}
         
         # Validate merged config
         validated_config = self._validate_config(merged_config)
         
         # Apply validated config
-        self.config = validated_config
-        self._save_config_to_dynamodb()
+        self._save_config_to_dynamodb(validated_config)
         
         logger.info(f"Configuration updated: {new_config}")
     
@@ -710,11 +841,18 @@ class PreventionEngine:
         Returns:
             List of resources matching filters
         """
-        # Discover resources
-        resources = self.resource_manager.discover_resources(
-            self.config.get("enabled_services", [])
-        )
-        
+        import re
+        if filters is not None and not isinstance(filters, dict): raise ValueError('Resource filters must be an object')
+        filters = filters or {}
+        if set(filters)-{'service', 'state', 'resource_type'}: raise ValueError('Unsupported resource filter')
+        if any(not isinstance(value, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,63}', value) for value in filters.values()):
+            raise ValueError('Resource filters must be nonempty names of at most 64 characters')
+        service = filters.get('service')
+        if service is not None and service not in self._get_default_config()['enabled_services']:
+            raise ValueError('Unknown resource discovery service')
+        configured = self.config.get('enabled_services', [])
+        services = configured if service is None else [service] if service in configured else []
+        resources = self.resource_manager.discover_resources(services)
         if not filters:
             return resources
         
@@ -736,7 +874,9 @@ class PreventionEngine:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
+        report: Optional[Dict[str, Any]] = None,
+        scan_start_key: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Get action history from audit logs (costguard-prevention-audit table).
@@ -749,52 +889,105 @@ class PreventionEngine:
         Returns:
             List of action history records with action_id, timestamp, resource_id, action, etc.
         """
+        from .time_values import history_boundary
+        first = history_boundary(start_date) if start_date else None
+        last = history_boundary(end_date, end=True) if end_date else None
+        if first and last and first > last: raise ValueError('Start must not exceed end')
+        if first and last and (last-first).days > 365: raise ValueError('Select at most 366 dates')
+        if type(limit) is not int or not 1 <= limit <= 1001: raise ValueError('Invalid audit history limit')
         if not self.dynamodb_client:
-            logger.warning("No DynamoDB client, cannot load action history")
-            return []
+            raise RuntimeError("Action history storage is unavailable")
         table_name = os.environ.get("PREVENTION_AUDIT_TABLE", "costguard-prevention-audit")
         logger.info(f"Querying action history: start={start_date}, end={end_date}, limit={limit}")
+        report = report if report is not None else {}
+        report.update({'status': 'reading', 'page_limit': 10, 'page_size': 100, 'pages_read': 0,
+            'examined_rows': 0, 'invalid_rows': 0, 'unavailable_timestamp_rows': 0,
+            'has_more_stored_rows': None, 'matched_rows_in_selection': None, 'next_scan_key': None,
+            'selection_scope': 'bounded_scan_sorted_within_selection_not_global_latest',
+            'execution_verified': False, 'monetary_savings_verified': False})
+        fields = ('action_id', 'timestamp', 'resource_id', 'resource_type', 'region', 'action', 'event_type',
+            'status', 'success', 'estimated_savings', 'error', 'message', 'account_id', 'execution_mode', 'dry_run', 'approval_id')
+        names = {f'#field{index}': name for index, name in enumerate(fields)}
         items = []
         try:
-            scan_kwargs = {"TableName": table_name}
-            while True:
+            scan_kwargs = {'TableName': table_name, 'Limit': 100,
+                'ProjectionExpression': ', '.join(names), 'ExpressionAttributeNames': names}
+            if scan_start_key is not None:
+                from .prevention_history_cursor import _key
+                scan_kwargs['ExclusiveStartKey'] = _key(scan_start_key)
+            seen = set()
+            for _ in range(10):
+                scan_kwargs['Limit'] = min(100, limit-len(items))
                 response = self.dynamodb_client.scan(**scan_kwargs)
-                for item in response.get("Items", []):
-                    rec = self._parse_audit_item(item)
-                    if rec:
-                        items.append(rec)
-                if "LastEvaluatedKey" not in response or len(items) >= limit:
-                    break
-                scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-            # Sort by timestamp descending and apply date filter
-            items.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
-            if start_date or end_date:
-                items = [
-                    r for r in items
-                    if (not start_date or (r.get("timestamp") or "") >= start_date)
-                    and (not end_date or (r.get("timestamp") or "") <= end_date)
-                ]
+                report['pages_read'] += 1
+                for item in response.get('Items', []):
+                    report['examined_rows'] += 1
+                    try: rec = self._parse_audit_item(item)
+                    except (ValueError, TypeError, KeyError): rec = None
+                    if not rec:
+                        report['invalid_rows'] += 1; continue
+                    epoch = rec.get('timestamp_epoch')
+                    if epoch is None:
+                        report['unavailable_timestamp_rows'] += 1
+                        if first or last: continue
+                    elif (first is not None and epoch < first.timestamp()) or (last is not None and epoch > last.timestamp()):
+                        continue
+                    items.append(rec)
+                cursor = response.get('LastEvaluatedKey')
+                report['has_more_stored_rows'] = bool(cursor)
+                report['next_scan_key'] = cursor or None
+                if not cursor or len(items) >= limit: break
+                fingerprint = str(sorted(cursor.items()))
+                if fingerprint in seen: raise ValueError('Repeated audit history cursor')
+                seen.add(fingerprint)
+                scan_kwargs['ExclusiveStartKey'] = cursor
+            items.sort(key=lambda item: item.get('timestamp_epoch', float('-inf')), reverse=True)
+            report['matched_rows_in_selection'] = len(items)
+            partial = report['has_more_stored_rows'] or report['invalid_rows'] or report['unavailable_timestamp_rows']
+            report['status'] = 'bounded_or_partial' if partial else 'observed_scan_selection'
             return items[:limit]
         except Exception as e:
-            logger.warning(f"Failed to load action history: {e}")
-            return []
+            report.update({'status': 'unavailable', 'matched_rows_in_selection': None, 'has_more_stored_rows': None})
+            logger.warning('Action history read failed: %s', type(e).__name__)
+            raise RuntimeError('Action history could not be loaded') from e
 
     def _parse_audit_item(self, item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Convert DynamoDB audit item to plain dict."""
-        if not item:
+        """Normalize typed audit values and numeric/ISO timestamps for the API."""
+        if not item: return None
+        from boto3.dynamodb.types import TypeDeserializer
+        decoder = TypeDeserializer()
+        allowed = ('action_id', 'timestamp', 'resource_id', 'resource_type', 'region', 'action', 'event_type',
+            'status', 'success', 'estimated_savings', 'error', 'message', 'account_id', 'execution_mode', 'dry_run', 'approval_id')
+        result = {key: decoder.deserialize(value) for key, value in item.items() if key in allowed}
+        if not isinstance(result.get('action_id'), str) or not 1 <= len(result['action_id']) <= 256:
             return None
-        result = {}
-        for key, val in item.items():
-            if "S" in val:
-                result[key] = val["S"]
-            elif "N" in val:
-                result[key] = int(val["N"]) if "." not in val["N"] else float(val["N"])
-            elif "BOOL" in val:
-                result[key] = val["BOOL"]
-            else:
-                result[key] = val
+        for key in ('resource_id', 'approval_id'):
+            if key in result and result[key] is not None and (not isinstance(result[key], str) or len(result[key]) > 2048):
+                return None
+        for key in ('resource_type', 'region', 'action', 'event_type', 'status', 'error', 'message', 'account_id', 'execution_mode'):
+            value = result.get(key)
+            result[key] = value[:1024] if isinstance(value, str) else None
+        for key in ('success', 'dry_run'):
+            if not isinstance(result.get(key), bool): result[key] = None
+        value = result.get('estimated_savings')
+        try:
+            amount = float(value) if value is not None and not isinstance(value, bool) else None
+            result['estimated_savings'] = amount if amount is not None and math.isfinite(amount) and amount >= 0 else None
+        except (TypeError, ValueError, OverflowError): result['estimated_savings'] = None
+        result.update({'execution_verified': False, 'monetary_savings_verified': False,
+            'estimated_savings_currency': None, 'estimate_currency_verified': False,
+            'record_scope': 'stored_audit_summary_not_independent_verification'})
+        from .time_values import parse_utc_timestamp
+        try:
+            moment = parse_utc_timestamp(result.get('timestamp'))
+            result['timestamp_epoch'] = moment.timestamp()
+            result['timestamp'] = moment.isoformat()
+        except ValueError:
+            result.pop('timestamp_epoch', None)
+            result['timestamp'] = None
+            result['timestamp_status'] = 'unavailable'
         return result
-    
+
     def execute_rollback(self, action_id: str) -> Dict[str, Any]:
         """
         Execute rollback for a specific action.
@@ -814,7 +1007,11 @@ class PreventionEngine:
                     "success": True,
                     "action_id": action_id,
                     "resource_id": result.resource_id,
-                    "restored_state": result.restored_state,
+                    "target_state": result.restored_state,
+                    "restored_state": None,
+                    "status": "rollback_submitted",
+                    "verification_status": "unverified",
+                    "message": "Rollback request accepted; completion is not verified",
                     "timestamp": result.timestamp
                 }
             else:

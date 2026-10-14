@@ -1,9 +1,53 @@
-# CostGuard AI - Complete Project Status
+# CostGuard AI - Project Status
+
+**Source review:** October 14, 2026.
+
+## Current Codebase Status
+
+Current source work is recorded through task 220 in the [backlog](technical/development-backlog.md). Earlier deployment/test claims below are historical; current working-tree changes are unvalidated. See the [current sync summary](technical/documentation-code-sync.md).
+
+The checked-in backend includes Phases 1, 1.5, 2, 3, 4, 5, 6 and the autonomous extension. The CDK app defines five stacks:
+
+| Stack | Scope | API base URL output |
+|---|---|---|
+| `CostGuardStack` | Phases 1-4; limited multi-account compatibility stubs | `APIEndpoint` |
+| `CostGuardMultiAccountStack` | Organization discovery, costs, allocation and budgets | `MultiAccountAPIEndpoint` |
+| `CostGuardAIMLStack` | GPU, SageMaker and Bedrock workload costs | `AIMLAPIEndpoint` |
+| `CostGuardAutonomousStack` | Six worker Lambdas plus a separate nine-route API | `AutonomousAPIUrl` |
+| `CostGuardBFFStack` | Cognito access-token validation and backend proxy | `BFFApiUrl` |
+
+Phase 4's advisor tables, IAM access and API routes are already defined in the main stack. They are not outstanding infrastructure implementation tasks. Phase 7 now has local unit-economics and read-only commitment-analytics implementations; advanced commitment purchase optimization and live integrations remain outside this scope; the frontend lives in the separate `client-aws-ideas` repository. Its autonomous forms, BFF configuration and asynchronous tracking were updated and validated locally on October 14.
+
+## Next Work
+
+The [active development backlog](technical/development-backlog.md) records local implementations for its original 17 tasks and follow-up gaps through task 220. Access grants/backend guards, scoped reports, daily tag collection, honest budget/pricing results, session/history ownership, organization analytics/policy configuration, Phase 7 unit economics, commitment analytics and route code splitting are implemented within their documented scope.
+
+**All testing remains deferred at the user's request.** No new tests, builds, synthesis, browser checks, AWS operations or deployment validation were performed during this continuing implementation. Existing deployments need key/access/schema migration; policy previews do not execute changes, unit quantities are operator-provided, pricing coverage remains conservative and commitment inventory is period-observed. Continue implementation from source gaps without routine approval prompts; AMI/live testing stays parked.
+
+## Current Limitations
+
+- Multi-account GPU cost/utilization dispatch and autonomous API event routing have been repaired and covered by offline regression tests.
+- Signed approvals now feed an executor for EC2 scheduling, replacement provisioning and right-sizing. Saved resource state supports real rollback. Execution defaults to disabled and requires explicit deployment opt-in; the optional EC2 reference training workload restores and verifies model state in local tests. Live operation and other model/framework integrations remain unverified.
+- Demo progress is time-based and combined with action records; it does not certify completion of all worker phases.
+- The multi-account CDK API now defines 24 methods, including reports, scoped forecasts/advisor, policy configuration, business measurements, unit economics and commitment analytics. New methods and tables have not been deployed or tested.
+- Multi-account authentication tables require separate initialization through `setup_api_auth.py`.
+
+See [source synchronization review](technical/documentation-code-sync.md), [architecture](technical/architecture.md), [API design](technical/api-design.md) and [database design](technical/database-design.md).
+
+## Deployment, Tests and Cost Evidence
+
+Earlier reports record deployments and test runs from January?March 2026. Their test counts, coverage, performance, savings and monthly costs are historical observations or estimates. The documentation pass performed static source checks and link validation. The initial routing fixes passed 54 focused checks. The execution follow-up passed 219 focused checks. The training follow-up passed 236 focused checks with real local optimizer steps, mocked AWS and local CDK synthesis; the October 14 compatibility follow-up passed 66 backend and 16 frontend checks plus the frontend production build. The complete suites, deployed browser flow and live AWS were not verified. No stacks were deployed. Current live operation requires fresh verification.
+
+## Historical March 2026 Snapshot
+
+The report below is preserved for implementation history. Its status labels, pending-task lists, counts and costs are from earlier work and do not override the current source summary above.
+
+---
 
 **Keywords:** project status, completion, phases, implementation, deployment, testing, documentation, AWS, cost management, AI advisor, forecasting, prevention
 
 **Last Updated:** March 10, 2026  
-**Overall Status:** ✅ **PHASES 1-6 + AUTONOMOUS LOOPS + REACT FRONTEND DEPLOYED & OPERATIONAL** - 📋 **PHASE 7 PLANNED**
+**Overall status:** Current local source through task 220; deployment and validation unverified.
 
 ---
 
@@ -308,7 +352,7 @@ Coverage:
 - ✅ [API_DOCUMENTATION.md](./technical/phase5-multi-account/API_DOCUMENTATION.md)
 - ✅ [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)
 - ✅ [MEMBER_ACCOUNT_DEPLOYMENT.md](../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
-- ✅ [DEPLOYMENT_SCRIPTS.md](../DEPLOYMENT_SCRIPTS.md)
+- ✅ [DEPLOYMENT_SCRIPTS.md](deployment/DEPLOYMENT_SCRIPTS.md)
 - ✅ [PHASE5_AUTHENTICATION_FIX_REPORT.md](./PHASE5_AUTHENTICATION_FIX_REPORT.md)
 - ✅ [PHASE5_METHOD_SIGNATURE_FIXES.md](./PHASE5_METHOD_SIGNATURE_FIXES.md)
 - ✅ [PHASE5_ENDPOINT_TEST_REPORT.md](./PHASE5_ENDPOINT_TEST_REPORT.md) - Complete test results
@@ -819,12 +863,46 @@ Free Tier Usage:
 - [Phase 2 Infrastructure](./technical/phase2-ai-forecasting/infrastructure-updates.md)
 - [Phase 3 Infrastructure](./technical/phase3-automated-prevention/infrastructure-updates.md)
 - [Phase 4 Infrastructure](./technical/phase4-ai-advisor/infrastructure-updates.md) ⏸️ **NEXT STEP**
-- [Phase 5 Deployment](../DEPLOYMENT_SCRIPTS.md)
+- [Phase 5 Deployment](deployment/DEPLOYMENT_SCRIPTS.md)
 - [Phase 6 Deployment](./deployment/phase6-deployment-guide.md)
 
 ---
 
-**Overall Status:** ✅ Phases 1-6 Deployed & Operational  
+**Overall status:** Current local source through task 220; deployment and validation unverified.
 **Next Milestone:** AWS Organizations Setup for Phase 5  
 **Estimated Time to Full Production:** 2-4 hours
 
+
+Tasks 178-179 implement current declaration inspection/edit UI and conditional clear-to-tags with a retained version pointer. See [contracts](technical/workload-label-observed-contracts.md). Tests/builds/browser/cloud validation remain deferred.
+
+Tasks 180-183 add dated declaration-versus-pattern UI, internal advisor failure/provenance repairs and timestamped GPU evidence with CSV. Existing public advisor wiring is unchanged. All testing/build/browser/account/deployment validation remains deferred.
+
+Tasks 184-185 tighten classification selections before reads and preserve unavailable hourly counts. Next source work retains manual-label change history; all testing and cloud validation stay deferred.
+
+Tasks 186-187 retain atomic application declaration revisions and expose bounded history inspection. Legacy and EC2 tag history remain incomplete; no tests/builds/browser/cloud calls or deployment ran.
+
+Tasks 188-191 add retained-history CSV and active-advisor prompt repairs: explicit unknown estimates, full bounded question preservation, context omission markers and a new prompt cache namespace. All validation remains deferred.
+
+Tasks 192-195 align descriptive cost flags, expose original answer evidence/omission metadata, preserve unavailable response-table amounts and remove default savings/safety/ranking from unverified advice. Prompt cache namespace is now v4. All validation remains deferred.
+
+Tasks 196-197 expose comparison exclusions and bounded advisor prevention selection (10 scan pages, 100 retained matches), with explicit omissions/unavailable scope. All validation remains deferred.
+
+Tasks 199-201 bound/project public prevention audit history and expose selection quality/refresh. Full restoration snapshots remain in backend storage and are excluded from report responses. All validation remains deferred.
+
+Task 202 adds applied audit-date filters and a scoped current-selection CSV; continuation is next. All validation remains deferred.
+
+Tasks 203-204 add owner/account/date/limit-bound scan continuation, first/next UI navigation, strict audit queries and unavailable legacy estimate currency. All validation remains deferred.
+
+Task 205 narrows declaration cache invalidation to the affected instance and shares strict selection parsing; read-only previews do not refetch unrelated reports. All validation remains deferred.
+
+Tasks 206-207 add current advisor answer/evidence JSON export and clarify historical roadmap/index claims versus limited implemented source and proposed products. All validation remains deferred.
+
+Tasks 208-210 add scoped schema-2 inventory storage, explicit persistence outcomes/UI/CSV and stored-report consistency checks. Raw live identifiers remain unchanged; no legacy backfill/pruning or cloud validation ran.
+
+Tasks 211-212 bound provider listings per operation and expose validated live/saved listing coverage and CSV limits. Metadata/retry calls are separate and no complete inventory or resource continuation is claimed. All validation remains deferred.
+
+Tasks 213-215 add direct configured EC2/RDS/Lambda metadata inspection and scoped JSON export, plus current architecture/route references. No resource-list continuation, billing attribution, action eligibility or execution is inferred. All validation remains deferred.
+
+Tasks 216-219 replace autonomous confidence-statistic defaults with bounded stored-outcome/heuristic observations, explicit missing denominators and scoped UI/CSV. Worker execution/calibration are not certified or enabled; all validation remains deferred.
+
+Task 220 binds manual-label drafts to their own acknowledged commit, preserving stale-draft protection when another writer advances the readback revision. All validation remains deferred.

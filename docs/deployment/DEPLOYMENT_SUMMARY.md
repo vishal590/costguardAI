@@ -25,14 +25,14 @@ CostGuard AI is **production-ready** and approved for deployment!
 
 ### 📋 Pre-Deployment
 1. **[DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md)** - Complete readiness checklist
-2. **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Version 1.0.0 release notes
+2. **[RELEASE_NOTES.md](../RELEASE_NOTES.md)** - Version 1.0.0 release notes
 
 ### 🚀 Deployment
 3. **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Step-by-step deployment instructions
 
 ### 📊 Post-Deployment
-4. **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Overall project status
-5. **[TEST_FIXES_SUMMARY.md](technical/TEST_FIXES_SUMMARY.md)** - Test status
+4. **[PROJECT_STATUS.md](../PROJECT_STATUS.md)** - Overall project status
+5. **[TEST_FIXES_SUMMARY.md](../technical/TEST_FIXES_SUMMARY.md)** - Test status
 
 ---
 

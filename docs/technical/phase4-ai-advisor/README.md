@@ -1,8 +1,10 @@
 # Phase 4: AI Cost Advisor - README
 
+> **Current source note (October 3, 2026):** The main CDK stack defines advisor tables, permissions and routes. Setup steps below describe configuration/deployment procedures, not missing infrastructure code. Test counts are historical. See [current status](../../PROJECT_STATUS.md).
+
 **Keywords:** AI advisor, conversational AI, natural language processing, Amazon Bedrock, Nova Lite, cost insights, query processing, context management, response caching, proactive insights, anomaly detection, optimization suggestions, markdown formatting, conversation history, Phase 4, semantic search, NLP, intent classification, time range extraction, service normalization
 
-**Status:** ✅ **CODE COMPLETE** - Ready for AWS Deployment  
+**Status:** ✅ **CODE AND CDK INFRASTRUCTURE IMPLEMENTED** - Live deployment not reverified
 **Test Coverage:** 88% overall, 89-100% Phase 4 modules  
 **Tests Passing:** 971 total (270 Phase 4 tests)
 

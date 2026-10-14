@@ -9,7 +9,9 @@ Requirements: FR-1.5
 import logging
 import os
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+import math
+import json
 from dataclasses import dataclass, asdict
 import statistics
 
@@ -23,11 +25,17 @@ class IdleGPU:
     instance_type: str
     utilization: float  # Average GPU utilization (0-100%)
     idle_hours: float  # Hours below idle threshold
-    wasted_cost: float  # Cost during idle period
-    cost_per_hour: float  # Hourly cost
+    wasted_cost: Optional[float]  # Cost during idle period
+    cost_per_hour: Optional[float]  # Hourly cost
     first_idle_time: str  # ISO timestamp
     last_check_time: str  # ISO timestamp
-    recommendation: str  # Action recommendation
+    recommendation: str  # Review suggestion, not execution approval
+    observation_status: str = 'rule_matched'
+    window_start: Optional[str] = None
+    window_end: Optional[str] = None
+    utilization_basis: str = 'mean_of_hourly_operator_declared_all_device_maxima'
+    workload_inactivity_verified: bool = False
+    monetary_status: str = 'unavailable'
     
     def to_dict(self):
         """Convert to dictionary for JSON serialization."""
@@ -42,7 +50,7 @@ class IdleGPUAlert:
     instance_type: str
     utilization: float
     idle_hours: float
-    wasted_cost: float
+    wasted_cost: Optional[float]
     severity: str  # "low", "medium", "high", "critical"
     message: str
     timestamp: str
@@ -87,158 +95,86 @@ class IdleGPUDetector:
         self.dynamodb = dynamodb_client
         self.cloudwatch = cloudwatch_client
         self.cost_explorer = cost_explorer_client
+        self.last_observation_report = {'inventory_completeness': 'unverified', 'has_more': None}
     
-    def identify_idle_gpus(
-        self,
-        start_date: str,
-        end_date: str,
-        threshold: float = DEFAULT_IDLE_THRESHOLD
-    ) -> List[IdleGPU]:
-        """
-        Identify GPU instances with utilization below threshold.
-        
-        Args:
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            threshold: Utilization threshold percentage (default: 10%)
-            
-        Returns:
-            List of IdleGPU objects
-            
-        Requirements: FR-1.5
-        """
-        logger.info(f"Identifying idle GPUs from {start_date} to {end_date} (threshold: {threshold}%)")
-        
-        # Get all GPU instances
-        gpu_instances = self._get_gpu_instances(start_date, end_date)
-        
-        idle_gpus = []
-        for instance in gpu_instances:
-            # Get GPU utilization metrics
-            utilization_data = self._get_gpu_utilization(
-                instance['instance_id'],
-                start_date,
-                end_date
-            )
-            
-            if not utilization_data:
-                logger.warning(f"No utilization data for {instance['instance_id']}")
+    def _window(self, start_date, end_date):
+        start = datetime.strptime(start_date, '%Y-%m-%d').replace(tzinfo=UTC)
+        end = datetime.strptime(end_date, '%Y-%m-%d').replace(tzinfo=UTC)
+        if start.strftime('%Y-%m-%d') != start_date or end.strftime('%Y-%m-%d') != end_date:
+            raise ValueError('Use YYYY-MM-DD dates')
+        if not 1 <= (end-start).days <= 31 or end.date() > datetime.now(UTC).date():
+            raise ValueError('Use 1-31 completed daily dates with an exclusive end')
+        return start, end
+
+    def _metric_contract(self):
+        try:
+            profile = json.loads(os.environ.get('GPU_UTILIZATION_METRIC_CONTRACT', '{}'))
+            if (not isinstance(profile, dict) or profile.get('aggregation') != 'all_device_maximum'
+                    or not isinstance(profile.get('namespace'), str) or not profile['namespace']
+                    or profile['namespace'].startswith('AWS/') or len(profile['namespace']) > 255
+                    or not isinstance(profile.get('metric_name'), str) or not profile['metric_name']
+                    or 'cpu' in profile['metric_name'].lower() or len(profile['metric_name']) > 255): return None
+            return profile
+        except Exception: return None
+
+    def identify_idle_gpus(self, start_date: str, end_date: str, threshold: float = DEFAULT_IDLE_THRESHOLD, *, instance_id=None, instance_type=None) -> List[IdleGPU]:
+        """Review complete dated custom GPU evidence; never substitute CPU or invented money."""
+        import re
+        start, end = self._window(start_date, end_date)
+        if instance_id is not None and (not isinstance(instance_id, str) or not re.fullmatch(r'i-(?:[a-f0-9]{8}|[a-f0-9]{17})', instance_id)):
+            raise ValueError('Supply one valid EC2 instance ID')
+        if instance_type is not None and (not isinstance(instance_type, str) or not re.fullmatch(r'[gp][0-9][a-z0-9-]*\.[a-z0-9]+', instance_type)):
+            raise ValueError('Supply one supported g/p-family instance type')
+        self.last_utilization_rows = []
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or not 0 <= threshold <= 100:
+            raise ValueError('GPU threshold must be a finite percentage from 0 to 100')
+        self.last_observation_report = {'discovery_performed': False, 'observed_instance_count': None,
+            'unavailable_evidence_count': None, 'unavailable_examples': [], 'inventory_completeness': 'unverified',
+            'metric_source_verified': False, 'instance_limit': 20, 'has_more': None,
+            'metric_contract_status': 'configured' if self._metric_contract() else 'unconfigured_or_invalid'}
+        if self._metric_contract() is None: return []
+        instances = self._get_gpu_instances(start_date, end_date, instance_id=instance_id, instance_type=instance_type)
+        report = self.last_observation_report
+        report.update({'discovery_performed': True, 'observed_instance_count': len(instances), 'unavailable_evidence_count': 0})
+        candidates = []
+        for instance in instances:
+            evidence = self._get_gpu_evidence(instance['instance_id'], start_date, end_date)
+            if evidence is None:
+                report['unavailable_evidence_count'] += 1
+                if len(report['unavailable_examples']) < 20:
+                    report['unavailable_examples'].append({'instance_id': instance['instance_id'], 'reason': 'Complete valid hourly GPU evidence is unavailable'})
+                self.last_utilization_rows.append({'instance_id': instance['instance_id'], 'instance_type': instance['instance_type'],
+                    'region': instance['region'], 'avg_utilization': None, 'max_utilization': None,
+                    'observation_status': 'unavailable', 'window_start': start.isoformat(), 'window_end': end.isoformat(),
+                    'utilization_basis': 'hourly_operator_declared_all_device_maxima', 'observed_hour_count': None})
                 continue
-            
-            # Calculate average utilization
-            avg_utilization = statistics.mean(utilization_data)
-            
-            # Check if idle
-            if avg_utilization < threshold:
-                # Calculate idle hours and wasted cost
-                idle_hours = self._calculate_idle_hours(
-                    utilization_data,
-                    threshold,
-                    start_date,
-                    end_date
-                )
-                
-                cost_per_hour = self._get_instance_cost_per_hour(
-                    instance['instance_type']
-                )
-                
-                wasted_cost = idle_hours * cost_per_hour
-                
-                # Generate recommendation
-                recommendation = self._generate_recommendation(
-                    avg_utilization,
-                    idle_hours,
-                    wasted_cost
-                )
-                
-                idle_gpu = IdleGPU(
-                    instance_id=instance['instance_id'],
-                    instance_type=instance['instance_type'],
-                    utilization=avg_utilization,
-                    idle_hours=idle_hours,
-                    wasted_cost=wasted_cost,
-                    cost_per_hour=cost_per_hour,
-                    first_idle_time=start_date,
-                    last_check_time=datetime.utcnow().isoformat(),
-                    recommendation=recommendation
-                )
-                
-                idle_gpus.append(idle_gpu)
-        
-        logger.info(f"Identified {len(idle_gpus)} idle GPUs")
-        return idle_gpus
-    
-    def calculate_idle_time(
-        self,
-        instance_id: str,
-        start_date: str,
-        end_date: str,
-        threshold: float = DEFAULT_IDLE_THRESHOLD
-    ) -> float:
-        """
-        Calculate total idle time for a GPU instance.
-        
-        Args:
-            instance_id: EC2 instance ID
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            threshold: Utilization threshold percentage (default: 10%)
-            
-        Returns:
-            Idle time in hours
-            
-        Requirements: FR-1.5
-        """
-        utilization_data = self._get_gpu_utilization(
-            instance_id,
-            start_date,
-            end_date
-        )
-        
-        if not utilization_data:
-            return 0.0
-        
-        return self._calculate_idle_hours(
-            utilization_data,
-            threshold,
-            start_date,
-            end_date
-        )
-    
-    def calculate_wasted_cost(
-        self,
-        instance_id: str,
-        instance_type: str,
-        start_date: str,
-        end_date: str,
-        threshold: float = DEFAULT_IDLE_THRESHOLD
-    ) -> float:
-        """
-        Calculate wasted cost during idle period.
-        
-        Args:
-            instance_id: EC2 instance ID
-            instance_type: EC2 instance type
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            threshold: Utilization threshold percentage (default: 10%)
-            
-        Returns:
-            Wasted cost in USD
-            
-        Requirements: FR-1.5
-        """
-        idle_hours = self.calculate_idle_time(
-            instance_id,
-            start_date,
-            end_date,
-            threshold
-        )
-        
-        cost_per_hour = self._get_instance_cost_per_hour(instance_type)
-        
-        return idle_hours * cost_per_hour
-    
+            self.last_utilization_rows.append({'instance_id': instance['instance_id'], 'instance_type': instance['instance_type'],
+                'region': instance['region'], 'avg_utilization': statistics.mean(evidence.values()),
+                'max_utilization': max(evidence.values()), 'observation_status': 'available',
+                'window_start': start.isoformat(), 'window_end': end.isoformat(),
+                'utilization_basis': 'hourly_operator_declared_all_device_maxima', 'observed_hour_count': len(evidence)})
+            if all(value < threshold for value in evidence.values()):
+                candidates.append(IdleGPU(instance['instance_id'], instance['instance_type'],
+                    statistics.mean(evidence.values()), float(len(evidence)), None, None,
+                    datetime.fromtimestamp(min(evidence), UTC).isoformat(), datetime.now(UTC).isoformat(),
+                    'Review workload requirements; low GPU utilization does not prove safe removal.',
+                    window_start=start.isoformat(), window_end=end.isoformat()))
+        report['unavailable_examples_truncated'] = report['unavailable_evidence_count'] > len(report['unavailable_examples'])
+        return candidates
+
+    def observe_utilization(self, start_date, end_date, *, instance_id=None, instance_type=None):
+        self.identify_idle_gpus(start_date, end_date, 0, instance_id=instance_id, instance_type=instance_type)
+        return self.last_utilization_rows
+
+    def calculate_idle_time(self, instance_id: str, start_date: str, end_date: str,
+                            threshold: float = DEFAULT_IDLE_THRESHOLD) -> Optional[float]:
+        evidence = self._get_gpu_evidence(instance_id, start_date, end_date)
+        return float(sum(value < threshold for value in evidence.values())) if evidence else None
+
+    def calculate_wasted_cost(self, instance_id: str, instance_type: str, start_date: str,
+                              end_date: str, threshold: float = DEFAULT_IDLE_THRESHOLD) -> Optional[float]:
+        return None  # Low utilization and generic rates cannot establish avoidable charges.
+
     def generate_idle_alerts(
         self,
         start_date: str,
@@ -271,7 +207,7 @@ class IdleGPUDetector:
             message = self._generate_alert_message(idle_gpu, severity)
             
             alert = IdleGPUAlert(
-                alert_id=f"idle-gpu-{idle_gpu.instance_id}-{datetime.utcnow().timestamp()}",
+                alert_id=f"idle-gpu-{idle_gpu.instance_id}-{datetime.now(UTC).timestamp()}",
                 instance_id=idle_gpu.instance_id,
                 instance_type=idle_gpu.instance_type,
                 utilization=idle_gpu.utilization,
@@ -279,7 +215,7 @@ class IdleGPUDetector:
                 wasted_cost=idle_gpu.wasted_cost,
                 severity=severity,
                 message=message,
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=datetime.now(UTC).isoformat()
             )
             
             alerts.append(alert)
@@ -287,326 +223,78 @@ class IdleGPUDetector:
         logger.info(f"Generated {len(alerts)} idle GPU alerts")
         return alerts
     
-    def _get_gpu_instances(
-        self,
-        start_date: str,
-        end_date: str
-    ) -> List[dict]:
-        """
-        Get all GPU instances in the specified date range.
-        
-        Args:
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            
-        Returns:
-            List of GPU instance metadata
-        """
-        logger.info(f"Retrieving GPU instances from {start_date} to {end_date}")
-        
+    def _get_gpu_instances(self, start_date: str, end_date: str, *, instance_id=None, instance_type=None) -> List[dict]:
         import boto3
-        ec2_client = boto3.client('ec2')
-        
-        # GPU instance type patterns
-        gpu_patterns = ['p3.', 'p4.', 'p4d.', 'p5.', 'g4.', 'g5.', 'g6.']
-        
-        try:
-            # Get all EC2 instances
-            response = ec2_client.describe_instances(
-                Filters=[
-                    {'Name': 'instance-state-name', 'Values': ['running', 'stopped']}
-                ]
-            )
-            
-            gpu_instances = []
-            for reservation in response.get('Reservations', []):
+        import re
+        if self.cloudwatch is None: self.cloudwatch = boto3.client('cloudwatch')
+        ec2 = boto3.client('ec2', region_name=self.cloudwatch.meta.region_name)
+        rows, seen = [], set()
+        paginator = ec2.get_paginator('describe_instances')
+        pages = 0
+        request = {'Filters': [{'Name': 'instance-state-name', 'Values': ['running']},
+                              {'Name': 'instance-type', 'Values': [instance_type] if instance_type else ['g*', 'p*']}]}
+        if instance_id: request['InstanceIds'] = [instance_id]
+        for page in paginator.paginate(**request):
+            pages += 1
+            for reservation in page.get('Reservations', []):
                 for instance in reservation.get('Instances', []):
-                    instance_type = instance.get('InstanceType', '')
-                    
-                    # Filter for GPU instance types
-                    if any(pattern in instance_type for pattern in gpu_patterns):
-                        gpu_instances.append({
-                            'instance_id': instance['InstanceId'],
-                            'instance_type': instance_type,
-                            'state': instance.get('State', {}).get('Name', 'unknown'),
-                            'launch_time': instance.get('LaunchTime', '').isoformat() if instance.get('LaunchTime') else None
-                        })
-            
-            logger.info(f"Found {len(gpu_instances)} GPU instances")
-            return gpu_instances
-            
-        except Exception as e:
-            logger.error(f"Error retrieving GPU instances: {e}")
-            return []
-    
-    def _get_gpu_utilization(
-        self,
-        instance_id: str,
-        start_date: str,
-        end_date: str
-    ) -> List[float]:
-        """
-        Get GPU utilization metrics from CloudWatch.
-        
-        Args:
-            instance_id: EC2 instance ID
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            
-        Returns:
-            List of GPU utilization percentages
-        """
-        logger.info(f"Retrieving GPU utilization for {instance_id}")
-        
-        if not self.cloudwatch:
-            import boto3
-            self.cloudwatch = boto3.client('cloudwatch')
-        
+                    kind = instance.get('InstanceType', '')
+                    if not re.match(r'^[gp][0-9]', kind) or instance['InstanceId'] in seen: continue
+                    if len(rows) >= 20:
+                        self.last_observation_report['has_more'] = True
+                        return rows
+                    seen.add(instance['InstanceId'])
+                    rows.append({'instance_id': instance['InstanceId'], 'instance_type': kind,
+                                 'region': ec2.meta.region_name})
+            if pages >= 5 and page.get('NextToken'):
+                self.last_observation_report['has_more'] = True
+                return rows
+        self.last_observation_report['has_more'] = False
+        return rows
+
+    def _get_gpu_evidence(self, instance_id, start_date, end_date):
+        from ..time_values import parse_utc_timestamp
+        start, end = self._window(start_date, end_date)
+        profile = self._metric_contract()
+        if profile is None: return None
         try:
-            from datetime import datetime
-            
-            # Parse dates
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            utilization_values = []
-            
-            # Try GPUUtilization metric first
-            try:
-                response = self.cloudwatch.get_metric_statistics(
-                    Namespace='AWS/EC2',
-                    MetricName='GPUUtilization',
-                    Dimensions=[
-                        {'Name': 'InstanceId', 'Value': instance_id}
-                    ],
-                    StartTime=start_dt,
-                    EndTime=end_dt,
-                    Period=300,  # 5-minute intervals
-                    Statistics=['Average']
-                )
-                
-                for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
-                    utilization_values.append(float(datapoint['Average']))
-                    
-            except Exception as e:
-                logger.warning(f"GPUUtilization metric not available for {instance_id}: {e}")
-                # Fallback to CPUUtilization
-                try:
-                    response = self.cloudwatch.get_metric_statistics(
-                        Namespace='AWS/EC2',
-                        MetricName='CPUUtilization',
-                        Dimensions=[
-                            {'Name': 'InstanceId', 'Value': instance_id}
-                        ],
-                        StartTime=start_dt,
-                        EndTime=end_dt,
-                        Period=300,
-                        Statistics=['Average']
-                    )
-                    
-                    for datapoint in sorted(response.get('Datapoints', []), key=lambda x: x['Timestamp']):
-                        utilization_values.append(float(datapoint['Average']))
-                        
-                except Exception as e2:
-                    logger.error(f"Failed to get CPUUtilization for {instance_id}: {e2}")
-                    return []
-            
-            logger.info(f"Retrieved {len(utilization_values)} utilization data points for {instance_id}")
-            return utilization_values
-            
-        except Exception as e:
-            logger.error(f"Error retrieving GPU utilization for {instance_id}: {e}")
-            return []
-    
-    def _calculate_idle_hours(
-        self,
-        utilization_data: List[float],
-        threshold: float,
-        start_date: str,
-        end_date: str
-    ) -> float:
-        """
-        Calculate total idle hours based on utilization data.
-        
-        Args:
-            utilization_data: List of GPU utilization percentages
-            threshold: Utilization threshold percentage
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            
-        Returns:
-            Idle hours
-        """
-        if not utilization_data:
-            return 0.0
-        
-        # Count data points below threshold
-        idle_points = sum(1 for util in utilization_data if util < threshold)
-        
-        # Calculate time range in hours
-        start = datetime.fromisoformat(start_date)
-        end = datetime.fromisoformat(end_date)
-        total_hours = (end - start).total_seconds() / 3600
-        
-        # Calculate idle hours (proportional to idle points)
-        idle_ratio = idle_points / len(utilization_data)
-        idle_hours = total_hours * idle_ratio
-        
-        return idle_hours
-    
-    def _get_instance_cost_per_hour(self, instance_type: str) -> float:
-        """
-        Get hourly cost for an instance type using AWS Pricing API.
-        
-        Args:
-            instance_type: EC2 instance type
-            
-        Returns:
-            Cost per hour in USD
-        """
-        try:
-            # Try to use Pricing API for accurate pricing
-            from ..pricing_manager import PricingManager
-            import boto3
-            
-            # Get region from environment or use default
-            region = os.environ.get('AWS_REGION', 'us-east-1')
-            
-            # Initialize PricingManager
-            pricing_manager = PricingManager(region=region)
-            
-            # Get pricing data for EC2
-            pricing_data = pricing_manager.get_pricing_data('ec2', region)
-            
-            # Look up instance type in pricing data
-            if instance_type in pricing_data.prices:
-                hourly_price = float(pricing_data.prices[instance_type])
-                logger.debug(f"Retrieved pricing for {instance_type}: ${hourly_price}/hour from Pricing API")
-                return hourly_price
-            
-            # If not found in pricing data, try direct Pricing API query
-            pricing_client = boto3.client('pricing', region_name='us-east-1')
-            
-            response = pricing_client.get_products(
-                ServiceCode='AmazonEC2',
-                Filters=[
-                    {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
-                    {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
-                    {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
-                    {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
-                ],
-                MaxResults=1
-            )
-            
-            if response.get('PriceList'):
-                import json
-                price_data = json.loads(response['PriceList'][0])
-                terms = price_data.get('terms', {}).get('OnDemand', {})
-                
-                for term_key, term_value in terms.items():
-                    price_dimensions = term_value.get('priceDimensions', {})
-                    for dim_key, dim_value in price_dimensions.items():
-                        price_per_unit = dim_value.get('pricePerUnit', {})
-                        usd_price = price_per_unit.get('USD')
-                        if usd_price:
-                            hourly_price = float(usd_price)
-                            logger.debug(f"Retrieved pricing for {instance_type}: ${hourly_price}/hour from Pricing API")
-                            return hourly_price
-            
-        except Exception as e:
-            logger.warning(f"Failed to get pricing from Pricing API for {instance_type}: {e}. Using fallback pricing.")
-        
-        # Fallback to approximate costs if Pricing API fails
-        approximate_costs = {
-            'p3.2xlarge': 3.06,
-            'p3.8xlarge': 12.24,
-            'p3.16xlarge': 24.48,
-            'p4d.24xlarge': 32.77,
-            'p5.48xlarge': 98.32,
-            'g4dn.xlarge': 0.526,
-            'g4dn.2xlarge': 0.752,
-            'g4dn.4xlarge': 1.204,
-            'g4dn.8xlarge': 2.176,
-            'g4dn.12xlarge': 3.912,
-            'g4dn.16xlarge': 4.352,
-            'g5.xlarge': 1.006,
-            'g5.2xlarge': 1.212,
-            'g5.4xlarge': 1.624,
-            'g5.8xlarge': 2.448,
-            'g5.12xlarge': 5.672,
-            'g5.16xlarge': 4.896,
-            'g5.24xlarge': 8.144,
-            'g5.48xlarge': 16.288,
-        }
-        
-        fallback_price = approximate_costs.get(instance_type, 5.0)
-        logger.info(f"Using fallback pricing for {instance_type}: ${fallback_price}/hour")
-        return fallback_price
-    
-    def _generate_recommendation(
-        self,
-        avg_utilization: float,
-        idle_hours: float,
-        wasted_cost: float
-    ) -> str:
-        """
-        Generate action recommendation based on idle metrics.
-        
-        Args:
-            avg_utilization: Average GPU utilization
-            idle_hours: Total idle hours
-            wasted_cost: Wasted cost in USD
-            
-        Returns:
-            Recommendation string
-        """
-        if avg_utilization < 5.0:
-            return "STOP: GPU is nearly unused. Consider stopping or terminating this instance."
-        elif avg_utilization < 10.0 and wasted_cost > 100.0:
-            return "STOP: GPU is idle and wasting significant cost. Stop instance when not in use."
-        elif avg_utilization < 10.0:
-            return "REVIEW: GPU utilization is low. Consider stopping when not actively training/inferencing."
-        else:
-            return "MONITOR: GPU utilization is borderline. Continue monitoring."
-    
-    def _determine_severity(self, wasted_cost: float) -> str:
-        """
-        Determine alert severity based on wasted cost.
-        
-        Args:
-            wasted_cost: Wasted cost in USD
-            
-        Returns:
-            Severity level: "low", "medium", "high", "critical"
-        """
-        if wasted_cost >= self.SEVERITY_THRESHOLDS['critical']:
-            return 'critical'
-        elif wasted_cost >= self.SEVERITY_THRESHOLDS['high']:
-            return 'high'
-        elif wasted_cost >= self.SEVERITY_THRESHOLDS['medium']:
-            return 'medium'
-        else:
-            return 'low'
-    
-    def _generate_alert_message(
-        self,
-        idle_gpu: IdleGPU,
-        severity: str
-    ) -> str:
-        """
-        Generate alert message for idle GPU.
-        
-        Args:
-            idle_gpu: IdleGPU object
-            severity: Alert severity level
-            
-        Returns:
-            Alert message string
-        """
-        return (
-            f"{severity.upper()} ALERT: GPU instance {idle_gpu.instance_id} "
-            f"({idle_gpu.instance_type}) has been idle for {idle_gpu.idle_hours:.1f} hours "
-            f"with {idle_gpu.utilization:.1f}% average utilization. "
-            f"Wasted cost: ${idle_gpu.wasted_cost:.2f}. "
-            f"Recommendation: {idle_gpu.recommendation}"
-        )
+            if self.cloudwatch is None:
+                import boto3
+                self.cloudwatch = boto3.client('cloudwatch')
+            response = self.cloudwatch.get_metric_statistics(Namespace=profile['namespace'], MetricName=profile['metric_name'],
+                Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}], StartTime=start, EndTime=end,
+                Period=3600, Statistics=['Maximum', 'SampleCount'], Unit='Percent')
+            expected = set(range(int(start.timestamp()), int(end.timestamp()), 3600))
+            points = {}
+            for point in response.get('Datapoints', []):
+                stamp = int(parse_utc_timestamp(point['Timestamp']).timestamp())
+                value, samples = float(point['Maximum']), float(point['SampleCount'])
+                if stamp not in expected or not math.isfinite(value) or not 0 <= value <= 100 or not math.isfinite(samples) or samples <= 0: return None
+                if stamp in points and points[stamp] != value: return None
+                points[stamp] = value
+            return points if set(points) == expected else None
+        except Exception: return None
+
+    def _get_gpu_utilization(self, instance_id, start_date, end_date) -> List[float]:
+        evidence = self._get_gpu_evidence(instance_id, start_date, end_date)
+        return [evidence[stamp] for stamp in sorted(evidence)] if evidence else []
+
+    def _calculate_idle_hours(self, utilization_data, threshold, start_date, end_date) -> Optional[float]:
+        start, end = self._window(start_date, end_date)
+        expected = int((end-start).total_seconds()/3600)
+        if len(utilization_data) != expected: return None
+        if any(not math.isfinite(value) or not 0 <= value <= 100 for value in utilization_data): return None
+        return float(sum(value < threshold for value in utilization_data))
+
+    def _get_instance_cost_per_hour(self, instance_type: str) -> Optional[float]:
+        return None  # Instance type alone does not establish region/lifecycle/OS/billing profile.
+
+    def _generate_recommendation(self, avg_utilization, idle_hours, wasted_cost):
+        return 'Review the observed GPU rule and workload requirements; monetary savings are unavailable.'
+
+    def _determine_severity(self, wasted_cost) -> str:
+        return 'info'
+
+    def _generate_alert_message(self, idle_gpu, severity) -> str:
+        return (f'{idle_gpu.instance_id} matched a low-GPU-utilization rule over {idle_gpu.idle_hours:.1f} observed hours. '
+                'Workload inactivity, safe removal and monetary savings are unverified.')

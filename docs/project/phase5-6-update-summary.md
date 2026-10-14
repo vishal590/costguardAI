@@ -6,12 +6,12 @@
 **Status:** Planning Complete - Ready for Phase 5 Implementation
 
 **Related Documentation:**
-- [PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md) - Detailed Phase 5 multi-account recommendation
-- [PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md) - Detailed Phase 6 unit economics + RI/SP optimization recommendation
-- [IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md) - SMB/startup impact analysis with 2026 research
-- [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) - Market positioning with Phase 6 competitive analysis
-- [project/planning.md](./project/planning.md) - Updated project planning with Phase 5/6/7
-- [INDEX.md](./INDEX.md) - Master documentation index (updated)
+- [PHASE5_RECOMMENDATION.md](phase5-recommendation.md) - Detailed Phase 5 multi-account recommendation
+- [PHASE6_RECOMMENDATION.md](phase6-recommendation.md) - Detailed Phase 6 unit economics + RI/SP optimization recommendation
+- [IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md) - SMB/startup impact analysis with 2026 research
+- [COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md) - Market positioning with Phase 6 competitive analysis
+- [project/planning.md](planning.md) - Updated project planning with Phase 5/6/7
+- [INDEX.md](../INDEX.md) - Master documentation index (updated)
 
 ---
 
@@ -413,7 +413,7 @@ Based on 2026 market research and commercial viability analysis:
 
 ### New Documents Created
 
-1. **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)**
+1. **[PHASE5_RECOMMENDATION.md](phase5-recommendation.md)**
    - Comprehensive Phase 5 multi-account recommendation
    - Market research findings
    - Technical architecture
@@ -423,7 +423,7 @@ Based on 2026 market research and commercial viability analysis:
    - Free Tier compliance
    - Phase 6 frontend plan
 
-2. **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)**
+2. **[IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)**
    - SMB/startup impact analysis
    - The three pillars (Visibility, Ownership, Automation)
    - Why this matters for hackathon judging
@@ -435,14 +435,14 @@ Based on 2026 market research and commercial viability analysis:
 
 ### Updated Documents
 
-1. **[project/planning.md](./project/planning.md)**
+1. **[project/planning.md](planning.md)**
    - Updated Phase 5 from React frontend to multi-account
    - Added Phase 6 for React frontend
    - Updated phase status (4 of 6 complete)
    - Added cross-references to new docs
    - Enhanced semantic search keywords
 
-2. **[INDEX.md](./docs/INDEX.md)**
+2. **[INDEX.md](../INDEX.md)**
    - Added Phase 5 recommendation to Project Planning section
    - Added Impact Assessment to Project Planning section
    - Updated cross-references
@@ -488,12 +488,12 @@ All documents now include extensive cross-references:
 ### Immediate Actions
 
 1. **Review Phase 5 Recommendation**
-   - Read [PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)
+   - Read [PHASE5_RECOMMENDATION.md](phase5-recommendation.md)
    - Verify alignment with hackathon goals
    - Approve Phase 5 direction
 
 2. **Review Impact Assessment**
-   - Read [IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)
+   - Read [IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)
    - Understand SMB/startup pain points
    - Verify commercial viability narrative
 
@@ -556,11 +556,11 @@ All documents now include extensive cross-references:
 
 ## See Also
 
-- **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)** - Detailed Phase 5 multi-account recommendation
-- **[PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md)** - Detailed Phase 6 unit economics + RI/SP optimization recommendation
-- **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - SMB/startup impact analysis with 2026 research
-- **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Market positioning and differentiation (updated with Phase 6)
-- **[project/planning.md](./project/planning.md)** - Updated project planning with Phase 5/6/7
-- **[PROBLEM-STATEMENT.md](./PROBLEM-STATEMENT.md)** - Core problem definition
-- **[ALIGNMENT-ANALYSIS.md](./ALIGNMENT-ANALYSIS.md)** - Hackathon alignment verification
-- **[INDEX.md](./INDEX.md)** - Master documentation index
+- **[PHASE5_RECOMMENDATION.md](phase5-recommendation.md)** - Detailed Phase 5 multi-account recommendation
+- **[PHASE6_RECOMMENDATION.md](phase6-recommendation.md)** - Detailed Phase 6 unit economics + RI/SP optimization recommendation
+- **[IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)** - SMB/startup impact analysis with 2026 research
+- **[COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md)** - Market positioning and differentiation (updated with Phase 6)
+- **[project/planning.md](planning.md)** - Updated project planning with Phase 5/6/7
+- **[PROBLEM-STATEMENT.md](../PROBLEM-STATEMENT.md)** - Core problem definition
+- **[ALIGNMENT-ANALYSIS.md](../ALIGNMENT-ANALYSIS.md)** - Hackathon alignment verification
+- **[INDEX.md](../INDEX.md)** - Master documentation index

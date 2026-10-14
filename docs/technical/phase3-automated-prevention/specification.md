@@ -1,5 +1,7 @@
 # Phase 3: Automated Cost Prevention - Specification
 
+> **Current source boundary (October 14, 2026):** This file preserves an earlier design/review/report. Use the [current Phase 3 overview](README.md) and [active implementation contracts](../access-and-feature-contracts.md). Earlier completion, idle-coverage, confidence, execution and test claims do not validate the current source. All further validation is deferred.
+
 ## Overview
 
 Phase 3 adds automated cost prevention capabilities to CostGuard, enabling proactive cost management through budget monitoring, idle resource detection, and automated remediation actions with comprehensive safety mechanisms.

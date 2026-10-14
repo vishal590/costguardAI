@@ -351,14 +351,13 @@ def test_create_rollback_capability_success(mock_dynamodb_table, sample_action_r
     
     assert rollback_id.startswith("rollback_")
     
-    # Verify rollback metadata stored
-    mock_dynamodb_table.put_item.assert_called_once()
-    
-    call_args = mock_dynamodb_table.put_item.call_args
-    item = call_args[1]["Item"]
-    
-    assert item["rollback_created"] is True
-    assert "ttl" in item
+    # Updating metadata must preserve an approval at the same key.
+    mock_dynamodb_table.put_item.assert_not_called()
+    mock_dynamodb_table.update_item.assert_called_once()
+    kwargs = mock_dynamodb_table.update_item.call_args.kwargs
+    assert kwargs["Key"]["action_id"] == sample_action_request.action_id
+    assert kwargs["ExpressionAttributeValues"][":created"] is True
+    assert "if_not_exists(#ttl, :ttl)" in kwargs["UpdateExpression"]
 
 
 # Tests for execute_rollback
@@ -371,17 +370,18 @@ def test_execute_rollback_success(mock_dynamodb_table, mock_events_client):
             "timestamp": "2024-01-14T10:00:00",
             "rollback_created": True,
             "rollback_id": "rollback_123",
+            "approval_decision": "approved",
         }]
     }
     mock_dynamodb_table.update_item = MagicMock()
-    mock_events_client.put_events = MagicMock()
+    mock_events_client.put_events = MagicMock(return_value={"FailedEntryCount": 0})
     
     success = execute_rollback("act_test_123")
     
     assert success is True
     
-    # Verify status updated
-    mock_dynamodb_table.update_item.assert_called_once()
+    # Restoration belongs to the executor; submission must not claim success.
+    mock_dynamodb_table.update_item.assert_not_called()
     
     # Verify rollback event published
     mock_events_client.put_events.assert_called_once()
@@ -415,7 +415,7 @@ def test_execute_rollback_no_capability(mock_dynamodb_table):
 
 def test_publish_approval_decision_approved(mock_events_client, sample_action_request):
     """Test publishing approval decision."""
-    mock_events_client.put_events = MagicMock()
+    mock_events_client.put_events = MagicMock(return_value={"FailedEntryCount": 0})
     
     publish_approval_decision(sample_action_request, True)
     
@@ -430,7 +430,7 @@ def test_publish_approval_decision_approved(mock_events_client, sample_action_re
 
 def test_publish_approval_decision_rejected(mock_events_client, sample_action_request):
     """Test publishing rejection decision."""
-    mock_events_client.put_events = MagicMock()
+    mock_events_client.put_events = MagicMock(return_value={"FailedEntryCount": 0})
     
     publish_approval_decision(sample_action_request, False)
     
@@ -520,18 +520,20 @@ def test_handler_action_request_approval_required(mock_dynamodb_table, mock_sns_
                 assert "rollback_id" in body
 
 
-def test_handler_action_request_auto_approve(mock_dynamodb_table, mock_events_client):
-    """Test handler with auto-approved action."""
+def test_handler_action_request_requires_human_approval(mock_dynamodb_table, mock_events_client):
+    """Test handler with human-approved action."""
     mock_dynamodb_table.put_item = MagicMock()
-    mock_events_client.put_events = MagicMock()
+    mock_events_client.put_events = MagicMock(return_value={"FailedEntryCount": 0})
     
     event = {
         "detail-type": "ActionRequest",
         "detail": {
             "request_id": "req_test_123",
-            "action_type": "schedule",  # Auto-approve
+            "action_type": "schedule",  # Human approval required
             "action_id": "act_test_123",
-            "parameters": {"instance_type": "g4dn.xlarge"},
+            "parameters": {"region": "us-east-1", "instance_id": "i-training", "max_hourly_cost": "0.1",
+                "window_start": (datetime.now().astimezone() + timedelta(minutes=10)).isoformat(),
+                "window_end": (datetime.now().astimezone() + timedelta(minutes=20)).isoformat()},
             "confidence_score": 0.85,
             "expected_cost_impact": -12.50,
             "approval_required": False,
@@ -542,9 +544,10 @@ def test_handler_action_request_auto_approve(mock_dynamodb_table, mock_events_cl
         with patch('autonomous.safety_guard.check_budget_limit', return_value=True):
             response = handler(event, None)
             
-            assert response["statusCode"] == 200
+            assert response["statusCode"] == 202
             body = json.loads(response["body"])
-            assert body["status"] == "approved"
+            assert body["status"] == "pending_approval"
+            mock_events_client.put_events.assert_not_called()
 
 
 def test_handler_rollback_requested(mock_dynamodb_table, mock_events_client):
@@ -555,10 +558,11 @@ def test_handler_rollback_requested(mock_dynamodb_table, mock_events_client):
             "timestamp": "2024-01-14T10:00:00",
             "rollback_created": True,
             "rollback_id": "rollback_123",
+            "approval_decision": "approved",
         }]
     }
     mock_dynamodb_table.update_item = MagicMock()
-    mock_events_client.put_events = MagicMock()
+    mock_events_client.put_events = MagicMock(return_value={"FailedEntryCount": 0})
     
     event = {
         "detail-type": "RollbackRequested",
@@ -569,9 +573,9 @@ def test_handler_rollback_requested(mock_dynamodb_table, mock_events_client):
     
     response = handler(event, None)
     
-    assert response["statusCode"] == 200
+    assert response["statusCode"] == 202
     body = json.loads(response["body"])
-    assert body["status"] == "rolled_back"
+    assert body["status"] == "rollback_submitted"
 
 
 def test_handler_rollback_missing_action_id():
@@ -604,6 +608,5 @@ def test_handler_error_handling():
         "detail": None,  # Will cause error
     }
     
-    response = handler(event, None)
-    
-    assert response["statusCode"] == 500
+    with pytest.raises(AttributeError):
+        handler(event, None)

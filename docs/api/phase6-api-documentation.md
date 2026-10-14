@@ -1,5 +1,17 @@
 # Phase 6: AI/ML Workload Cost Management API Documentation
 
+> **Spot source update (October 14, 2026):** [Scoped quote contracts](../technical/spot-quote-observed-contracts.md) supersede default discount/risk and monthly-savings examples. Quotes do not establish suitability or realized savings. All validation remains deferred.
+
+> **Inference/training source update (October 14, 2026):** [Current telemetry/metadata contracts](../technical/inference-training-observed-contracts.md) supersede cross-layer count addition, account-cost-as-job-cost and fixed benchmark examples. Unit costs remain unavailable without verified attribution. Validation is deferred.
+
+> **GPU source update (October 14, 2026):** [Current GPU evidence/review/history contracts](../technical/gpu-observed-contracts.md) supersede earlier CPU-fallback, simulated-prevention and verified-savings examples. Aggregate GPU billing/classification/spot paths retain separate gaps. All configuration/runtime validation is deferred.
+
+> **Bedrock source update (October 14, 2026):** Use the [current observed charge/runtime contract](../technical/bedrock-observed-contracts.md). Older fixed-average token, guessed model-price and cost-per-invocation examples below are superseded. Deployment/runtime validation remain deferred.
+
+> **SageMaker source update (October 14, 2026):** Use the [current observed contracts](../technical/sagemaker-observed-contracts.md) for cost/null/coverage/low-usage behavior. Older pricing, waste and inactivity examples below do not establish current behavior. New source requires deployment and all further validation remains deferred.
+
+> **Source review note (October 3, 2026):** Use [current API contracts](../technical/api-design.md) and [known limitations](../technical/documentation-code-sync.md) for stack URLs, routing and current behavior. Sample responses, timing and savings below are illustrative or historical; this pass did not execute requests or verify frontend/live AWS behavior.
+
 **Version:** 1.0  
 **Last Updated:** February 2026  
 **Base URL:** `https://api.costguard.ai` (or your API Gateway URL)
@@ -180,21 +192,19 @@ curl -X GET "https://api.costguard.ai/api/ai-ml/gpu-costs?start_date=2024-01-01&
 
 ### 2. Get GPU Utilization
 
-Get GPU utilization metrics for specific instances.
-
 **Endpoint:** `GET /api/ai-ml/gpu-utilization`
-
-**Requirements:** API-1.2
-
-**Status:** Not yet implemented (returns 501)
-
-**Query Parameters:**
+**Status:** Implemented in the current handler.
 
 | Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `start_date` | string | Yes | Start date (YYYY-MM-DD) |
-| `end_date` | string | Yes | End date (YYYY-MM-DD) |
-| `instance_id` | string | No | Filter by instance ID |
+|---|---|---|---|
+| `start_date` | string | Yes | Start date, YYYY-MM-DD |
+| `end_date` | string | Yes | End date, YYYY-MM-DD; must follow start date |
+| `instance_id` | string | No | Filter by EC2 instance ID |
+| `instance_type` | string | No | Case-insensitive instance-type filter |
+
+Response fields are `utilization` and `date_range`. Each utilization item has `instance_id`, `instance_type`, `avg_utilization`, `gpu_utilization_pattern` (up to 96 values) and `timestamp`. Metrics use CloudWatch GPU utilization with CPU fallback. When metrics are absent, utilization is null and the pattern is empty. Missing/invalid dates return 400. This is not a 501 placeholder.
+
+The multi-account utilization path uses its dedicated handler; see [source synchronization review](../technical/documentation-code-sync.md).
 
 ---
 

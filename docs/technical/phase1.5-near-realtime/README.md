@@ -1,5 +1,7 @@
 # Phase 1.5: Near-Real-Time Cost Estimation
 
+> **Current-reference note (October 3, 2026):** Use [current API contracts](../api-design.md), [database schemas](../database-design.md) and [project status](../../PROJECT_STATUS.md) for source behavior. Test counts, coverage and deployment metrics below record earlier work; they were not rerun or checked against AWS in this documentation pass.
+
 ## Overview
 
 Phase 1.5 extends the Cost Data Pipeline (Phase 1) by adding near-real-time cost estimation capabilities. While Phase 1 provides historical cost data from AWS Cost Explorer (with 24-hour delay), Phase 1.5 estimates current costs by collecting CloudWatch metrics and applying pricing calculations.

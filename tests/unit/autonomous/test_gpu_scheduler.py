@@ -165,7 +165,8 @@ class TestCostPatternAnalysis:
             assert isinstance(window, OptimizationWindow)
             assert window.window_start > datetime.utcnow()
     
-    def test_calculate_pattern_stability(self):
+    @patch("autonomous.gpu_scheduler.ec2_client.describe_spot_price_history", return_value={"SpotPriceHistory": []})
+    def test_calculate_pattern_stability(self, mock_history):
         """Test pattern stability calculation."""
         window = OptimizationWindow(
             window_start=datetime(2024, 1, 15, 2, 0, 0),
@@ -205,7 +206,8 @@ class TestConfidenceScore:
         assert 0.0 <= confidence <= 1.0
         assert confidence >= 0.8  # High stability should yield high confidence
     
-    def test_confidence_score_low_stability(self):
+    @patch("autonomous.gpu_scheduler.ec2_client.describe_spot_price_history", return_value={"SpotPriceHistory": []})
+    def test_confidence_score_low_stability(self, mock_history):
         """Test confidence score with low stability."""
         window = OptimizationWindow(
             window_start=datetime(2024, 1, 15, 2, 0, 0),
@@ -221,7 +223,8 @@ class TestConfidenceScore:
         assert 0.0 <= confidence <= 1.0
         assert confidence < 0.8  # Low stability should yield lower confidence
     
-    def test_confidence_score_boundary_values(self):
+    @patch("autonomous.gpu_scheduler.ec2_client.describe_spot_price_history", return_value={"SpotPriceHistory": []})
+    def test_confidence_score_boundary_values(self, mock_history):
         """Test confidence score at boundary values."""
         # Test with stability = 0.0
         window_min = OptimizationWindow(
@@ -350,7 +353,8 @@ class TestRecommendationGeneration:
         assert recommendation.confidence_score >= 0.8
         assert recommendation.expected_savings_percent >= 20.0
     
-    def test_generate_recommendation_low_confidence(self):
+    @patch("autonomous.gpu_scheduler.ec2_client.describe_spot_price_history", return_value={"SpotPriceHistory": []})
+    def test_generate_recommendation_low_confidence(self, mock_history):
         """Test that low confidence prevents recommendation."""
         window = OptimizationWindow(
             window_start=datetime(2024, 1, 15, 2, 0, 0),
@@ -437,6 +441,7 @@ class TestDryRunMode:
                 expected_savings_dollars=12.50,
             )
             
+            mock_events.put_events.return_value = {"FailedEntryCount": 0}
             publish_recommendation_event(recommendation)
             
             # Should call put_events in production mode

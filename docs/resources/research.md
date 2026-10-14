@@ -55,14 +55,14 @@
 - [Amazon Nova](https://aws.amazon.com/nova/)
 
 ### Articles & Tutorials
-- [Article 1 Title](URL) - [Brief description]
-- [Article 2 Title](URL) - [Brief description]
+- `[Article 1 Title](URL)` - [Brief description]
+- `[Article 2 Title](URL)` - [Brief description]
 
 ### Papers & Academic Resources
-- [Paper 1 Title](URL) - [Brief description]
+- `[Paper 1 Title](URL)` - [Brief description]
 
 ### Community Resources
-- [Resource 1](URL) - [Brief description]
+- `[Resource 1](URL)` - [Brief description]
 - [Stack Overflow AWS Collective](https://stackoverflow.com/collectives/aws)
 - [AWS Builder Center](https://builder.aws.com)
 - [10,000 AIdeas Competition Space](https://builder.aws.com/connect/space/3a92613a-ce41-30a7-bc0d-6067611fbd09/10000-aideas-competition)

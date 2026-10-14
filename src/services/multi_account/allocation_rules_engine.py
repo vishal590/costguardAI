@@ -63,6 +63,8 @@ class AllocationRulesEngine:
             f"with priority {priority}"
         )
         
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 128 or type(priority) is not int or not 0 <= priority <= 10000:
+            raise ValueError('Use a 1-128 character rule name and integer priority from 0 to 10000')
         # Validate rule before creating
         self.validate_rule(rule_type, conditions, allocation_target)
         
@@ -81,7 +83,7 @@ class AllocationRulesEngine:
         )
         
         # Save to repository
-        self.rule_repository.save_rule(org_id, rule)
+        self.rule_repository.save(rule, org_id)
         
         logger.info(f"Created allocation rule {rule_id}: '{name}'")
         
@@ -108,6 +110,12 @@ class AllocationRulesEngine:
         """
         logger.debug(f"Validating rule: type={rule_type}, target={allocation_target}")
         
+        if not isinstance(conditions, dict): raise ValueError('conditions must be an object')
+        allowed = {'TAG_BASED': {'tag_key', 'tag_value'}, 'PERCENTAGE': {'percentage'}, 'FIXED': {'service', 'account_id'}}
+        if set(conditions)-allowed.get(rule_type, set()): raise ValueError('Unsupported rule condition')
+        if not isinstance(allocation_target, str) or not 1 <= len(allocation_target.strip()) <= 256: raise ValueError('Use a 1-256 character allocation target')
+        for key, value in conditions.items():
+            if key != 'percentage' and (not isinstance(value, str) or not 1 <= len(value.strip()) <= 256): raise ValueError('Rule condition values must be nonempty bounded strings')
         # Validate rule type
         valid_types = ["TAG_BASED", "PERCENTAGE", "FIXED"]
         if rule_type not in valid_types:
@@ -147,11 +155,12 @@ class AllocationRulesEngine:
             raise ValueError("PERCENTAGE rule must have 'percentage' in conditions")
         
         percentage = conditions['percentage']
-        if not isinstance(percentage, (int, float, Decimal)):
+        if isinstance(percentage, bool) or not isinstance(percentage, (int, float, Decimal)):
             raise ValueError("percentage must be a number")
         
         percentage = float(percentage)
-        if percentage <= 0 or percentage > 100:
+        import math
+        if not math.isfinite(percentage) or percentage <= 0 or percentage > 100:
             raise ValueError("percentage must be between 0 and 100")
     
     def _validate_fixed_rule(self, conditions: Dict[str, Any]) -> None:
@@ -296,7 +305,7 @@ class AllocationRulesEngine:
         )
         
         # Save updated rule
-        self.rule_repository.save_rule(org_id, updated_rule)
+        self.rule_repository.save(updated_rule, org_id)
         
         logger.info(f"Updated allocation rule {rule_id}")
         

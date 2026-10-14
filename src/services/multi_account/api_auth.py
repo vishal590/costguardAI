@@ -6,12 +6,15 @@ This module provides API key authentication and rate limiting functionality.
 import json
 import logging
 import hashlib
+import secrets
 import time
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta, UTC
 from decimal import Decimal
 
 import boto3
+from urllib.parse import urlencode
+from ..access_control import AccessDenied, validate_grant, authorize_request, verify_delegation
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -66,7 +69,7 @@ class APIAuthenticator:
             try:
                 response = self.dynamodb.get_item(
                     TableName=self.api_keys_table,
-                    Key={'api_key': {'S': api_key}}
+                    Key={'api_key': {'S': api_key}}, ConsistentRead=True
                 )
                 
                 if 'Item' not in response:
@@ -91,12 +94,37 @@ class APIAuthenticator:
                     'api_key_id': item.get('api_key_id', {}).get('S'),
                     'user_id': item.get('user_id', {}).get('S'),
                     'permissions': item.get('permissions', {}).get('SS', []),
-                    'rate_limit': int(item.get('rate_limit', {}).get('N', '100'))
+                    'rate_limit': int(item.get('rate_limit', {}).get('N', '100')),
+                    'role': item.get('role', {}).get('S', 'operator' if 'write' in item.get('permissions', {}).get('SS', []) else 'viewer'),
+                    'organizations': item.get('organizations', {}).get('SS', []),
+                    'accounts': item.get('accounts', {}).get('SS', []),
+                    'is_bff_gateway': item.get('is_bff_gateway', {}).get('BOOL', False)
                 }
                 
+                if user_context['is_bff_gateway']:
+                    multiple = event.get('multiValueQueryStringParameters') or {}
+                    single = event.get('queryStringParameters') or {}
+                    pairs = [(key, '' if value is None else value) for key, values in multiple.items() for value in values]
+                    pairs.extend((key, '' if value is None else value) for key, value in single.items() if key not in multiple)
+                    query = event.get('rawQueryString') if isinstance(event.get('rawQueryString'), str) else urlencode(pairs)
+                    delegation = verify_delegation(api_key, headers_lower, event.get('httpMethod', 'GET'), event.get('path', ''), query, event.get('body'))
+                    grant = delegation['grant']
+                    for kind in ('organizations', 'accounts'):
+                        key_scope = user_context[kind]
+                        if '*' not in key_scope and any(value not in key_scope for value in grant[kind]):
+                            raise AccessDenied('Delegated scope exceeds backend key scope')
+                    if {'viewer': 0, 'operator': 1, 'admin': 2}[grant['role']] > {'viewer': 0, 'operator': 1, 'admin': 2}.get(user_context['role'], -1):
+                        raise AccessDenied('Delegated role exceeds backend key role')
+                    user_context.update(grant)
+                    user_context['user_id'] = delegation['subject']
+                validate_grant(user_context)
+                params = {'query': event.get('queryStringParameters') or {}, 'body': json.loads(event.get('body') or '{}')}
+                authorize_request(user_context, event.get('httpMethod', 'GET'), event.get('path', ''), params)
                 logger.info(f"API key authenticated: {user_context['user_id']}")
                 return True, None, user_context
                 
+            except AccessDenied as e:
+                return False, 'Access denied: ' + str(e), None
             except ClientError as e:
                 logger.error(f"Error validating API key: {str(e)}")
                 return False, 'Authentication service unavailable', None
@@ -106,7 +134,7 @@ class APIAuthenticator:
             return False, 'Authentication error', None
     
     def create_api_key(self, user_id: str, permissions: list = None, rate_limit: int = 100, 
-                      expires_days: int = 365) -> Dict[str, Any]:
+                      expires_days: int = 365, *, role: str = "viewer", organizations=None, accounts=None, is_bff_gateway: bool = False) -> Dict[str, Any]:
         """
         Create a new API key for a user.
         
@@ -120,6 +148,7 @@ class APIAuthenticator:
             Dict containing API key details
         """
         try:
+            grant = validate_grant({"role": role, "organizations": organizations or [], "accounts": accounts or []})
             # Generate API key
             api_key = self._generate_api_key(user_id)
             api_key_id = f"key_{int(time.time())}"
@@ -131,6 +160,10 @@ class APIAuthenticator:
             self.dynamodb.put_item(
                 TableName=self.api_keys_table,
                 Item={
+                    'role': {'S': grant['role']},
+                    'organizations': {'SS': grant['organizations']},
+                    'accounts': {'SS': grant['accounts']},
+                    'is_bff_gateway': {'BOOL': is_bff_gateway},
                     'api_key': {'S': api_key},
                     'api_key_id': {'S': api_key_id},
                     'user_id': {'S': user_id},
@@ -158,23 +191,8 @@ class APIAuthenticator:
             raise
     
     def _generate_api_key(self, user_id: str) -> str:
-        """
-        Generate a secure API key.
-        
-        Args:
-            user_id: User identifier
-            
-        Returns:
-            Generated API key
-        """
-        # Create a unique string combining user_id, timestamp, and a random component
-        timestamp = str(int(time.time() * 1000000))  # microsecond precision
-        unique_string = f"{user_id}:{timestamp}:{hash(user_id + timestamp)}"
-        
-        # Hash to create API key
-        api_key = hashlib.sha256(unique_string.encode()).hexdigest()
-        
-        return f"cg_{api_key[:32]}"  # CostGuard prefix + 32 chars
+        """Use OS-backed randomness rather than user/time-derived key material."""
+        return 'cg_' + secrets.token_urlsafe(32)
 
 
 class RateLimiter:
@@ -209,50 +227,22 @@ class RateLimiter:
         Requirements: 17.6
         """
         try:
-            current_time = datetime.now(UTC)
-            window_start = current_time.replace(second=0, microsecond=0)  # Start of current minute
+            window_start = datetime.now(UTC).replace(second=0, microsecond=0)
             window_key = f"{user_id}:{window_start.isoformat()}"
-            
-            # Get current request count for this minute
-            try:
-                response = self.dynamodb.get_item(
-                    TableName=self.rate_limit_table,
-                    Key={'window_key': {'S': window_key}}
-                )
-                
-                current_count = 0
-                if 'Item' in response:
-                    current_count = int(response['Item'].get('request_count', {}).get('N', '0'))
-                
-                # Check if limit exceeded
-                if current_count >= rate_limit:
-                    logger.warning(f"Rate limit exceeded for user {user_id}: {current_count}/{rate_limit}")
-                    return False, f'Rate limit exceeded. Maximum {rate_limit} requests per minute.'
-                
-                # Increment counter
-                self.dynamodb.put_item(
-                    TableName=self.rate_limit_table,
-                    Item={
-                        'window_key': {'S': window_key},
-                        'user_id': {'S': user_id},
-                        'request_count': {'N': str(current_count + 1)},
-                        'window_start': {'S': window_start.isoformat()},
-                        'ttl': {'N': str(int((window_start + timedelta(minutes=5)).timestamp()))}  # 5 min TTL
-                    }
-                )
-                
-                logger.debug(f"Rate limit check passed for user {user_id}: {current_count + 1}/{rate_limit}")
-                return True, None
-                
-            except ClientError as e:
-                logger.error(f"Error checking rate limit: {str(e)}")
-                # Allow request if rate limiting service is unavailable
-                return True, None
-        
-        except Exception as e:
-            logger.error(f"Error in check_rate_limit: {str(e)}")
-            # Allow request if rate limiting service is unavailable
+            self.dynamodb.update_item(TableName=self.rate_limit_table,
+                Key={'window_key': {'S': window_key}},
+                UpdateExpression='SET user_id = :user, window_start = :start, #ttl = :ttl ADD request_count :one',
+                ConditionExpression='attribute_not_exists(request_count) OR request_count < :limit',
+                ExpressionAttributeNames={'#ttl': 'ttl'},
+                ExpressionAttributeValues={':user': {'S': user_id}, ':start': {'S': window_start.isoformat()},
+                    ':ttl': {'N': str(int((window_start+timedelta(minutes=5)).timestamp()))}, ':one': {'N': '1'}, ':limit': {'N': str(rate_limit)}})
             return True, None
+        except ClientError as exc:
+            if exc.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                return False, f'Rate limit exceeded. Maximum {rate_limit} requests per minute.'
+            return False, 'Rate limiting service unavailable'
+        except Exception:
+            return False, 'Rate limiting service unavailable'
 
 
 def authenticate_and_authorize(event: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
@@ -297,9 +287,11 @@ def authenticate_and_authorize(event: Dict[str, Any]) -> Tuple[bool, Optional[st
         permissions = user_context.get('permissions', [])
         
         # Simple permission check
-        if method in ['POST', 'PUT', 'DELETE'] and 'write' not in permissions:
+        if method in ['POST', 'PUT', 'PATCH', 'DELETE'] and not (method == 'POST' and path == '/api/organization-advisor/query') and 'write' not in permissions:
             return False, 'Insufficient permissions for write operations', user_context
         
+        if (method in ['GET', 'HEAD'] or (method == 'POST' and path == '/api/organization-advisor/query')) and 'read' not in permissions:
+            return False, 'Insufficient permissions for read operations', user_context
         return True, None, user_context
     
     except Exception as e:
@@ -323,12 +315,12 @@ def create_auth_error_response(status_code: int, message: str) -> Dict[str, Any]
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'WWW-Authenticate': 'API-Key'
+            **({'WWW-Authenticate': 'API-Key'} if status_code == 401 else {})
         },
         'body': json.dumps({
             'success': False,
             'error': {
-                'code': 'AUTHENTICATION_FAILED' if status_code == 401 else 'RATE_LIMIT_EXCEEDED',
+                'code': {401: 'AUTHENTICATION_FAILED', 403: 'ACCESS_DENIED', 429: 'RATE_LIMIT_EXCEEDED', 503: 'ACCESS_SERVICE_UNAVAILABLE'}.get(status_code, 'ACCESS_ERROR'),
                 'message': message
             }
         })

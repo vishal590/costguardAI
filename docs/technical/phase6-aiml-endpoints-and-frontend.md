@@ -1,5 +1,9 @@
 # Phase 6 AI/ML: Backend Endpoints vs Frontend Integration
 
+> **SageMaker source update (October 14, 2026):** The [current SageMaker contract](sagemaker-observed-contracts.md) supersedes earlier SageMaker estimates and endpoint-idle claims. This does not certify GPU/Bedrock paths or rerun any historical tests. Further validation remains deferred.
+
+> **Backend source reviewed October 3, 2026.** Frontend hook/tab entries below record earlier work in the separate `client-aws-ideas` repository and were not reverified here. See [current API contracts](api-design.md) and [known limitations](documentation-code-sync.md).
+
 **Purpose:** Checklist of all Phase 6 (AI/ML workload) backend endpoints and whether each is integrated in the frontend.
 
 **Backend:** `src/ai_ml_handler.py` (AIML stack Lambda).  
@@ -18,7 +22,7 @@ Both are integrated in existing tabs: GPU prevention in the Idle GPUs tab; Set w
 | # | Method | Endpoint | Backend handler | API hook (apiSlice) | UI (AIMLPage) |
 |---|--------|----------|------------------|---------------------|---------------|
 | 1 | GET | `/api/ai-ml/gpu-costs` | `handle_gpu_costs` | `getGPUCosts` | ✅ GPU costs tab |
-| 2 | GET | `/api/ai-ml/gpu-utilization` | `handle_gpu_utilization` | — | — (backend returns 501 Not Implemented) |
+| 2 | GET | `/api/ai-ml/gpu-utilization` | `handle_gpu_utilization` | — | — (implemented; frontend status not reverified) |
 | 3 | GET | `/api/ai-ml/idle-gpus` | `handle_idle_gpus` | `getIdleGPUs` | ✅ Idle GPUs tab |
 | 4 | POST | `/api/ai-ml/gpu-prevention` | `handle_gpu_prevention` | `runGPUPrevention` | ✅ Idle GPUs tab (button) |
 | 5 | GET | `/api/ai-ml/gpu-cost-savings` | `handle_gpu_cost_savings` | `getGPUCostSavings` | ❌ No tab |
@@ -42,8 +46,8 @@ Both are integrated in existing tabs: GPU prevention in the Idle GPUs tab; Set w
 
 ## Summary
 
-- **Backend:** 20 endpoints (19 implemented; 1 returns 501: `gpu-utilization`).
-- **API hooks (apiSlice):** All 20 endpoints have a corresponding hook (gpu-utilization returns 501; hook can be added for consistency if desired).
+- **Backend:** 20 defined API methods; GPU utilization is implemented. Multi-account GPU cost/utilization routes reach their dedicated handlers; dispatch is covered by regression tests.
+- **API hooks (apiSlice):** The table records previously reported hooks. Current hook availability was not reverified in this backend review.
 - **UI (AIMLPage):** 6 tabs: GPU costs (table + set workload form), Idle GPUs (table + run prevention button), Spot recommendations, Cost per inference, SageMaker costs, Bedrock costs. The remaining GET endpoints have apiSlice hooks but no tab yet (API-only from frontend).
 
 ---

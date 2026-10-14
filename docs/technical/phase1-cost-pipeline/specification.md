@@ -3,13 +3,13 @@
 **Keywords:** Phase 1, Lambda, Cost Explorer API, DynamoDB, API Gateway, cost data pipeline, Kiro spec, AWS SDK, error handling, IAM permissions, Free Tier
 
 ## Related Files
-- **[../submission/FORM-FIELD-RESPONSES.md](../submission/FORM-FIELD-RESPONSES.md)** - Original game plan
-- **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - Current phase requirements
-- **[architecture.md](./architecture.md)** - System architecture
-- **[aws-services.md](./aws-services.md)** - AWS services documentation
-- **[database-design.md](./database-design.md)** - Database schema
-- **[api-design.md](./api-design.md)** - API specifications
-- **[../INDEX.md](../INDEX.md)** - Master documentation index
+- **[../submission/FORM-FIELD-RESPONSES.md](../../submission/FORM-FIELD-RESPONSES.md)** - Original game plan
+- **[../submission/SEMI-FINALIST-PHASE.md](../../submission/SEMI-FINALIST-PHASE.md)** - Current phase requirements
+- **[architecture.md](../architecture.md)** - System architecture
+- **[aws-services.md](../aws-services.md)** - AWS services documentation
+- **[database-design.md](../database-design.md)** - Database schema
+- **[api-design.md](../api-design.md)** - API specifications
+- **[../INDEX.md](../../INDEX.md)** - Master documentation index
 
 ---
 
@@ -641,6 +641,6 @@ Once Phase 1 is complete:
 
 **Last Updated:** February 2026  
 **Status:** ✅ **COMPLETE** - Phase 1 successfully implemented and deployed  
-**Implementation:** See [development-notes.md](./development-notes.md) for completion details  
+**Implementation:** See [development-notes.md](../development-notes.md) for completion details
 **Test Coverage:** 91.51% (105 unit tests, 29 integration tests)  
 **Deployment:** Production-ready, all tests passing

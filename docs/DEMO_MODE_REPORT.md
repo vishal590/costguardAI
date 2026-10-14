@@ -1,5 +1,8 @@
 # Autonomous Action Loops - Demo Mode Report
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](PROJECT_STATUS.md) and [current source limitations](technical/documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
+
 **Date**: 2026-03-05 20:02:58  
 **Total Duration**: 5.26s (0.09 minutes)  
 **Status**: ✅ PASSED

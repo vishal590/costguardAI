@@ -3,10 +3,10 @@
 **Keywords:** planning, timeline, milestones, tasks, schedule, project management, deadlines, phases, Kiro, Free Tier, CostGuard AI, cost management, cost prevention, forecasting, AI advisor, commercial potential, multi-account, SMB, startup, FinOps, AI/ML workload costs, GPU cost tracking, cost per inference, spot instances, unit economics, RI/SP optimization, Reserved Instances, Savings Plans, CloudZero, nOps, Vantage, competitive positioning, hackathon alignment, semantic search, cross-reference
 
 ## Related Files
-- **[../PHASE5_RECOMMENDATION.md](../PHASE5_RECOMMENDATION.md)** - � **Phase 5 Multi-Account Recommendation - Critical for commercial viability**
+- **[../PHASE5_RECOMMENDATION.md](phase5-recommendation.md)** - � **Phase 5 Multi-Account Recommendation - Critical for commercial viability**
 - **[../IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)** - 🎯 **SMB/Startup Impact Analysis - What makes the biggest difference**
 - **[../submission/SEMI-FINALIST-PHASE.md](../submission/SEMI-FINALIST-PHASE.md)** - 🚀 **CURRENT PHASE - Semi-finalist building & article requirements**
-- **[../technical/phase1-kiro-spec.md](../technical/phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
+- **[../technical/phase1-kiro-spec.md](../technical/phase1-cost-pipeline/specification.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
 - **[../submission/FORM-FIELD-RESPONSES.md](../submission/FORM-FIELD-RESPONSES.md)** - Original submission with game plan
 - **[ideas.md](./ideas.md)** - CostGuard AI project idea and concept
 - **[../competition/timeline.md](../competition/timeline.md)** - Competition timeline and deadlines
@@ -244,7 +244,7 @@
 - **Phase 5:** Multi-account cost management (95% of AWS users need this)
 - **Phase 6:** AI/ML Workload Cost Management (February 2026) - HIGHEST HACKATHON ALIGNMENT
   - **Why:** Higher hackathon alignment (+9.27% score), NO competitor does GPU cost tracking, AI startups fastest-growing segment
-  - **See:** [../HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) and [../PHASE6_ACTIVATION_SUMMARY.md](../PHASE6_ACTIVATION_SUMMARY.md)
+  - **See:** [../HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) and [../PHASE6_ACTIVATION_SUMMARY.md](phase6-activation-summary.md)
 - **Phase 7:** Unit Economics + RI/SP (POST-HACKATHON - deferred from original Phase 6, still valuable)
   - **See:** [../FUTURE_ROADMAP.md](../FUTURE_ROADMAP.md) and [phase7-recommendation.md](./phase7-recommendation.md)
 - **Phase 8:** Developer Cost Transparency (POST-HACKATHON - NEW - unique positioning, "shift-left" cost management)

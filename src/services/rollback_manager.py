@@ -11,7 +11,8 @@ from typing import Dict, Any
 from datetime import datetime, timedelta, UTC
 import logging
 import os
-import re
+import ast
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +39,18 @@ class RollbackManager:
         except (TypeError, ValueError):
             self.rollback_window_hours = 24
 
-    def _get_client(self, service: str):
-        """Get boto3 client for service, creating lazily if not in _clients (avoids creating clients on every prevention request)."""
-        if service not in self._clients:
-            try:
+    def _get_client(self, service: str, region: str = None):
+        """Use the observed resource region when capturing or restoring state."""
+        key = (service, region) if region else service
+        if key not in self._clients:
+            existing = self._clients.get(service)
+            if existing is not None and getattr(getattr(existing, 'meta', None), 'region_name', None) == region:
+                self._clients[key] = existing
+            else:
                 import boto3
-                self._clients[service] = boto3.client(service)
-            except Exception as e:
-                logger.warning(f"Could not create {service} client for rollback: {e}")
-                return None
-        return self._clients.get(service)
-    
+                self._clients[key] = boto3.client(service, **({'region_name': region} if region else {}))
+        return self._clients[key]
+
     def store_pre_action_state(self, resource, action: str):
         """
         Store resource state before action.
@@ -70,21 +72,31 @@ class RollbackManager:
             'timestamp': datetime.now(UTC).isoformat()
         }
         
+        if resource.service == 'lambda' and action == 'limit_concurrency':
+            client = self._get_client('lambda', resource.region)
+            prior = client.get_function_concurrency(FunctionName=resource.resource_id)
+            value = prior.get('ReservedConcurrentExecutions')
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError('Invalid original Lambda reserved concurrency')
+            state['reserved_concurrency'] = value
+
         try:
             self.dynamodb.put_item(
                 TableName=self.audit_table,
                 Item={
                     'action_id': {'S': f"{resource.resource_id}_{datetime.now(UTC).timestamp()}"},
-                    'timestamp': {'S': state['timestamp']},
+                    'timestamp': {'N': str(int(datetime.fromisoformat(state['timestamp']).timestamp()))},
+                    'timestamp_iso': {'S': state['timestamp']},
                     'event_type': {'S': 'pre_action_state'},
                     'resource_id': {'S': resource.resource_id},
                     'action': {'S': action},
-                    'state': {'S': str(state)},
+                    'state': {'S': json.dumps(state, default=str)},
                     'ttl': {'N': str(int((datetime.now(UTC) + timedelta(hours=self.rollback_window_hours)).timestamp()))}
                 }
             )
         except Exception as e:
             logger.error(f"Failed to store pre-action state: {e}")
+            raise RuntimeError("Action blocked: rollback snapshot could not be stored") from e
     
     def _get_str(self, item: Dict[str, Any], key: str) -> str:
         """Get string value from DynamoDB item attribute."""
@@ -98,27 +110,20 @@ class RollbackManager:
         return ""
 
     def _parse_state_string(self, state_str: str, action_id: str) -> Dict[str, Any]:
-        """Parse state string from audit item into a dict. Tries eval, then regex fallback for service/action."""
-        if not state_str or not state_str.strip():
+        """Read JSON or bounded legacy literals without executing stored code."""
+        if not isinstance(state_str, str) or not 1 <= len(state_str) <= 262144:
             return {}
-        s = state_str.replace("...", "None").strip()
-        try:
-            parsed = eval(s)
-            if isinstance(parsed, dict) and parsed.get("service") and parsed.get("action"):
-                return parsed
-            if isinstance(parsed, str):
-                inner = parsed.replace("...", "None").strip()
-                parsed = eval(inner)
-                if isinstance(parsed, dict) and parsed.get("service") and parsed.get("action"):
-                    return parsed
-        except Exception as e:
-            logger.debug(f"eval state failed for {action_id}: {e}")
-        # Fallback: extract 'service' and 'action' from string (e.g. "'service': 'ec2'" or "service': 'ec2")
-        m_service = re.search(r"['\"]?service['\"]?\s*:\s*['\"]([^'\"]+)['\"]", state_str, re.I)
-        m_action = re.search(r"['\"]?action['\"]?\s*:\s*['\"]([^'\"]+)['\"]", state_str, re.I)
-        if m_service and m_action:
-            return {"service": m_service.group(1).strip(), "action": m_action.group(1).strip(), "resource_id": ""}
-        return {}
+        parsed = state_str
+        for _ in range(2):
+            if not isinstance(parsed, str): break
+            try:
+                parsed = json.loads(parsed)
+            except (ValueError, TypeError):
+                try: parsed = ast.literal_eval(parsed)
+                except (ValueError, SyntaxError, TypeError, RecursionError): return {}
+        if not isinstance(parsed, dict) or not parsed.get('service') or not parsed.get('action'):
+            return {}
+        return parsed
 
     def execute_rollback(self, action_id: str) -> Any:
         """
@@ -183,12 +188,14 @@ class RollbackManager:
             
             # Check if within rollback window (timestamp may be ISO string or Unix epoch string from DynamoDB N type)
             try:
-                if timestamp_str and timestamp_str.strip().isdigit():
-                    action_timestamp = datetime.fromtimestamp(int(timestamp_str), tz=UTC)
-                else:
-                    action_timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            except (ValueError, TypeError):
-                action_timestamp = datetime.now(UTC)
+                from .time_values import parse_utc_timestamp
+                action_timestamp = parse_utc_timestamp(timestamp_str)
+                if action_timestamp.tzinfo is None: raise ValueError('Missing timestamp timezone')
+                if action_timestamp > datetime.now(UTC)+timedelta(minutes=5): raise ValueError('Future rollback timestamp')
+            except (ValueError, TypeError, OverflowError):
+                return RollbackResult(action_id=action_id, resource_id=resource_id, success=False,
+                    restored_state={}, timestamp=datetime.now(UTC).isoformat(),
+                    error_message='Rollback blocked: original action timestamp is missing or invalid.')
             if datetime.now(UTC) - action_timestamp > timedelta(hours=self.rollback_window_hours):
                 logger.error(f"Action {action_id} is outside rollback window ({self.rollback_window_hours}h)")
                 return RollbackResult(
@@ -200,9 +207,9 @@ class RollbackManager:
                     error_message=f"Rollback only available for actions in the last {self.rollback_window_hours} hours."
                 )
             
-            # Execute rollback based on action type (state may be dict string; "..." can break eval in some envs)
+            # Restore only a complete safely parsed state.
             state_dict = self._parse_state_string(state_str, action_id)
-            if not state_dict:
+            if not state_dict or not state_dict.get('region') or state_dict.get('resource_id') != resource_id or state_dict.get('action') != action:
                 return RollbackResult(
                     action_id=action_id,
                     resource_id=resource_id,
@@ -259,9 +266,9 @@ class RollbackManager:
         
         try:
             if service == 'ec2' and action == 'stop':
-                return self._rollback_ec2_stop(resource_id)
+                return self._rollback_ec2_stop(resource_id, state.get('region'))
             elif service == 'rds' and action == 'stop':
-                return self._rollback_rds_stop(resource_id)
+                return self._rollback_rds_stop(resource_id, state.get('region'))
             elif service == 'lambda' and action == 'limit_concurrency':
                 return self._rollback_lambda_concurrency(resource_id, state)
             else:
@@ -272,10 +279,10 @@ class RollbackManager:
             logger.error(f"Failed to restore resource {resource_id}: {e}")
             return False
     
-    def _rollback_ec2_stop(self, instance_id: str) -> bool:
+    def _rollback_ec2_stop(self, instance_id: str, region: str = None) -> bool:
         """Rollback EC2 stop by restarting instance."""
         try:
-            ec2 = self._get_client('ec2')
+            ec2 = self._get_client('ec2', region)
             if not ec2:
                 return False
             
@@ -287,10 +294,10 @@ class RollbackManager:
             logger.error(f"Failed to restart EC2 instance {instance_id}: {e}")
             return False
     
-    def _rollback_rds_stop(self, db_identifier: str) -> bool:
+    def _rollback_rds_stop(self, db_identifier: str, region: str = None) -> bool:
         """Rollback RDS stop by restarting database."""
         try:
-            rds = self._get_client('rds')
+            rds = self._get_client('rds', region)
             if not rds:
                 return False
             
@@ -305,12 +312,20 @@ class RollbackManager:
     def _rollback_lambda_concurrency(self, function_name: str, state: Dict[str, Any]) -> bool:
         """Rollback Lambda concurrency limit."""
         try:
-            lambda_client = self._get_client('lambda')
+            lambda_client = self._get_client('lambda', state.get('region'))
             if not lambda_client:
                 return False
             
-            # Remove concurrency limit (restore to unreserved)
-            response = lambda_client.delete_function_concurrency(FunctionName=function_name)
+            if 'reserved_concurrency' not in state:
+                logger.warning('Original Lambda concurrency is unavailable; rollback blocked')
+                return False
+            original = state['reserved_concurrency']
+            if original is None:
+                lambda_client.delete_function_concurrency(FunctionName=function_name)
+            elif type(original) is int and original >= 0:
+                lambda_client.put_function_concurrency(FunctionName=function_name, ReservedConcurrentExecutions=original)
+            else:
+                return False
             logger.info(f"Restored Lambda concurrency for: {function_name}")
             return True
             
@@ -325,11 +340,14 @@ class RollbackManager:
                 TableName=self.audit_table,
                 Item={
                     'action_id': {'S': f"rollback_{result.action_id}"},
-                    'timestamp': {'S': result.timestamp},
-                    'event_type': {'S': 'rollback'},
+                    'timestamp': {'N': str(int(datetime.fromisoformat(result.timestamp).timestamp()))},
+                    'timestamp_iso': {'S': result.timestamp},
+                    'event_type': {'S': 'rollback_submitted' if result.success else 'rollback_failed'},
+                    'verification_status': {'S': 'unverified'},
+                    'ttl': {'N': str(int(datetime.now(UTC).timestamp())+90*86400)},
                     'resource_id': {'S': result.resource_id},
                     'success': {'BOOL': result.success},
-                    'details': {'S': str(result.restored_state)}
+                    'target_state': {'S': json.dumps(result.restored_state, default=str)}
                 }
             )
         except Exception as e:

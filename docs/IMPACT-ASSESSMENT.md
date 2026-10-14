@@ -7,8 +7,8 @@
 **Last Updated:** February 2026
 
 **Related Documentation:**
-- [Phase 5 Recommendation](./PHASE5_RECOMMENDATION.md) - Multi-account cost management plan
-- [Phase 6 Recommendation](./PHASE6_RECOMMENDATION.md) - Unit economics + RI/SP optimization plan
+- [Phase 5 Recommendation](project/phase5-recommendation.md) - Multi-account cost management plan
+- [Phase 6 Recommendation](project/phase6-recommendation.md) - Unit economics + RI/SP optimization plan
 - [Competitive Analysis](./COMPETITIVE-ANALYSIS.md) - Market positioning (updated with Phase 6)
 - [Problem Statement](./PROBLEM-STATEMENT.md) - Core problem we're solving
 - [Alignment Analysis](./ALIGNMENT-ANALYSIS.md) - Hackathon alignment verification
@@ -539,8 +539,8 @@
 
 ## See Also
 
-- **[Phase 5 Recommendation](./PHASE5_RECOMMENDATION.md)** - Multi-account cost management plan
-- **[Phase 6 Recommendation](./PHASE6_RECOMMENDATION.md)** - Unit economics + RI/SP optimization plan
+- **[Phase 5 Recommendation](project/phase5-recommendation.md)** - Multi-account cost management plan
+- **[Phase 6 Recommendation](project/phase6-recommendation.md)** - Unit economics + RI/SP optimization plan
 - **[Competitive Analysis](./COMPETITIVE-ANALYSIS.md)** - Detailed competitive landscape (updated with Phase 6)
 - **[Problem Statement](./PROBLEM-STATEMENT.md)** - Core problem definition
 - **[Alignment Analysis](./ALIGNMENT-ANALYSIS.md)** - Hackathon alignment verification

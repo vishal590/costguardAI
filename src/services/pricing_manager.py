@@ -54,7 +54,7 @@ class PricingManager:
             # Try to get from cache first
             cached_pricing = self._get_from_cache(service, region)
             
-            if cached_pricing and not self.is_pricing_stale(cached_pricing):
+            if cached_pricing and cached_pricing.source == "aws_pricing" and not self.is_pricing_stale(cached_pricing):
                 return cached_pricing
             
             # Cache miss or stale, fetch from API
@@ -143,16 +143,20 @@ class PricingManager:
             # Build filters for the region
             filters = [
                 {'Type': 'TERM_MATCH', 'Field': 'ServiceCode', 'Value': service_code},
-                {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': self._get_location_name(region)}
+                {'Type': 'TERM_MATCH', 'Field': 'regionCode', 'Value': region}
             ]
             
-            # Get pricing data
-            response = self.pricing_client.get_products(
-                ServiceCode=service_code,
-                Filters=filters,
-                MaxResults=100
-            )
-            
+            request = {'ServiceCode': service_code, 'Filters': filters, 'MaxResults': 100}
+            products, seen = [], set()
+            while True:
+                response = self.pricing_client.get_products(**request)
+                products.extend(response.get('PriceList', []))
+                token = response.get('NextToken')
+                if not token: break
+                if token in seen: raise ValueError('Repeated pricing page token')
+                seen.add(token)
+                request['NextToken'] = token
+            response = {'PriceList': products}
             # Parse pricing data
             prices = self._parse_pricing_response(response, service)
             
@@ -163,7 +167,8 @@ class PricingManager:
                 prices=prices,
                 currency='USD',
                 last_updated=datetime.now(timezone.utc),
-                ttl=86400  # 24 hours
+                ttl=86400, source="aws_pricing",
+                pricing_profile="Linux/shared EC2; x86 Lambda; on-demand standard DynamoDB; standard S3; Single-AZ PostgreSQL/general-purpose RDS"
             )
             
             return pricing_data
@@ -209,6 +214,8 @@ class PricingManager:
                 'region': region,
                 'prices': prices_dict,
                 'currency': pricing.currency,
+                'source': pricing.source,
+                'pricing_profile': pricing.pricing_profile,
                 'last_updated': pricing.last_updated.isoformat(),
                 'ttl': ttl_timestamp
             }
@@ -276,7 +283,7 @@ class PricingManager:
                 prices=prices,
                 currency=item.get('currency', 'USD'),
                 last_updated=datetime.fromisoformat(item.get('last_updated', datetime.now(timezone.utc).isoformat())),
-                ttl=86400  # 24 hours
+                ttl=86400, source=item.get("source", "legacy_unverified"), pricing_profile=item.get("pricing_profile", "unspecified")
             )
             
             return pricing_data
@@ -331,70 +338,38 @@ class PricingManager:
         Returns:
             Dictionary of prices
         """
-        prices = {}
-        
-        try:
-            for price_item in response.get('PriceList', []):
-                price_data = json.loads(price_item)
-                
-                # Extract pricing information based on service
-                if service == 'ec2':
-                    # Get instance type and price
-                    product = price_data.get('product', {})
-                    attributes = product.get('attributes', {})
-                    instance_type = attributes.get('instanceType')
-                    
-                    if instance_type:
-                        # Get on-demand pricing
-                        terms = price_data.get('terms', {})
-                        on_demand = terms.get('OnDemand', {})
-                        
-                        for term_key, term_value in on_demand.items():
-                            price_dimensions = term_value.get('priceDimensions', {})
-                            for dim_key, dim_value in price_dimensions.items():
-                                price_per_unit = dim_value.get('pricePerUnit', {})
-                                usd_price = price_per_unit.get('USD')
-                                
-                                if usd_price:
-                                    prices[instance_type] = Decimal(usd_price)
-                                    break
-                
-                elif service == 'lambda':
-                    # Lambda has request and duration pricing
-                    product = price_data.get('product', {})
-                    attributes = product.get('attributes', {})
-                    group = attributes.get('group', '')
-                    
-                    terms = price_data.get('terms', {})
-                    on_demand = terms.get('OnDemand', {})
-                    
-                    for term_key, term_value in on_demand.items():
-                        price_dimensions = term_value.get('priceDimensions', {})
-                        for dim_key, dim_value in price_dimensions.items():
-                            price_per_unit = dim_value.get('pricePerUnit', {})
-                            usd_price = price_per_unit.get('USD')
-                            
-                            if usd_price:
-                                if 'Request' in group:
-                                    prices['request'] = Decimal(usd_price)
-                                elif 'Duration' in group or 'GB-Second' in group:
-                                    prices['gb_second'] = Decimal(usd_price)
-                
-                # Note: DynamoDB, S3, and RDS pricing parsing not implemented
-                # These services use default prices from _get_default_prices() which are accurate
-                # Pricing API parsing for these services is complex and varies significantly
-                # Default prices work correctly for cost estimation
-                
-        except Exception as e:
-            # If parsing fails, return default prices
-            prices = self._get_default_prices(service)
-        
-        # If no prices found, use defaults
-        if not prices:
-            prices = self._get_default_prices(service)
-        
-        return prices
-    
+        candidates = {}
+        for encoded in response.get('PriceList', []):
+            product = json.loads(encoded) if isinstance(encoded, str) else encoded
+            attrs = product.get('product', {}).get('attributes', {})
+            usage = attrs.get('usagetype', '')
+            for term in product.get('terms', {}).get('OnDemand', {}).values():
+                for dimension in term.get('priceDimensions', {}).values():
+                    if dimension.get('beginRange', '0') != '0': continue
+                    unit, key = dimension.get('unit', ''), None
+                    if service == 'ec2' and unit == 'Hrs' and attrs.get('operatingSystem') == 'Linux' and attrs.get('tenancy') == 'Shared' and attrs.get('preInstalledSw', 'NA') == 'NA' and attrs.get('capacitystatus', 'Used') == 'Used':
+                        key = attrs.get('instanceType')
+                    elif service == 'lambda' and 'ARM' not in usage.upper() and 'Edge' not in usage:
+                        if unit == 'Requests' and 'Request' in usage: key = 'request'
+                        elif unit == 'GB-Seconds' and 'GB-Second' in usage: key = 'gb_second'
+                    elif service == 'dynamodb' and 'IA' not in usage and 'Replicated' not in usage:
+                        if 'ReadRequestUnits' in usage: key = 'read_unit'
+                        elif 'WriteRequestUnits' in usage: key = 'write_unit'
+                    elif service == 's3':
+                        group = attrs.get('group', '')
+                        if unit == 'GB-Mo' and attrs.get('storageClass') == 'General Purpose' and attrs.get('volumeType') == 'Standard': key = 'storage_gb'
+                        elif unit == 'Requests' and group == 'S3-API-Tier1': key = 'put_request'
+                        elif unit == 'Requests' and group == 'S3-API-Tier2': key = 'get_request'
+                    elif service == 'rds' and attrs.get('deploymentOption') == 'Single-AZ':
+                        if unit == 'Hrs' and attrs.get('databaseEngine') == 'PostgreSQL': key = attrs.get('instanceType')
+                        elif unit == 'GB-Mo' and 'GP2' in usage.upper() and attrs.get('databaseEngine') in (None, 'Any', 'PostgreSQL'): key = 'storage_gb'
+                    value = dimension.get('pricePerUnit', {}).get('USD')
+                    if key and value is not None:
+                        rate = Decimal(value)
+                        if rate.is_finite() and rate >= 0: candidates.setdefault(key, set()).add(rate)
+        # Conflicting product profiles cannot become an arbitrary price.
+        return {key: next(iter(values)) for key, values in candidates.items() if len(values) == 1}
+
     def _get_default_prices(self, service: str) -> Dict[str, Decimal]:
         """
         Get default prices for a service (fallback).

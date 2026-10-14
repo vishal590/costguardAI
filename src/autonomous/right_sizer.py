@@ -205,7 +205,9 @@ def analyze_utilization(instance_id: str, days: int = 7) -> Optional[Utilization
                 instance_type = "g4dn.2xlarge"
             
             if not samples:
-                # Fallback: generate synthetic data if no metrics available
+                if os.environ.get("DEMO_MODE", "false").lower() != "true":
+                    return None
+                # Demo analytics only; synthetic metrics never authorize execution.
                 import hashlib
                 seed = int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16)
                 import random
@@ -214,7 +216,9 @@ def analyze_utilization(instance_id: str, days: int = 7) -> Optional[Utilization
                 
         except Exception as e:
             print(f"ERROR: Failed to get utilization metrics: {e}")
-            # Fallback: generate synthetic data
+            if os.environ.get("DEMO_MODE", "false").lower() != "true":
+                return None
+            # Demo analytics only; synthetic metrics never authorize execution.
             import hashlib
             seed = int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16)
             import random
@@ -437,77 +441,23 @@ def compare_cost_per_inference(results: Dict[str, Any]) -> str:
 
 
 def create_rollback_point(instance_id: str) -> str:
-    """
-    Create rollback point before migration.
-    
-    Args:
-        instance_id: Instance ID
-        
-    Returns:
-        Rollback ID
-    """
-    rollback_id = f"rollback_{int(time.time())}_{instance_id}"
-    
-    try:
-        # Store rollback metadata
-        ttl = int((datetime.utcnow() + timedelta(days=7)).timestamp())
-        
-        migration_rollbacks_table.put_item(Item={
-            "rollback_id": rollback_id,
-            "instance_id": instance_id,
-            "created_at": datetime.utcnow().isoformat(),
-            "status": "created",
-            "ttl": ttl,
-        })
-        
-        print(f"Rollback point created: {rollback_id}")
-        return rollback_id
-        
-    except Exception as e:
-        print(f"ERROR: Failed to create rollback point: {e}")
-        raise
+    """Store actual instance state for inspection; execution snapshots are separate."""
+    from autonomous.action_executor import instance
+    current = instance(instance_id)
+    rollback_id = "inspection_" + instance_id + "_" + str(int(time.time()))
+    migration_rollbacks_table.put_item(Item={"rollback_id": rollback_id,
+        "created_at": datetime.utcnow().isoformat(), "instance_id": instance_id,
+        "previous_instance_type": current["InstanceType"], "previous_state": current["State"]["Name"],
+        "ttl": int(time.time()) + 90 * 86400})
+    return rollback_id
 
 
 def migrate_workload(instance_id: str, new_type: str, rollback_id: str) -> bool:
-    """
-    Migrate workload to new instance type.
-    
-    Args:
-        instance_id: Instance ID
-        new_type: New instance type
-        rollback_id: Rollback point ID
-        
-    Returns:
-        True if migration successful
-    """
-    # Check dry-run mode at runtime
-    dry_run = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
-    
-    try:
-        if dry_run:
-            print(f"DRY RUN: Would migrate {instance_id} to {new_type}")
-            return True
-        
-        # In production, would use EC2 API to modify instance type
-        # For now, simulate the migration
-        print(f"Migrating {instance_id} to {new_type}")
-        
-        # Update rollback record
-        migration_rollbacks_table.update_item(
-            Key={"rollback_id": rollback_id},
-            UpdateExpression="SET #status = :status, new_instance_type = :new_type",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={
-                ":status": "migrated",
-                ":new_type": new_type,
-            }
-        )
-        
+    """Legacy direct migration is disabled; use the approved action executor."""
+    if os.environ.get("DRY_RUN_MODE", "true").lower() == "true":
         return True
-        
-    except Exception as e:
-        print(f"ERROR: Migration failed: {e}")
-        return False
+    print("Direct migration refused: submit a right_sizing ActionRequest for approval")
+    return False
 
 
 def monitor_performance(instance_id: str, duration_minutes: int = 30) -> float:
@@ -533,47 +483,9 @@ def monitor_performance(instance_id: str, duration_minutes: int = 30) -> float:
 
 
 def execute_rollback(rollback_id: str) -> bool:
-    """
-    Execute rollback to restore previous instance type.
-    
-    Args:
-        rollback_id: Rollback point ID
-        
-    Returns:
-        True if rollback successful
-    """
-    try:
-        # Query rollback metadata
-        response = migration_rollbacks_table.get_item(Key={"rollback_id": rollback_id})
-        
-        if "Item" not in response:
-            print(f"ERROR: Rollback point not found: {rollback_id}")
-            return False
-        
-        rollback_data = response["Item"]
-        instance_id = rollback_data["instance_id"]
-        
-        print(f"Executing rollback for {instance_id}")
-        
-        # In production, would restore previous instance type
-        # For now, simulate rollback
-        
-        # Update rollback record
-        migration_rollbacks_table.update_item(
-            Key={"rollback_id": rollback_id},
-            UpdateExpression="SET #status = :status, rolled_back_at = :timestamp",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={
-                ":status": "rolled_back",
-                ":timestamp": datetime.utcnow().isoformat(),
-            }
-        )
-        
-        return True
-        
-    except Exception as e:
-        print(f"ERROR: Rollback failed: {e}")
-        return False
+    """Legacy rollback points cannot restore state without an approved action."""
+    print("Use the autonomous rollback API with the executor action ID")
+    return False
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -601,8 +513,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     else:
         # Scheduled event - analyze all instances
         # In production, would query all GPU instances
-        instance_ids = ["i-example1", "i-example2"]
-        days = 7
+        body = event
+        response = ec2_client.describe_instances(Filters=[
+            {"Name": "tag:CostGuardManaged", "Values": ["true"]},
+            {"Name": "instance-state-name", "Values": ["running", "stopped"]}])
+        instance_ids = [obj["InstanceId"] for reservation in response["Reservations"] for obj in reservation["Instances"]]
+        days = body.get("days", 7)
     
     recommendations = []
     total_confidence = 0.0
@@ -641,12 +557,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
         
         recommendations.append(recommendation.to_dict())
+        if (body.get("execute") is True
+                and os.environ.get("DRY_RUN_MODE", "true").lower() != "true"
+                and os.environ.get("DEMO_MODE", "false").lower() != "true"):
+            from autonomous.spot_manager import submit_replacement_request
+            request_id = submit_replacement_request("right_sizing", {
+                "instance_id": instance_id, "new_instance_type": recommended_type,
+                "region": os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")),
+                "max_hourly_cost": body.get("max_hourly_cost")})
+            recommendations[-1]["request_id"] = request_id
     
     # Publish CloudWatch metrics
     if recommendations:
         avg_confidence = total_confidence / len(recommendations)
         metrics.publish_confidence_score(avg_confidence)
-        metrics.publish_action_success_rate("right_sizing", 0.95)  # Historical success rate
         print(f"Published metrics: confidence={avg_confidence:.2f}, success_rate=0.95")
     
     return {

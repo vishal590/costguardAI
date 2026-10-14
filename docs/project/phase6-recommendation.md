@@ -8,13 +8,13 @@
 **Last Updated:** February 2026
 
 **Related Documentation:**
-- [HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md) - What AWS emphasizes most (agent workflows, painkiller problems, ROI)
-- [PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md) - Phase 5 multi-account cost management
-- [IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
-- [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) - Market positioning vs. CloudZero/nOps/Vantage
-- [project/planning.md](./project/planning.md) - Overall project plan with all phases
-- [PHASE4_STATUS.md](./PHASE4_STATUS.md) - Current implementation status
-- [INDEX.md](./INDEX.md) - Master documentation index
+- [HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) - What AWS emphasizes most (agent workflows, painkiller problems, ROI)
+- [PHASE5_RECOMMENDATION.md](phase5-recommendation.md) - Phase 5 multi-account cost management
+- [IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
+- [COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md) - Market positioning vs. CloudZero/nOps/Vantage
+- [project/planning.md](planning.md) - Overall project plan with all phases
+- [PHASE4_STATUS.md](../PHASE4_STATUS.md) - Current implementation status
+- [INDEX.md](../INDEX.md) - Master documentation index
 
 ---
 
@@ -920,11 +920,11 @@ Table: costguard-training-costs
 
 ## See Also
 
-- **[HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md)** - What AWS emphasizes most (CRITICAL READ)
-- **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)** - Phase 5 multi-account cost management
-- **[PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md](./PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md)** - Original Phase 6 (DEFERRED to Phase 7)
-- **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - SMB/startup impact analysis
-- **[COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md)** - Market positioning
-- **[project/planning.md](./project/planning.md)** - Overall project plan
-- **[PHASE4_STATUS.md](./PHASE4_STATUS.md)** - Current implementation status
-- **[INDEX.md](./INDEX.md)** - Master documentation index
+- **[HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md)** - What AWS emphasizes most (CRITICAL READ)
+- **[PHASE5_RECOMMENDATION.md](phase5-recommendation.md)** - Phase 5 multi-account cost management
+- **[PHASE6_RECOMMENDATION_UNIT_ECONOMICS.md](phase7-recommendation.md)** - Original Phase 6 (DEFERRED to Phase 7)
+- **[IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md)** - SMB/startup impact analysis
+- **[COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md)** - Market positioning
+- **[project/planning.md](planning.md)** - Overall project plan
+- **[PHASE4_STATUS.md](../PHASE4_STATUS.md)** - Current implementation status
+- **[INDEX.md](../INDEX.md)** - Master documentation index

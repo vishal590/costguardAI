@@ -4,6 +4,8 @@ AWS Lambda handler for Cost Data Pipeline.
 This handler processes API Gateway requests to fetch and query AWS cost data.
 """
 import json
+from .services.request_json import RequestBodyError, prepare_json_body
+from .services.access_control import AccessDenied, BackendAuthenticationError, BackendConfigurationError, authorize_stack_request, advisor_identity
 import logging
 import os
 import threading
@@ -19,7 +21,7 @@ from .services.forecast_engine import ForecastEngine
 from .services.bedrock_client import BedrockClient
 from .services.historical_data import HistoricalDataRetriever
 from .services.forecast_cache import ForecastCacheManager
-from .services.prevention_engine import PreventionEngine
+from .services.prevention_engine import PreventionEngine, PreventionConfigurationUnavailable, PreventionConfigurationConflict
 from .services.budget_monitor import BudgetMonitor
 from .services.resource_manager import ResourceManager
 from .services.idle_detector import IdleDetector
@@ -79,12 +81,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     try:
         # Log incoming event
-        logger.info(f"Received event: {json.dumps(event)}")
+        logger.info("Request method=%s path=%s", event.get("httpMethod"), event.get("path"))
         
         # Check if this is an EventBridge scheduled event
         if event.get('source') == 'aws.events' or event.get('type') == 'budget-monitoring':
             return handle_eventbridge_event(event)
         
+        try:
+            authorize_stack_request(event)
+        except RequestBodyError as exc:
+            return create_error_response(400, 'INVALID_REQUEST_BODY', str(exc))
+        except BackendConfigurationError:
+            return create_error_response(503, 'BACKEND_AUTHENTICATION_UNAVAILABLE', 'Backend access is not configured')
+        except BackendAuthenticationError:
+            return create_error_response(401, 'BACKEND_AUTHENTICATION_FAILED', 'Invalid backend access key')
+        except AccessDenied as exc:
+            return create_error_response(403, "ACCESS_DENIED", str(exc))
+
         # Extract HTTP method and path
         http_method = event.get('httpMethod', 'GET')
         path = event.get('path', '')
@@ -93,6 +106,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Phase 1 endpoints
         if http_method == 'POST' and '/fetch' in path:
             return handle_fetch(event)
+        elif http_method == 'GET' and path.endswith('/cost-data/summary'):
+            return handle_cost_history_summary(event)
         elif http_method == 'GET' and path.endswith('/cost-data'):
             return handle_query(event)
         # Phase 1.5 endpoints
@@ -108,10 +123,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Phase 3 endpoints
         elif http_method == 'GET' and path.endswith('/prevention/status'):
             return handle_prevention_status(event)
+        elif http_method == 'POST' and path.endswith('/prevention/config'):
+            return handle_prevention_config(event)
         elif http_method == 'POST' and path.endswith('/prevention/enable'):
             return handle_prevention_enable(event)
         elif http_method == 'POST' and path.endswith('/prevention/disable'):
             return handle_prevention_disable(event)
+        elif http_method == 'GET' and path.endswith('/prevention/resource'):
+            return handle_prevention_resource(event)
         elif http_method == 'GET' and path.endswith('/prevention/resources'):
             return handle_prevention_resources(event)
         elif http_method == 'POST' and path.endswith('/prevention/rollback'):
@@ -175,7 +194,7 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
         # Extract and validate parameters
         start_date = params.get('startDate')
         end_date = params.get('endDate')
-        granularity = params.get('granularity', 'MONTHLY')
+        granularity = params.get('granularity', 'DAILY')
         
         # Use defaults if not provided
         if not start_date or not end_date:
@@ -213,6 +232,15 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
                 f'Invalid granularity: {granularity}. Must be DAILY, MONTHLY, or HOURLY'
             )
         
+        span = (datetime.fromisoformat(end_date)-datetime.fromisoformat(start_date)).days
+        maximum = 14 if granularity == 'HOURLY' else 366 if granularity == 'MONTHLY' else 31
+        if not 1 <= span <= maximum:
+            return create_error_response(400, 'INVALID_DATE_RANGE', f'Choose 1-{maximum} days; fetch end dates are exclusive')
+        if datetime.fromisoformat(end_date).date() > datetime.now(UTC).date():
+            return create_error_response(400, 'INVALID_DATE_RANGE', 'Fetch end date cannot be later than today UTC')
+        if granularity == 'HOURLY' and datetime.fromisoformat(start_date).date() < datetime.now(UTC).date()-timedelta(days=14):
+            return create_error_response(400, 'INVALID_DATE_RANGE', 'Hourly collection supports the recent 14-day provider window')
+
         logger.info(f"Fetching cost data: {start_date} to {end_date}, granularity: {granularity}")
         
         # Fetch cost data from Cost Explorer
@@ -221,10 +249,21 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
         
         logger.info(f"Fetched {len(records)} cost records")
         
+        currencies = {record.currency for record in records}
+        if len(currencies) > 1:
+            return create_error_response(503, 'INCONSISTENT_CURRENCY', 'Cost data uses inconsistent currencies; no combined total is available')
         # Store in DynamoDB
         if records:
             table_name = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
-            store_cost_data(records, table_name=table_name)
+            # Invalidate before and after the batch so an in-flight forecast
+            # cannot populate the post-refresh generation with older input.
+            import boto3
+            refresh_cache = ForecastCacheManager(boto3.client('dynamodb'), table_name=os.environ.get('FORECAST_CACHE_TABLE', 'costguard-forecast-cache'))
+            refresh_cache.invalidate_all()
+            try:
+                store_cost_data(records, table_name=table_name)
+            finally:
+                refresh_cache.invalidate_all()
             logger.info(f"Stored {len(records)} records in DynamoDB")
         
         # Calculate summary
@@ -233,14 +272,19 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
         # Build response
         response_data = {
             'success': True,
-            'message': 'Cost data fetched and stored successfully',
+            'message': 'Cost data fetched and stored successfully' if records else 'No observed service cost records were returned',
             'data': {
                 'recordsProcessed': summary['recordCount'],
                 'dateRange': {
                     'start': start_date,
                     'end': end_date
                 },
-                'totalCost': summary['totalCost'],
+                'totalCost': summary['totalCost'] if records else None,
+                'currency': next(iter(currencies)) if currencies else None,
+                'observationStatus': 'observed' if records else 'no_observations',
+                'granularity': granularity,
+                'estimatedRecords': sum(record.is_estimated is True for record in records),
+                'unknownEstimateRecords': sum(record.is_estimated is None for record in records),
                 'services': list(set(r.service for r in records))
             }
         }
@@ -267,6 +311,26 @@ def handle_fetch(event: Dict[str, Any]) -> Dict[str, Any]:
         )
 
 
+def handle_cost_history_summary(event):
+    """Summarize selected stored daily rows independently of history page limits."""
+    from .services.cost_history_summary import summarize_daily_history
+    params = event.get('queryStringParameters') or {}
+    start, end = params.get('startDate'), params.get('endDate')
+    if not validate_date_format(start or '') or not validate_date_format(end or '') or not validate_date_range(start, end):
+        return create_error_response(400, 'INVALID_DATE_RANGE', 'Supply ordered YYYY-MM-DD startDate and endDate')
+    if (datetime.fromisoformat(end)-datetime.fromisoformat(start)).days > 30:
+        return create_error_response(400, 'INVALID_DATE_RANGE', 'Daily summaries support at most 31 dates')
+    try:
+        records = query_cost_data(QueryParams(start_date=start, end_date=end, service=params.get('service'), granularity='DAILY'),
+            table_name=os.environ.get('COST_DATA_TABLE', 'costguard-cost-data'))
+        result = summarize_daily_history(records, start, end)
+        return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps(result)}
+    except ValueError as error: return create_error_response(422, 'COST_SUMMARY_UNAVAILABLE', str(error))
+    except Exception as error:
+        logger.warning('Daily summary unavailable: %s', type(error).__name__)
+        return create_error_response(503, 'COST_SUMMARY_UNAVAILABLE', 'Observed daily history could not be loaded')
+
+
 def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     Handle GET /cost-data request to query stored cost data.
@@ -284,18 +348,24 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
         start_date = query_params.get('startDate')
         end_date = query_params.get('endDate')
         service = query_params.get('service')
+        granularity = query_params.get('granularity', 'DAILY')
+        if granularity not in ('DAILY', 'MONTHLY', 'HOURLY', 'UNKNOWN'):
+            return create_error_response(400, 'INVALID_GRANULARITY', 'Choose DAILY, MONTHLY, HOURLY or UNKNOWN legacy records')
         limit_str = query_params.get('limit', '100')
         
         # Validate and parse limit
         try:
             limit = int(limit_str)
-        except ValueError:
+        except (ValueError, TypeError):
             return create_error_response(
                 400,
                 'INVALID_PARAMETER',
                 f'Invalid limit: {limit_str}. Must be an integer'
             )
         
+        if not 1 <= limit <= 1000:
+            return create_error_response(400, 'INVALID_PARAMETER', 'Limit must be between 1 and 1000')
+
         # Validate date formats if provided
         if start_date and not validate_date_format(start_date):
             return create_error_response(
@@ -311,6 +381,14 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
                 f'Invalid end date format: {end_date}. Expected YYYY-MM-DD'
             )
         
+        # HTTP history always has bounded monthly-partition reads. The service
+        # utility retains its explicit undated scan fallback for internal callers.
+        end_date = end_date or datetime.now(UTC).date().isoformat()
+        start_date = start_date or (datetime.fromisoformat(end_date).date()-timedelta(days=30)).isoformat()
+        maximum_days = 31 if granularity == 'HOURLY' else 366
+        if (datetime.fromisoformat(end_date)-datetime.fromisoformat(start_date)).days >= maximum_days:
+            return create_error_response(400, 'INVALID_DATE_RANGE', f'Choose at most {maximum_days} inclusive dates for this granularity')
+
         # Validate date range if both provided
         if start_date and end_date and not validate_date_range(start_date, end_date):
             return create_error_response(
@@ -321,17 +399,26 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
         
         logger.info(f"Querying cost data: start={start_date}, end={end_date}, service={service}, limit={limit}")
         
+        from .services.cost_history_cursor import decode_cursor, encode_cursor
+        filters = {'start': start_date, 'end': end_date, 'service': service, 'granularity': granularity}
+        try:
+            before_date, before_service = decode_cursor(query_params['cursor'], filters) if query_params.get('cursor') else (None, None)
+        except ValueError as error:
+            return create_error_response(400, 'INVALID_CURSOR', str(error))
         # Query DynamoDB
         params = QueryParams(
             start_date=start_date,
             end_date=end_date,
             service=service,
-            limit=limit
+            limit=limit + 1,
+            granularity=granularity, before_date=before_date, before_service=before_service
         )
         table_name = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
         records = query_cost_data(params, table_name=table_name)
         
-        logger.info(f"Query returned {len(records)} records")
+        has_more = len(records) > limit
+        records = records[:limit]
+        logger.info(f'Query returned {len(records)} records; truncated={has_more}')
         
         # Convert records to response format (normalize service to short name for consistent display with Phase 2)
         data = [
@@ -340,7 +427,9 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
                 'service': cost_explorer_service_to_short(record.service),
                 'blendedCost': record.blended_cost,
                 'unblendedCost': record.unblended_cost,
-                'currency': record.currency
+                'currency': record.currency,
+                'granularity': record.granularity,
+                'period_end': record.period_end, 'is_estimated': record.is_estimated
             }
             for record in records
         ]
@@ -348,7 +437,13 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
         response_data = {
             'success': True,
             'data': data,
-            'count': len(data)
+            'count': len(data),
+            'granularity': granularity,
+            'has_more': has_more,
+            'result_scope': 'page_records',
+            'next_cursor': encode_cursor(records[-1], filters) if has_more and records else None,
+            'pagination_consistency': 'live_keyset_not_snapshot',
+            'legacy_period_unknown': granularity == 'UNKNOWN'
         }
         
         return {
@@ -372,60 +467,19 @@ def handle_query(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def handle_autonomous_demo_stub(event: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Stub for Phase 6 autonomous demo endpoints when AutonomousStack is not deployed.
-    Returns a valid demo-status shape so the Demo page renders; start/reset return success with message.
-    """
-    path = event.get('path', '')
-    method = event.get('httpMethod', 'GET')
-    headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
-    if method == 'POST':
-        body = {
-            'success': True,
-            'message': 'Deploy AutonomousStack for full autonomous demo. Stub accepted request.',
-        }
-        return {'statusCode': 200, 'headers': headers, 'body': json.dumps(body)}
-    # GET /api/autonomous/demo-status
-    now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
-    body = {
-        'demo_mode': True,
-        'current_phase': 'idle',
-        'phase_progress_percent': 0.0,
-        'overall_progress_percent': 0.0,
-        'estimated_completion': None,
-        'phases': ['analyze', 'decide', 'act', 'verify', 'learn'],
-        'actions': {'in_progress': 0, 'completed': 0, 'failed': 0, 'total': 0},
-        'actions_in_progress_details': [],
-        'cumulative_savings': 0.0,
-        'savings_percent': 0.0,
-        'recent_completed_actions': [],
-        'timestamp': now,
-    }
-    return {'statusCode': 200, 'headers': headers, 'body': json.dumps(body)}
+    """Expose missing autonomous routing without claiming an action was accepted."""
+    return create_error_response(
+        503, 'AUTONOMOUS_BACKEND_UNAVAILABLE',
+        'Autonomous optimization is unavailable. No request was accepted; contact your administrator.'
+    )
 
 
 def handle_multi_account_stub(event: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Stub for Phase 5 multi-account endpoints when using the main API URL.
-    Full implementation requires deploying MultiAccountStack and setting VITE_MULTI_ACCOUNT_API_BASE_URL.
-    """
-    path = event.get('path', '')
-    if path.endswith('/costs/consolidated'):
-        body = {'success': True, 'consolidated': [], 'message': 'Deploy MultiAccountStack for multi-account costs.'}
-    elif path.endswith('/costs/by-account'):
-        body = {'success': True, 'costs': [], 'message': 'Deploy MultiAccountStack for per-account costs.'}
-    elif '/organizations' in path and '/accounts' in path:
-        body = {'success': True, 'accounts': [], 'message': 'Deploy MultiAccountStack for accounts.'}
-    else:
-        body = {'success': True, 'organizations': [], 'message': 'Deploy MultiAccountStack and set VITE_MULTI_ACCOUNT_API_BASE_URL for Phase 5.'}
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-        },
-        'body': json.dumps(body),
-    }
+    """Expose missing multi-account routing without manufacturing empty results."""
+    return create_error_response(
+        503, 'MULTI_ACCOUNT_BACKEND_UNAVAILABLE',
+        'Organization data is unavailable. Contact your administrator.'
+    )
 
 
 def create_error_response(
@@ -508,13 +562,15 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Estimating costs for all services: {start_time} to {end_time}")
         
         # Initialize services
-        metrics_collector = CloudWatchMetricsCollector()
+        region = query_params.get('region') or os.environ.get('AWS_REGION', 'us-east-1')
+        metrics_collector = CloudWatchMetricsCollector(region=region)
         pricing_manager = PricingManager()
         cost_estimator = CostEstimator()
         
+        requested_services = ['ec2', 'lambda', 'dynamodb', 's3', 'rds']
         # Collect service-specific metrics (returns original metric objects)
         all_service_metrics = metrics_collector.collect_service_metrics(
-            services=['ec2', 'lambda', 'dynamodb', 's3', 'rds'],
+            services=requested_services,
             start_time=start_time,
             end_time=end_time
         )
@@ -523,12 +579,19 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
         estimates = []
         total_cost = 0.0
         
-        for service, service_metrics in all_service_metrics.items():
+        missing_metric_services = []
+        for service in requested_services:
+            service_metrics = all_service_metrics.get(service)
             if not service_metrics:
+                from .utils.types import CostEstimate
+                missing_metric_services.append(service)
+                estimates.append(CostEstimate(service=service, estimated_cost=None, currency='USD',
+                    confidence_lower=None, confidence_upper=None, timestamp=datetime.now(UTC),
+                    period_start=start_time, period_end=end_time, metrics_count=0, status='unavailable',
+                    reason='No observed metrics were returned; this does not establish zero cost'))
                 continue
             
             # Get pricing data
-            region = query_params.get('region', 'us-east-1')
             pricing_data = pricing_manager.get_pricing_data(service, region)
             
             # Calculate estimate using service-specific method
@@ -540,7 +603,7 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
                 end_time=end_time
             )
             estimates.append(estimate)
-            total_cost += float(estimate.estimated_cost)
+            total_cost += float(estimate.estimated_cost) if estimate.estimated_cost is not None else 0.0
         
         logger.info(f"Estimation completed: {len(estimates)} services, ${total_cost:.2f} total")
         
@@ -550,10 +613,11 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
             'estimates': [
                 {
                     'service': est.service,
-                    'estimatedCost': float(est.estimated_cost),
+                    'status': est.status, 'pricingSource': est.pricing_source, 'pricingProfile': est.pricing_profile, 'reason': est.reason, 'rangeMethod': est.range_method, 'coveredComponents': est.covered_components, 'missingComponents': est.missing_components,
+                    'estimatedCost': float(est.estimated_cost) if est.estimated_cost is not None else None,
                     'currency': est.currency,
-                    'confidenceLower': float(est.confidence_lower),
-                    'confidenceUpper': float(est.confidence_upper),
+                    'confidenceLower': float(est.confidence_lower) if est.confidence_lower is not None else None,
+                    'confidenceUpper': float(est.confidence_upper) if est.confidence_upper is not None else None,
                     'timestamp': est.timestamp.isoformat(),
                     'periodStart': est.period_start.isoformat(),
                     'periodEnd': est.period_end.isoformat(),
@@ -561,7 +625,11 @@ def handle_estimation_current(event: Dict[str, Any]) -> Dict[str, Any]:
                 }
                 for est in estimates
             ],
-            'totalCost': total_cost,
+            'totalCost': total_cost if any(est.estimated_cost is not None for est in estimates) else None,
+            'complete': bool(estimates) and all(est.status == 'estimated' for est in estimates),
+            'missingMetricServices': missing_metric_services,
+            'coverageScope': 'selected_service_metric_profiles',
+            'region': region,
             'currency': 'USD',
             'timestamp': datetime.now(UTC).isoformat(),
             'period': f'{hours} hours'
@@ -653,7 +721,8 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Estimating costs for {service}: {start_time} to {end_time}")
         
         # Initialize services
-        metrics_collector = CloudWatchMetricsCollector()
+        region = query_params.get('region') or os.environ.get('AWS_REGION', 'us-east-1')
+        metrics_collector = CloudWatchMetricsCollector(region=region)
         pricing_manager = PricingManager()
         cost_estimator = CostEstimator()
         
@@ -677,14 +746,17 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
                 'body': json.dumps({
                     'success': True,
                     'service': service,
-                    'estimatedCost': 0.0,
+                    'estimatedCost': None,
+                    'status': 'unavailable',
+                    'complete': False,
+                    'reason': 'No observed metrics were returned; this does not establish zero cost',
+                    'region': region,
                     'currency': 'USD',
                     'message': 'No metrics found for the specified time range'
                 })
             }
         
         # Get pricing data
-        region = query_params.get('region', 'us-east-1')
         pricing_data = pricing_manager.get_pricing_data(service, region)
         
         # Calculate estimate using service-specific method
@@ -696,16 +768,19 @@ def handle_estimation_service(event: Dict[str, Any]) -> Dict[str, Any]:
             end_time=end_time
         )
         
-        logger.info(f"Estimation completed for {service}: ${float(estimate.estimated_cost):.2f}")
+        logger.info("Estimation service=%s status=%s", service, estimate.status)
         
         # Build response
         response_data = {
             'success': True,
             'service': estimate.service,
-            'estimatedCost': float(estimate.estimated_cost),
+            'complete': estimate.status == 'estimated',
+            'coverageScope': 'selected_service_metric_profiles',
+            'status': estimate.status, 'pricingSource': estimate.pricing_source, 'pricingProfile': estimate.pricing_profile, 'reason': estimate.reason, 'rangeMethod': estimate.range_method, 'coveredComponents': estimate.covered_components, 'missingComponents': estimate.missing_components,
+            'estimatedCost': float(estimate.estimated_cost) if estimate.estimated_cost is not None else None,
             'currency': estimate.currency,
-            'confidenceLower': float(estimate.confidence_lower),
-            'confidenceUpper': float(estimate.confidence_upper),
+            'confidenceLower': float(estimate.confidence_lower) if estimate.confidence_lower is not None else None,
+            'confidenceUpper': float(estimate.confidence_upper) if estimate.confidence_upper is not None else None,
             'timestamp': estimate.timestamp.isoformat(),
             'periodStart': estimate.period_start.isoformat(),
             'periodEnd': estimate.period_end.isoformat(),
@@ -791,7 +866,7 @@ def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 bedrock_client = BedrockClient()
                 cost_data_table = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
                 historical_data_retriever = HistoricalDataRetriever(dynamodb_resource, table_name=cost_data_table)
-                cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+                cache_manager = ForecastCacheManager(dynamodb_client, table_name=os.environ.get('FORECAST_CACHE_TABLE', 'costguard-forecast-cache'))
                 forecast_engine = ForecastEngine(
                     bedrock_client=bedrock_client,
                     historical_data_retriever=historical_data_retriever,
@@ -822,7 +897,14 @@ def handle_forecast_request(event: Dict[str, Any]) -> Dict[str, Any]:
                         'service': forecast_response.metadata.service,
                         'services_included': forecast_response.metadata.services_included,
                         'cache_hit': forecast_response.metadata.cache_hit,
-                        'historical_data_days': forecast_response.metadata.historical_data_days
+                        'historical_data_days': forecast_response.metadata.historical_data_days,
+                        'range_method': forecast_response.metadata.range_method,
+                        'observed_history_days': forecast_response.metadata.observed_history_days,
+                        'missing_history_dates': forecast_response.metadata.missing_history_dates,
+                        'history_method': forecast_response.metadata.history_method,
+                        'cost_metric': forecast_response.metadata.cost_metric,
+                        'forecast_start_date': forecast_response.metadata.forecast_start_date,
+                        'estimated_dates': forecast_response.metadata.estimated_dates, 'unknown_estimate_dates': forecast_response.metadata.unknown_estimate_dates
                     }
                 }
                 forecast_result[0] = response_data
@@ -992,7 +1074,7 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 bedrock_client = BedrockClient()
                 cost_data_table = os.environ.get('COST_DATA_TABLE', 'costguard-cost-data')
                 historical_data_retriever = HistoricalDataRetriever(dynamodb_resource, table_name=cost_data_table)
-                cache_manager = ForecastCacheManager(dynamodb_client, table_name='costguard-forecast-cache')
+                cache_manager = ForecastCacheManager(dynamodb_client, table_name=os.environ.get('FORECAST_CACHE_TABLE', 'costguard-forecast-cache'))
                 forecast_engine = ForecastEngine(
                     bedrock_client=bedrock_client,
                     historical_data_retriever=historical_data_retriever,
@@ -1023,7 +1105,14 @@ def handle_forecast_service_request(event: Dict[str, Any]) -> Dict[str, Any]:
                         'service': forecast_response.metadata.service,
                         'services_included': forecast_response.metadata.services_included,
                         'cache_hit': forecast_response.metadata.cache_hit,
-                        'historical_data_days': forecast_response.metadata.historical_data_days
+                        'historical_data_days': forecast_response.metadata.historical_data_days,
+                        'range_method': forecast_response.metadata.range_method,
+                        'observed_history_days': forecast_response.metadata.observed_history_days,
+                        'missing_history_dates': forecast_response.metadata.missing_history_dates,
+                        'history_method': forecast_response.metadata.history_method,
+                        'cost_metric': forecast_response.metadata.cost_metric,
+                        'forecast_start_date': forecast_response.metadata.forecast_start_date,
+                        'estimated_dates': forecast_response.metadata.estimated_dates, 'unknown_estimate_dates': forecast_response.metadata.unknown_estimate_dates
                     }
                 }
                 forecast_result[0] = response_data
@@ -1150,6 +1239,10 @@ def handle_prevention_status(event: Dict[str, Any]) -> Dict[str, Any]:
             })
         }
     
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_status: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1159,6 +1252,37 @@ def handle_prevention_status(event: Dict[str, Any]) -> Dict[str, Any]:
             error_response.message,
             error_response.details
         )
+
+
+def handle_prevention_config(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Save administrator-owned monitoring settings without enabling execution."""
+    try:
+        body = prepare_json_body(event)
+        allowed = {'expected_version', 'budget_thresholds', 'enabled_services'}
+        if set(body)-allowed or not ({'budget_thresholds', 'enabled_services'} & set(body)):
+            raise ValueError('Supply thresholds and/or enabled_services with expected_version only')
+        expected = body.get('expected_version')
+        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+            raise ValueError('expected_version must be a nonnegative integer from current status')
+        if 'budget_thresholds' in body:
+            thresholds = body['budget_thresholds']
+            if not isinstance(thresholds, dict) or not thresholds or set(thresholds)-{'warning', 'action'}:
+                raise ValueError('budget_thresholds supports warning and action only')
+        engine = _get_prevention_engine()
+        if expected != engine.config_version:
+            raise PreventionConfigurationConflict('Monitoring configuration changed; refresh before retrying')
+        engine.update_config({key: value for key, value in body.items() if key != 'expected_version'})
+        return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True, 'message': 'Monitoring settings saved', 'status': engine.get_status()})}
+    except PreventionConfigurationConflict as error:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(error))
+    except PreventionConfigurationUnavailable as error:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(error))
+    except ValueError as error:
+        return create_error_response(400, 'INVALID_PARAMETER', str(error))
+    except Exception as error:
+        logger.error('Monitoring settings save failed: %s', type(error).__name__)
+        return create_error_response(500, 'MONITORING_CONFIG_ERROR', 'Monitoring settings could not be saved')
 
 
 def handle_prevention_enable(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -1195,6 +1319,10 @@ def handle_prevention_enable(event: Dict[str, Any]) -> Dict[str, Any]:
             })
         }
     
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_enable: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1240,6 +1368,10 @@ def handle_prevention_disable(event: Dict[str, Any]) -> Dict[str, Any]:
             })
         }
     
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_disable: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1249,6 +1381,36 @@ def handle_prevention_disable(event: Dict[str, Any]) -> Dict[str, Any]:
             error_response.message,
             error_response.details
         )
+
+
+def handle_prevention_resource(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Direct scoped metadata read; no inventory persistence or resource operation."""
+    try:
+        from dataclasses import asdict
+        from .services.request_query import single_valued_query
+        params = single_valued_query(event, {'service', 'resource_id'}, maximum_value_length=128)
+        service, identifier = params.get('service'), params.get('resource_id')
+        ResourceManager.validate_inspection(service, identifier)
+        engine = _get_prevention_engine()
+        if service not in engine.config.get('enabled_services', []):
+            return create_error_response(400, 'SERVICE_NOT_CONFIGURED', 'This service is not enabled for resource discovery')
+        resource = engine.resource_manager.inspect_resource(service, identifier)
+        body = json.dumps({'success': True, 'data_contract': 'resource_inspection_observations_v2',
+            'resource': asdict(resource), 'observed_at': datetime.now(UTC).isoformat(),
+            'applied_selection': {'service': service, 'resource_id': identifier},
+            'data_quality': {'scope': 'one_direct_metadata_observation_not_inventory_or_eligibility',
+                'account_scope_basis': 'configured_backend_account_not_independently_verified',
+                'resource_membership_in_budget_verified': False, 'idle_evidence_included': False,
+                'protected_tag_coverage_verified': False, 'monetary_cost': None,
+                'action_eligibility': None, 'inventory_persistence_performed': False, 'resource_actions': 0}})
+        if len(body.encode('utf-8')) > 256*1024:
+            return create_error_response(413, 'INSPECTION_TOO_LARGE', 'Resource metadata exceeds the inspection response limit')
+        return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': body}
+    except ValueError as error:
+        return create_error_response(400, 'INVALID_PARAMETER', str(error))
+    except Exception as error:
+        logger.warning('Resource inspection unavailable: %s', type(error).__name__)
+        return create_error_response(503, 'RESOURCE_INSPECTION_UNAVAILABLE', 'The resource could not be observed in the configured account and SDK region')
 
 
 def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -1264,6 +1426,14 @@ def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse query parameters
         query_params = event.get('queryStringParameters') or {}
+        if not isinstance(query_params, dict) or set(query_params)-{'service', 'state'}:
+            raise ValueError('Resource query supports service and state only')
+        multiple = event.get('multiValueQueryStringParameters') or {}
+        if any(not isinstance(values, list) or len(values) != 1 for values in multiple.values()):
+            raise ValueError('Resource filters must occur once')
+        if set(multiple)-{'service', 'state'}: raise ValueError('Unsupported resource query parameter')
+        for name, values in multiple.items():
+            query_params.setdefault(name, values[0])
         service = query_params.get('service')
         state = query_params.get('state')
         
@@ -1274,9 +1444,9 @@ def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
         
         # Build filters
         filters = {}
-        if service:
+        if 'service' in query_params:
             filters['service'] = service
-        if state:
+        if 'state' in query_params:
             filters['state'] = state
         
         # Get resources
@@ -1291,11 +1461,23 @@ def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
                 'region': r.region,
                 'tags': r.tags,
                 'state': r.state,
-                'creation_date': r.creation_date
+                'creation_date': r.creation_date, 'properties': r.properties
             }
             for r in resources
         ]
         
+        response_data = {
+            'success': True, 'resources': resources_data, 'count': len(resources_data),
+            'result_scope': 'observed_inventory', 'inventory_completeness': 'unverified',
+            'discovery_report': prevention_engine.resource_manager.last_discovery_report,
+            'applied_filters': filters,
+            'requested_service_configured': service in prevention_engine.config.get('enabled_services', []) if service is not None else None,
+            'idle_evidence_included': False, 'active_idle_services': ['ec2', 'rds', 'lambda'],
+            'coverage_note': 'Discovery failures can omit resources. A listed resource has not been classified as idle.'
+        }
+        response_body = json.dumps(response_data)
+        if len(response_body.encode('utf-8')) > 2*1024*1024:
+            return create_error_response(413, 'RESOURCE_LIST_TOO_LARGE', 'Resource inventory exceeds the response limit; narrow discovery configuration.')
         logger.info(f"Retrieved {len(resources)} resources")
         
         return {
@@ -1304,13 +1486,15 @@ def handle_prevention_resources(event: Dict[str, Any]) -> Dict[str, Any]:
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({
-                'success': True,
-                'resources': resources_data,
-                'count': len(resources_data)
-            })
+            'body': response_body
         }
     
+    except ValueError as error:
+        return create_error_response(400, 'INVALID_PARAMETER', str(error))
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_resources: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1363,7 +1547,7 @@ def handle_prevention_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Rollback failed for action {action_id}: {result.get('error')}")
         
         return {
-            'statusCode': 200 if result['success'] else 400,
+            'statusCode': 202 if result['success'] else 400,
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
@@ -1372,11 +1556,19 @@ def handle_prevention_rollback(event: Dict[str, Any]) -> Dict[str, Any]:
                 'success': result['success'],
                 'action_id': result.get('action_id'),
                 'resource_id': result.get('resource_id'),
+                'status': result.get('status', 'failed'),
+                'verification_status': result.get('verification_status', 'unverified'),
+                'target_state': result.get('target_state'),
+                'restored_state': None,
                 'message': result.get('message'),
                 'error': result.get('error')
             })
         }
     
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_rollback: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1400,29 +1592,48 @@ def handle_prevention_history(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     try:
         # Parse query parameters
-        query_params = event.get('queryStringParameters') or {}
+        from .services.request_query import single_valued_query
+        query_params = single_valued_query(event, {'start_date', 'end_date', 'limit', 'cursor'})
         start_date = query_params.get('start_date')
         end_date = query_params.get('end_date')
         limit_str = query_params.get('limit', '100')
         
         try:
             limit = int(limit_str)
-        except ValueError:
+        except (ValueError, TypeError):
             return create_error_response(
                 400,
                 'INVALID_PARAMETER',
                 f'Invalid limit: {limit_str}. Must be an integer'
             )
         
+        if not 1 <= limit <= 1000:
+            return create_error_response(400, 'INVALID_PARAMETER', 'Limit must be 1-1000')
+
         logger.info(f"Getting prevention history: start={start_date}, end={end_date}, limit={limit}")
 
+        from .services.prevention_history_cursor import decode_cursor, encode_cursor
+        filters = {'start_date': start_date, 'end_date': end_date, 'limit': limit,
+            'subject': (event.get('_principal') or {}).get('subject'),
+            'account': os.environ.get('BACKEND_ACCOUNT_ID')}
+        scan_start_key = decode_cursor(query_params['cursor'], filters) if query_params.get('cursor') else None
         prevention_engine = _get_prevention_engine()
+        quality = {}
         history = prevention_engine.get_action_history(
             start_date=start_date,
             end_date=end_date,
-            limit=limit
+            limit=limit, report=quality, scan_start_key=scan_start_key
         )
 
+        next_key = quality.pop('next_scan_key', None)
+        next_cursor = encode_cursor(next_key, filters) if next_key else None
+        has_more = next_cursor is not None
+        body = json.dumps({'success': True, 'history': history, 'count': len(history),
+            'has_more': has_more, 'scope': 'bounded_audit_record_selection',
+            'data_contract': 'prevention_history_observations_v2', 'data_quality': quality,
+            'next_cursor': next_cursor, 'pagination_scope': 'scan_pages_not_snapshot_or_global_time_order'})
+        if len(body.encode('utf-8')) > 2*1024*1024:
+            return create_error_response(413, 'HISTORY_TOO_LARGE', 'Reduce the limit or narrow history dates')
         logger.info(f"Retrieved {len(history)} history records")
         
         return {
@@ -1431,13 +1642,15 @@ def handle_prevention_history(event: Dict[str, Any]) -> Dict[str, Any]:
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({
-                'success': True,
-                'history': history,
-                'count': len(history)
-            })
+            'body': body
         }
     
+    except ValueError as error:
+        return create_error_response(400, 'INVALID_PARAMETER', str(error))
+    except PreventionConfigurationConflict as e:
+        return create_error_response(409, 'PREVENTION_CONFIG_CONFLICT', str(e))
+    except PreventionConfigurationUnavailable as e:
+        return create_error_response(503, 'PREVENTION_CONFIG_UNAVAILABLE', str(e))
     except Exception as e:
         logger.error(f"Error in handle_prevention_history: {str(e)}", exc_info=True)
         error_response = format_error(e)
@@ -1530,8 +1743,7 @@ def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
             params = body
         
         query = params.get('query')
-        user_id = params.get('user_id', 'default')
-        session_id = params.get('session_id', 'default')
+        user_id, session_id = advisor_identity(event, params.get('session_id', 'default'))
         
         if not query:
             return create_error_response(
@@ -1540,6 +1752,9 @@ def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
                 'query is required'
             )
         
+        if not isinstance(query, str) or not query.strip() or len(query) > 2000:
+            return create_error_response(400, 'INVALID_PARAMETER', 'query must contain 1-2000 characters')
+
         logger.info(f"Processing advisor query: user={user_id}, session={session_id}")
 
         # Run advisor with timeout so we return 200 + message before API Gateway 29s limit (avoid 504)
@@ -1558,39 +1773,22 @@ def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
         thread.join(timeout=25.0)
         if thread.is_alive():
             logger.warning("Advisor query timed out after 25s")
-            response_text = (
-                "The advisor is taking longer than expected (API limit). "
-                "Try a shorter or simpler question, or try again in a moment. Cached questions answer instantly."
-            )
-            response_data = {
-                'success': True,
-                'query': query,
-                'response': response_text,
-                'recommendations': [],
-                'cost_data': {},
-                'confidence': 0.0,
-                'cached': False
-            }
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps(response_data)
-            }
+            return create_error_response(504, 'ADVISOR_TIMEOUT',
+                'The advisor did not complete before the response deadline. Try again later. No durable background job was created.')
         if advisor_error[0] is not None:
             raise advisor_error[0]
         response = advisor_result[0]
-        if response is None:
-            response_text = 'Advisor could not generate a response. Please try again.'
-            recommendations = []
-            cost_data = {}
-            confidence = 0.0
-            cached = False
-        else:
-            response_text = response.response_text if response.response_text is not None else 'No answer generated.'
-            recommendations = getattr(response, 'recommendations', []) or []
-            cost_data = getattr(response, 'cost_data', {}) or {}
-            confidence = float(getattr(response, 'confidence', 0.0))
-            cached = getattr(response, 'cached', False)
+        if response is None or getattr(response, 'status', 'available') == 'unavailable':
+            return create_error_response(503, 'ADVISOR_UNAVAILABLE',
+                'The advisor could not complete this request. Please try again later.')
+        response_text = response.response_text
+        if not isinstance(response_text, str) or not response_text.strip():
+            return create_error_response(503, 'ADVISOR_UNAVAILABLE', 'The advisor returned no answer. Please try again later.')
+        recommendations = getattr(response, 'recommendations', []) or []
+        cost_data = getattr(response, 'cost_data', {}) or {}
+        raw_confidence = getattr(response, 'confidence', None)
+        confidence = float(raw_confidence) if raw_confidence is not None else None
+        cached = getattr(response, 'cached', False)
 
         # Format response (never echo request params; always return advisor answer shape)
         response_data = {
@@ -1601,14 +1799,15 @@ def handle_advisor_query(event: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     'action': getattr(rec, 'action', ''),
                     'rationale': getattr(rec, 'rationale', ''),
-                    'estimated_savings': float(getattr(rec, 'estimated_savings', 0)),
-                    'priority': getattr(rec, 'priority', 'medium'),
-                    'safe': getattr(rec, 'safe', True)
+                    'estimated_savings': None, 'monetary_basis': 'unavailable_unverified_advice',
+                    'priority': None, 'ranking_basis': 'unavailable',
+                    'safe': None, 'safety_basis': 'unavailable_unverified_advice'
                 }
                 for rec in recommendations
             ],
             'cost_data': cost_data,
             'confidence': confidence,
+            'confidence_method': 'unavailable',
             'cached': cached
         }
 
@@ -1653,7 +1852,8 @@ def handle_advisor_history(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse query parameters
         query_params = event.get('queryStringParameters') or {}
-        session_id = query_params.get('session_id', 'default')
+        client_session_id = query_params.get('session_id', 'default')
+        _, session_id = advisor_identity(event, client_session_id)
         
         logger.info(f"Retrieving conversation history: session={session_id}")
         
@@ -1712,7 +1912,8 @@ def handle_advisor_clear_history(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse query parameters (DELETE uses query params, not body)
         query_params = event.get('queryStringParameters') or {}
-        session_id = query_params.get('session_id', 'default')
+        client_session_id = query_params.get('session_id', 'default')
+        _, session_id = advisor_identity(event, client_session_id)
         
         logger.info(f"Clearing conversation history: session={session_id}")
         
@@ -1733,7 +1934,7 @@ def handle_advisor_clear_history(event: Dict[str, Any]) -> Dict[str, Any]:
             'body': json.dumps({
                 'success': True,
                 'message': 'Conversation history cleared',
-                'session_id': session_id
+                'session_id': client_session_id
             })
         }
     
@@ -1761,7 +1962,7 @@ def handle_advisor_suggestions(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Parse query parameters
         query_params = event.get('queryStringParameters') or {}
-        user_id = query_params.get('user_id', 'default')
+        user_id, _ = advisor_identity(event)
         
         logger.info(f"Generating proactive insights: user={user_id}")
         
@@ -1782,7 +1983,8 @@ def handle_advisor_suggestions(event: Dict[str, Any]) -> Dict[str, Any]:
                     'severity': insight.severity,
                     'action_required': insight.action_required,
                     'related_services': insight.related_services,
-                    'estimated_impact': float(insight.estimated_impact) if insight.estimated_impact else None
+                    'estimated_impact': float(insight.estimated_impact) if insight.estimated_impact is not None else None,
+                    'method': insight.method, 'data_quality': insight.data_quality
                 }
                 for insight in insights
             ],
@@ -1897,10 +2099,15 @@ def _get_prevention_engine() -> PreventionEngine:
     Returns:
         Configured PreventionEngine instance
     """
+    import boto3
+    from .utils.types import NotificationConfig
     dynamodb_client = get_dynamodb_client()
+    region = os.environ.get('AWS_REGION', 'us-east-1')
+    clients = {service: boto3.client(service, region_name=region) for service in ('budgets', 'cloudwatch', 'ec2', 'rds', 'lambda', 'sns')}
+
 
     budget_monitor = BudgetMonitor(
-        budgets_client=None,
+        budgets_client=clients['budgets'],
         cost_estimator=None
     )
 
@@ -1910,7 +2117,7 @@ def _get_prevention_engine() -> PreventionEngine:
     )
 
     idle_detector = IdleDetector(
-        cloudwatch_client=None
+        cloudwatch_client=clients['cloudwatch']
     )
 
     safety_guard = SafetyGuard(
@@ -1918,7 +2125,7 @@ def _get_prevention_engine() -> PreventionEngine:
     )
 
     action_executor = ActionExecutor(
-        aws_clients={},
+        aws_clients={key: clients[key] for key in ("ec2", "rds", "lambda")},
         audit_logger=None
     )
 
@@ -1934,8 +2141,8 @@ def _get_prevention_engine() -> PreventionEngine:
     )
 
     notification_service = NotificationService(
-        sns_client=None,
-        config=None
+        sns_client=clients["sns"],
+        config=NotificationConfig(warning_topic_arn=os.environ.get("SNS_TOPIC_WARNINGS"), action_topic_arn=os.environ.get("SNS_TOPIC_ACTIONS"), error_topic_arn=os.environ.get("SNS_TOPIC_ERRORS"))
     )
 
     prevention_engine = PreventionEngine(

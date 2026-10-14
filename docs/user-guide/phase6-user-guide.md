@@ -1,5 +1,17 @@
 # Phase 6: AI/ML Workload Cost Management - User Guide
 
+> **Spot source update (October 14, 2026):** [Scoped quote contracts](../technical/spot-quote-observed-contracts.md) supersede default discount/risk and monthly-savings examples. Quotes do not establish suitability or realized savings. All validation remains deferred.
+
+> **Inference/training source update (October 14, 2026):** [Current telemetry/metadata contracts](../technical/inference-training-observed-contracts.md) supersede cross-layer count addition, account-cost-as-job-cost and fixed benchmark examples. Unit costs remain unavailable without verified attribution. Validation is deferred.
+
+> **GPU source update (October 14, 2026):** [Current GPU evidence/review/history contracts](../technical/gpu-observed-contracts.md) supersede earlier CPU-fallback, simulated-prevention and verified-savings examples. Aggregate GPU billing/classification/spot paths retain separate gaps. All configuration/runtime validation is deferred.
+
+> **Bedrock source update (October 14, 2026):** Use the [current observed charge/runtime contract](../technical/bedrock-observed-contracts.md). Older fixed-average token, guessed model-price and cost-per-invocation examples below are superseded. Deployment/runtime validation remain deferred.
+
+> **SageMaker source update (October 14, 2026):** Use the [current observed contracts](../technical/sagemaker-observed-contracts.md) for cost/null/coverage/low-usage behavior. Older pricing, waste and inactivity examples below do not establish current behavior. New source requires deployment and all further validation remains deferred.
+
+> **Source review note (October 3, 2026):** Use [current API contracts](../technical/api-design.md) and [known limitations](../technical/documentation-code-sync.md) for stack URLs, routing and current behavior. Sample responses, timing and savings below are illustrative or historical; this pass did not execute requests or verify frontend/live AWS behavior.
+
 **Version:** 1.0  
 **Last Updated:** February 2026  
 **Audience:** AI Startup CTOs/Founders, ML Platform Engineers, SageMaker/Bedrock Users
@@ -2156,8 +2168,8 @@ Congratulations! You've learned how to use CostGuard AI Phase 6 to track and opt
 
 - **API Documentation**: [Phase 6 API Documentation](../api/phase6-api-documentation.md)
 - **Deployment Guide**: [Phase 6 Deployment Guide](../deployment/phase6-deployment-guide.md)
-- **Requirements**: [Phase 6 Requirements](.kiro/specs/ai-ml-workload-costs/requirements.md)
-- **Design Document**: [Phase 6 Design](.kiro/specs/ai-ml-workload-costs/design.md)
+- **Requirements**: [Phase 6 Requirements](../../.kiro/specs/ai-ml-workload-costs/requirements.md)
+- **Design Document**: [Phase 6 Design](../../.kiro/specs/ai-ml-workload-costs/design.md)
 
 ### Get Support
 

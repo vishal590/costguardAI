@@ -11,7 +11,7 @@ Requirements: IR-2.4
 """
 
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 from .gpu_cost_tracker import GPUCostTracker
@@ -59,6 +59,7 @@ class AIAdvisorIntegration:
         self.spot_recommender = spot_recommender
         self.sagemaker_tracker = sagemaker_tracker
         self.bedrock_tracker = bedrock_tracker
+        self.last_recommendation_report = None
         
         logger.info("AIAdvisorIntegration initialized")
     
@@ -100,7 +101,8 @@ class AIAdvisorIntegration:
             'idle_gpus': [],
             'optimization_opportunities': [],
             'cost_trends': {},
-            'summary': {}
+            'summary': {}, 'data_contract': 'gpu_advisor_context_v2',
+            'workload_identity_verified': False, 'resource_actions': 0
         }
         
         try:
@@ -109,51 +111,21 @@ class AIAdvisorIntegration:
                 start_date, end_date
             )
             
-            # Calculate cost breakdown by workload type
-            costs_by_workload = {
-                'training': 0.0,
-                'inference': 0.0,
-                'idle': 0.0,
-                'total': 0.0
-            }
-            
+            observed_total = self.gpu_cost_tracker.last_observation_report.get('observed_total')
             costs_by_instance_type = {}
-            gpu_hours_by_workload = {
-                'training': 0.0,
-                'inference': 0.0,
-                'idle': 0.0
-            }
-            
-            for cost in gpu_costs:
-                workload = cost.workload_type
-                costs_by_workload[workload] += cost.cost
-                costs_by_workload['total'] += cost.cost
-                gpu_hours_by_workload[workload] += cost.gpu_hours
-                
-                if cost.instance_type not in costs_by_instance_type:
-                    costs_by_instance_type[cost.instance_type] = 0.0
-                costs_by_instance_type[cost.instance_type] += cost.cost
-            
-            context['gpu_costs'] = {
-                'by_workload': costs_by_workload,
-                'by_instance_type': costs_by_instance_type,
-                'total_gpu_hours': sum(gpu_hours_by_workload.values())
-            }
-            
-            # Calculate workload distribution
-            total_hours = sum(gpu_hours_by_workload.values())
-            if total_hours > 0:
-                context['workload_distribution'] = {
-                    'training_percent': (gpu_hours_by_workload['training'] / total_hours) * 100,
-                    'inference_percent': (gpu_hours_by_workload['inference'] / total_hours) * 100,
-                    'idle_percent': (gpu_hours_by_workload['idle'] / total_hours) * 100
-                }
-            
+            for row in gpu_costs:
+                costs_by_instance_type[row.instance_type] = costs_by_instance_type.get(row.instance_type, 0.0)+row.cost
+            context['gpu_costs'] = {'by_workload': {'training': None, 'inference': None, 'idle': None,
+                'unknown': observed_total, 'total': observed_total}, 'by_instance_type': costs_by_instance_type,
+                'total_gpu_hours': None, 'data_quality': self.gpu_cost_tracker.last_observation_report}
+            context['workload_distribution'] = {'status': 'unavailable', 'reason': 'Type-level costs do not establish workload or device-hour attribution'}
+
             # Get idle GPUs
             idle_gpus = self.idle_detector.identify_idle_gpus(
                 start_date, end_date, threshold=10.0
             )
             
+            context['gpu_observation_report'] = self.idle_detector.last_observation_report
             context['idle_gpus'] = [
                 {
                     'instance_id': gpu.instance_id,
@@ -180,8 +152,7 @@ class AIAdvisorIntegration:
             
         except Exception as e:
             logger.error(f"Error getting GPU cost context: {e}", exc_info=True)
-            context['error'] = str(e)
-            return context
+            raise RuntimeError('GPU advisor observations are unavailable') from e
     
     def get_gpu_optimization_recommendations(
         self,
@@ -199,150 +170,53 @@ class AIAdvisorIntegration:
             List of optimization recommendations with:
             - type: Type of recommendation (idle_gpu, spot_instance, etc.)
             - priority: Priority level (high, medium, low)
-            - potential_savings: Estimated cost savings
+            - potential_savings: Unavailable; no verified monetary attribution
             - description: Natural language description
             - action_items: Specific actions to take
         """
         logger.info(f"Generating GPU optimization recommendations for {start_date} to {end_date}")
         
         recommendations = []
-        
+        self.last_recommendation_report = {'data_contract': 'ai_ml_advisor_review_v2',
+            'status': 'reading', 'sources': {}, 'monetary_savings_status': 'unavailable',
+            'workload_inactivity_verified': False, 'resource_actions': 0}
+        sources = self.last_recommendation_report['sources']
         try:
-            # Get idle GPUs
-            idle_gpus = self.idle_detector.identify_idle_gpus(
-                start_date, end_date, threshold=10.0
-            )
-            
+            idle_gpus = self.idle_detector.identify_idle_gpus(start_date, end_date, threshold=10.0)
+            sources['gpu'] = {'status': 'observed', 'observation_report': self.idle_detector.last_observation_report}
             if idle_gpus:
-                total_wasted = sum(gpu.wasted_cost for gpu in idle_gpus)
-                
-                recommendations.append({
-                    'type': 'idle_gpu',
-                    'priority': 'high' if total_wasted > 100 else 'medium',
-                    'potential_savings': total_wasted,
-                    'description': f"Found {len(idle_gpus)} idle GPU instances wasting ${total_wasted:.2f}. "
-                                 f"These GPUs have utilization below 10% and should be stopped or terminated.",
-                    'action_items': [
-                        f"Stop or terminate {gpu.instance_id} ({gpu.instance_type}) - saving ${gpu.wasted_cost:.2f}"
-                        for gpu in idle_gpus[:3]  # Top 3
-                    ],
-                    'affected_instances': len(idle_gpus)
-                })
-            
-            # Get spot instance recommendations for training workloads
-            gpu_costs = self.gpu_cost_tracker.collect_gpu_costs(
-                start_date, end_date, workload_type='training'
-            )
-            
-            if gpu_costs:
-                # Get spot recommendations for training instances
-                total_spot_savings = 0.0
-                spot_suitable_count = 0
-                
-                for cost in gpu_costs:
-                    try:
-                        spot_recs = self.spot_recommender.recommend_spot_instances(
-                            cost.instance_id
-                        )
-                        
-                        for rec in spot_recs:
-                            if rec.suitable:
-                                total_spot_savings += rec.savings
-                                spot_suitable_count += 1
-                    except Exception as e:
-                        logger.debug(f"Could not get spot recommendation for {cost.instance_id}: {e}")
-                
-                if spot_suitable_count > 0:
-                    recommendations.append({
-                        'type': 'spot_instance',
-                        'priority': 'high' if total_spot_savings > 500 else 'medium',
-                        'potential_savings': total_spot_savings,
-                        'description': f"Found {spot_suitable_count} training workloads that could use spot instances, "
-                                     f"saving up to ${total_spot_savings:.2f} (up to 70% discount).",
-                        'action_items': [
-                            "Review training workloads for spot instance compatibility",
-                            "Implement checkpointing for fault tolerance",
-                            "Switch suitable training jobs to spot instances"
-                        ],
-                        'affected_instances': spot_suitable_count
-                    })
-            
-            # Get SageMaker recommendations if available
+                recommendations.append({'type': 'gpu_low_usage_review', 'priority': 'medium',
+                    'potential_savings': None, 'observation_report': self.idle_detector.last_observation_report,
+                    'description': f'{len(idle_gpus)} GPU instances matched configured rules in a bounded window. Inactivity and savings are unverified.',
+                    'action_items': [f'Review workload requirements for {gpu.instance_id}' for gpu in idle_gpus[:3]],
+                    'affected_instances': len(idle_gpus), 'workload_inactivity_verified': False})
             if self.sagemaker_tracker:
-                try:
-                    idle_endpoints = self.sagemaker_tracker.identify_idle_endpoints(threshold=10)
-                    
-                    if idle_endpoints:
-                        total_endpoint_waste = sum(ep.cost_per_hour * 24 * 30 for ep in idle_endpoints)
-                        
-                        recommendations.append({
-                            'type': 'sagemaker_idle_endpoint',
-                            'priority': 'high' if total_endpoint_waste > 200 else 'medium',
-                            'potential_savings': total_endpoint_waste,
-                            'description': f"Found {len(idle_endpoints)} idle SageMaker endpoints with <10 requests/hour, "
-                                         f"wasting approximately ${total_endpoint_waste:.2f}/month.",
-                            'action_items': [
-                                f"Scale down or delete endpoint {ep.endpoint_name} - saving ${ep.cost_per_hour * 24 * 30:.2f}/month"
-                                for ep in idle_endpoints[:3]  # Top 3
-                            ],
-                            'affected_instances': len(idle_endpoints)
-                        })
-                except Exception as e:
-                    logger.debug(f"Could not get SageMaker recommendations: {e}")
-            
-            # Get Bedrock recommendations if available
+                endpoints = self.sagemaker_tracker.identify_idle_endpoints(threshold=10)
+                sources['sagemaker'] = {'status': 'observed', 'observation_report': self.sagemaker_tracker.last_idle_report,
+                    'window_scope': 'adapter_current_recent_window_not_requested_billing_dates'}
+                if endpoints:
+                    recommendations.append({'type': 'sagemaker_low_usage_review', 'priority': 'medium',
+                        'potential_savings': None, 'observation_report': self.sagemaker_tracker.last_idle_report,
+                        'description': f'{len(endpoints)} endpoints matched bounded fully observed low-invocation rules; workload inactivity and savings are unverified.',
+                        'action_items': [f'Review workload requirements for endpoint {ep.endpoint_name}' for ep in endpoints[:3]],
+                        'affected_instances': len(endpoints), 'workload_inactivity_verified': False})
+            else:
+                sources['sagemaker'] = {'status': 'not_configured'}
             if self.bedrock_tracker:
-                try:
-                    # Get Bedrock costs for the period
-                    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-                    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-                    
-                    bedrock_costs = self.bedrock_tracker.track_bedrock_costs(
-                        start_dt, end_dt
-                    )
-                    
-                    for costs in bedrock_costs:
-                        if costs.invocations > 100:  # Only recommend for significant usage
-                            usage_pattern = {
-                                'avg_input_tokens': costs.input_tokens / costs.invocations,
-                                'avg_output_tokens': costs.output_tokens / costs.invocations
-                            }
-                            
-                            model_recs = self.bedrock_tracker.recommend_cost_optimized_models(
-                                costs.model_id, usage_pattern
-                            )
-                            
-                            if model_recs:
-                                best_rec = model_recs[0]
-                                monthly_savings = costs.total_cost * (best_rec.savings_percent / 100.0) * 30
-                                
-                                if monthly_savings > 50:  # Only recommend if significant savings
-                                    recommendations.append({
-                                        'type': 'bedrock_model_optimization',
-                                        'priority': 'medium',
-                                        'potential_savings': monthly_savings,
-                                        'description': f"Consider switching from {costs.model_id} to {best_rec.recommended_model} "
-                                                     f"for {best_rec.savings_percent:.1f}% cost savings.",
-                                        'action_items': [
-                                            f"Evaluate {best_rec.recommended_model} for your use case",
-                                            "Test model performance and quality",
-                                            f"Switch to save approximately ${monthly_savings:.2f}/month"
-                                        ],
-                                        'affected_models': 1
-                                    })
-                except Exception as e:
-                    logger.debug(f"Could not get Bedrock recommendations: {e}")
-            
-            # Sort by potential savings (highest first)
-            recommendations.sort(key=lambda x: x['potential_savings'], reverse=True)
-            
-            logger.info(f"Generated {len(recommendations)} optimization recommendations")
+                self.bedrock_tracker.track_bedrock_costs(datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d'))
+                sources['bedrock'] = {'status': 'observed', 'cost_observations': self.bedrock_tracker.last_cost_report,
+                    'model_recommendations_status': 'unavailable_without_verified_attribution_and_quality_comparison'}
+            else:
+                sources['bedrock'] = {'status': 'not_configured'}
+            self.last_recommendation_report.update({'status': 'observed', 'recommendations': recommendations,
+                'selection_scope': 'bounded_configured_evidence_not_complete_inventory'})
             return recommendations
-            
-        except Exception as e:
-            logger.error(f"Error generating optimization recommendations: {e}", exc_info=True)
-            return []
-    
+        except Exception as error:
+            # Preserve completed source provenance, but never report a failed review as no opportunities.
+            self.last_recommendation_report.update({'status': 'unavailable', 'recommendations': None,
+                'reason': 'One or more configured observation sources could not be read'})
+            raise RuntimeError('AI/ML advisor review observations are unavailable') from error
+
     def explain_workload_classification(
         self,
         instance_id: str,
@@ -360,7 +234,7 @@ class AIAdvisorIntegration:
         Returns:
             Dictionary containing:
             - classification: Workload type (training, inference, idle)
-            - confidence: Confidence score (0-1)
+            - confidence: Unavailable; declarations are not calibrated identity estimates
             - explanation: Natural language explanation
             - metrics: Supporting metrics
             - recommendations: Specific recommendations for this workload
@@ -384,7 +258,11 @@ class AIAdvisorIntegration:
             return {
                 'instance_id': instance_id,
                 'classification': classification.workload_type,
-                'confidence': classification.confidence,
+                'data_contract': 'classification_explanation_v2',
+                'confidence': None, 'confidence_method': 'unavailable',
+                'workload_identity_verified': False, 'manual_label': classification.manual_label,
+                'utilization_pattern_label': classification.utilization_pattern_label,
+                'data_quality': classification.data_quality,
                 'explanation': explanation,
                 'metrics': {
                     'avg_utilization': classification.gpu_utilization_avg,
@@ -396,12 +274,8 @@ class AIAdvisorIntegration:
             
         except Exception as e:
             logger.error(f"Error explaining workload classification: {e}", exc_info=True)
-            return {
-                'instance_id': instance_id,
-                'error': str(e),
-                'explanation': f"Unable to classify workload for {instance_id}: {str(e)}"
-            }
-    
+            raise RuntimeError('Workload declaration or GPU evidence is unavailable') from e
+
     def _get_optimization_recommendations(
         self,
         gpu_costs: List[Any],
@@ -410,27 +284,12 @@ class AIAdvisorIntegration:
         """Generate optimization recommendations from GPU cost data."""
         recommendations = []
         
-        # Idle GPU recommendations
         if idle_gpus:
-            total_wasted = sum(gpu.wasted_cost for gpu in idle_gpus)
-            recommendations.append({
-                'type': 'idle_gpu',
-                'priority': 'high',
-                'savings': total_wasted,
-                'description': f"Stop {len(idle_gpus)} idle GPU instances to save ${total_wasted:.2f}"
-            })
-        
-        # Spot instance recommendations for training workloads
-        training_costs = [c for c in gpu_costs if c.workload_type == 'training']
-        if training_costs:
-            estimated_spot_savings = sum(c.cost * 0.7 for c in training_costs)  # Up to 70% savings
-            recommendations.append({
-                'type': 'spot_instance',
-                'priority': 'medium',
-                'savings': estimated_spot_savings,
-                'description': f"Use spot instances for training to save up to ${estimated_spot_savings:.2f}"
-            })
-        
+            recommendations.append({'type': 'gpu_low_usage_review', 'priority': 'medium', 'savings': None,
+                'description': f'Review {len(idle_gpus)} observed GPU rule matches; workload inactivity and monetary savings are unverified.'})
+
+        # No fixed spot discount is inferred from aggregate observed charges.
+
         return recommendations
     
     def _generate_summary(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -438,91 +297,30 @@ class AIAdvisorIntegration:
         gpu_costs = context.get('gpu_costs', {})
         idle_gpus = context.get('idle_gpus', [])
         
-        total_cost = gpu_costs.get('by_workload', {}).get('total', 0.0)
-        idle_cost = gpu_costs.get('by_workload', {}).get('idle', 0.0)
+        total_cost = gpu_costs.get('by_workload', {}).get('total')
+        idle_cost = gpu_costs.get('by_workload', {}).get('idle')
         
-        # Calculate optimization potential from recommendations
-        optimization_potential = 0.0
-        for rec in context.get('optimization_opportunities', []):
-            # Handle both 'potential_savings' and 'savings' keys
-            optimization_potential += rec.get('potential_savings', rec.get('savings', 0.0))
-        
+        values = [item.get('potential_savings', item.get('savings')) for item in context.get('optimization_opportunities', [])]
+        complete = bool(values) and all(value is not None for value in values)
+        optimization_potential = sum(values) if complete else None
+        observed_opportunity = sum(value for value in values if value is not None) if any(value is not None for value in values) else None
         return {
             'total_gpu_cost': total_cost,
             'idle_gpu_count': len(idle_gpus),
-            'total_wasted_cost': sum(gpu['wasted_cost'] for gpu in idle_gpus),
-            'idle_cost_percent': (idle_cost / total_cost * 100) if total_cost > 0 else 0,
-            'optimization_potential': optimization_potential
+            'total_wasted_cost': None, 'gpu_monetary_status': 'unavailable',
+            'idle_cost_percent': None,
+            'optimization_potential': optimization_potential,
+            'optimization_potential_complete': complete, 'observed_partial_opportunity': observed_opportunity
         }
     
     def _generate_classification_explanation(self, classification: Any) -> str:
-        """Generate natural language explanation of workload classification."""
-        workload_type = classification.workload_type
-        confidence = classification.confidence
-        avg_util = classification.gpu_utilization_avg
-        method = classification.classification_method
-        
-        # Base explanation
-        if workload_type == 'training':
-            explanation = (
-                f"This GPU instance is classified as a **training workload** with "
-                f"{confidence*100:.0f}% confidence. "
-                f"The average GPU utilization is {avg_util:.1f}%, which indicates "
-                f"sustained high GPU usage typical of model training."
-            )
-        elif workload_type == 'inference':
-            explanation = (
-                f"This GPU instance is classified as an **inference workload** with "
-                f"{confidence*100:.0f}% confidence. "
-                f"The average GPU utilization is {avg_util:.1f}%, with frequent spikes "
-                f"typical of serving inference requests."
-            )
-        else:  # idle
-            explanation = (
-                f"This GPU instance is classified as **idle** with "
-                f"{confidence*100:.0f}% confidence. "
-                f"The average GPU utilization is only {avg_util:.1f}%, indicating "
-                f"the GPU is not being actively used."
-            )
-        
-        # Add method information
-        if method == 'manual-tag':
-            explanation += " This classification was set manually via EC2 tags."
-        else:
-            explanation += " This classification was determined automatically from CloudWatch GPU metrics."
-        
-        return explanation
-    
-    def _get_workload_recommendations(
-        self,
-        instance_id: str,
-        classification: Any
-    ) -> List[str]:
-        """Get recommendations based on workload classification."""
-        recommendations = []
-        
-        if classification.workload_type == 'idle':
-            recommendations.append(
-                f"Consider stopping or terminating this idle GPU instance to save costs"
-            )
-            recommendations.append(
-                f"If needed occasionally, use auto-scaling to start/stop on demand"
-            )
-        
-        elif classification.workload_type == 'training':
-            recommendations.append(
-                f"Consider using spot instances for training to save up to 70% on costs"
-            )
-            recommendations.append(
-                f"Implement checkpointing to handle potential spot interruptions"
-            )
-        
-        elif classification.workload_type == 'inference':
-            recommendations.append(
-                f"Monitor request patterns and scale down during low-traffic periods"
-            )
-            recommendations.append(
-                f"Consider using auto-scaling based on request volume"
-            )
-        
-        return recommendations
+        label = classification.workload_type
+        source = classification.classification_method
+        pattern = classification.utilization_pattern_label
+        return (f'Declared workload label: {label}; source: {source}. GPU pattern observation: {pattern}. '
+                'Labels are operator assertions and utilization does not establish training/inference identity. '
+                'No calibrated confidence or workload inactivity guarantee is available.')
+
+    def _get_workload_recommendations(self, instance_id: str, classification: Any) -> List[str]:
+        return ['Review the declared label and its source before using it for allocation or capacity decisions.',
+                'GPU patterns and declared labels do not authorize resource changes or establish monetary savings.']

@@ -1,5 +1,8 @@
 # Autonomous Action Loops - Deployment Readiness Report
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](PROJECT_STATUS.md) and [current source limitations](technical/documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
+
 **Date:** March 4, 2026  
 **Status:** ✅ READY FOR DEPLOYMENT  
 **Phase:** Phase 6 Extension - Autonomous Action Loops
@@ -355,7 +358,7 @@ cdk deploy CostGuardAutonomousStack --require-approval never
 
 - [CDK Asset Path Bug Fix](./CDK_ASSET_PATH_BUG_FIX.md)
 - [CDK Output Directory Fix](./CDK_OUTPUT_DIRECTORY_FIX.md)
-- [Deployment Issues and Fixes](./DEPLOYMENT_ISSUES_AND_FIXES.md)
+- [Deployment Issues and Fixes](deployment/DEPLOYMENT_BUGS_AND_FIXES.md)
 - [Phase 6 Separate Stack Architecture](./PHASE6_SEPARATE_STACK_ARCHITECTURE.md)
 - [Deployment Troubleshooting](./deployment/DEPLOYMENT_TROUBLESHOOTING.md)
 

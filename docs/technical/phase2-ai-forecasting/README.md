@@ -1,5 +1,7 @@
 # Phase 2: AI-Powered Cost Forecasting
 
+> **Current-reference note (October 3, 2026):** Use [current API contracts](../api-design.md), [database schemas](../database-design.md) and [project status](../../PROJECT_STATUS.md) for source behavior. Test counts, coverage and deployment metrics below record earlier work; they were not rerun or checked against AWS in this documentation pass.
+
 **Status:** ✅ Complete  
 **Implementation Date:** January 2026  
 **Test Coverage:** 94%+ (412 tests passing)
@@ -8,17 +10,17 @@
 
 ## Overview
 
-Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon Bedrock Nova Lite. The system generates 7-30 day cost forecasts with confidence intervals. When Bedrock provides confidence intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, a fallback uses ±20% ranges around the prediction.
+Phase 2 forecasts from observed completed daily history using Amazon Bedrock Nova Lite. Model-provided and +/-20% fallback ranges are uncalibrated; missing history and provider-estimate status are disclosed.
 
 ## Key Features
 
 - **AI-Powered Predictions:** Uses Amazon Bedrock Nova Lite for time series forecasting
-- **Confidence Intervals:** Provides confidence intervals for all predictions. When Bedrock provides intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, fallback uses ±20% ranges around predictions.
+- **Uncertainty ranges:** Model-provided or explicitly labeled +/-20% heuristic bounds have no calibrated coverage guarantee. Actual costs may fall outside them.
 - **Flexible Horizons:** Supports 7, 14, or 30-day forecasts
 - **Multiple Granularities:** Daily or weekly aggregation
 - **Service-Specific Forecasts:** Generate forecasts for individual AWS services or total costs
 - **Intelligent Caching:** 24-hour forecast cache with adaptive TTL, persistent hit rate tracking, and cache warming. Frequently accessed forecasts automatically get extended TTL (up to 48 hours). Target: 80%+ hit rate.
-- **Historical Data Processing:** Retrieves 90 days of historical data with gap interpolation
+- **Historical Data Processing:** Forecast generation requests 30 days of historical data with gap interpolation
 - **Backward Compatible:** Maintains full compatibility with Phase 1 & 1.5 endpoints
 
 ## Architecture
@@ -95,13 +97,13 @@ Phase 2 adds AI-powered cost forecasting capabilities to CostGuard using Amazon 
 **Purpose:** Retrieves and processes historical cost data from DynamoDB
 
 **Key Methods:**
-- `get_historical_data()` - Fetches historical costs (90 days)
+- `get_historical_data()` - Fetches historical costs (30-day request)
 - `aggregate_by_service_and_date()` - Groups costs by service and date
 - `interpolate_gaps()` - Fills missing dates with linear interpolation
-- `validate_completeness()` - Ensures minimum 30 days of data
+- `validate_completeness()` - Ensures at least 7 unique dates
 
 **Features:**
-- Retrieves up to 90 days of historical data
+- Forecast generation requests 30 days of historical data
 - Aggregates multiple records per day
 - Linear interpolation for missing dates
 - Service-specific filtering
@@ -196,8 +198,8 @@ curl -H "x-api-key: YOUR_API_KEY" \
 2. **Cache Check** → ForecastCacheManager checks for existing forecast
 3. **Cache Hit** → Return cached forecast immediately (fast path)
 4. **Cache Miss** → Continue to forecast generation
-5. **Historical Data** → HistoricalDataRetriever fetches 90 days from DynamoDB
-6. **Data Validation** → Ensure minimum 30 days, interpolate gaps
+5. **Historical Data** → HistoricalDataRetriever fetches 30 days from DynamoDB
+6. **Data Validation** → Require at least 7 days, interpolate gaps
 7. **Bedrock Call** → BedrockClient sends prompt to Nova Lite
 8. **Parse Response** → Extract predictions and confidence intervals
 9. **Aggregation** → Aggregate to weekly if requested
@@ -207,7 +209,7 @@ curl -H "x-api-key: YOUR_API_KEY" \
 ## Error Handling
 
 ### InsufficientDataError (400)
-**Cause:** Less than 30 days of historical data available  
+**Cause:** Less than 7 days of historical data available
 **Response:**
 ```json
 {
@@ -356,8 +358,8 @@ Added to Lambda execution role:
   - New services or resources being added
   - Pricing changes from AWS
   - Seasonal or cyclical patterns not captured in historical data
-- **Confidence Intervals:** When Bedrock provides confidence intervals, they use 95% confidence level. If Bedrock doesn't provide intervals, the system uses a fallback of ±20% ranges around predictions (not true statistical confidence intervals). Actual costs may fall outside these bounds in edge cases.
-- **Historical Data Dependency:** Forecast accuracy depends on having sufficient historical data (minimum 30 days recommended, 90 days optimal).
+- **Uncertainty ranges:** Model-provided or explicitly labeled +/-20% heuristic bounds have no calibrated coverage guarantee. Actual costs may fall outside them.
+- **Historical Data Dependency:** Forecast accuracy depends on having sufficient historical data (at least 7 days required; the engine requests 30 days).
 
 ### Data Requirements
 - **Minimum Historical Data:** Requires at least 30 days of historical cost data from Phase 1. Forecasts with less data may be less accurate.

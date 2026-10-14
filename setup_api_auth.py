@@ -1,185 +1,86 @@
-#!/usr/bin/env python3
-"""
-Setup API Authentication for Phase 5 Testing
+"""Idempotent authentication bootstrap. Default prints a plan; --apply makes AWS changes.
 
-This script creates the API keys table and generates a test API key.
+Supply a principal JSON file with user_id, role, organizations, accounts,
+permissions, rate_limit and optional is_bff_gateway. Key values stay in a private
+local key file and DynamoDB; stdout contains no credentials.
 """
-import boto3
-import hashlib
-import time
+import argparse
 from datetime import datetime, timedelta, UTC
+import hashlib
+import json
+from pathlib import Path
+import secrets
 
-# Initialize AWS clients
-dynamodb = boto3.client('dynamodb', region_name='us-east-1')
+from src.services.access_control import validate_grant
 
-API_KEYS_TABLE = 'costguard-api-keys'
-RATE_LIMITS_TABLE = 'costguard-rate-limits'
-
-
-def create_api_keys_table():
-    """Create API keys DynamoDB table."""
-    try:
-        print(f"Creating table: {API_KEYS_TABLE}")
-        
-        dynamodb.create_table(
-            TableName=API_KEYS_TABLE,
-            KeySchema=[
-                {'AttributeName': 'api_key', 'KeyType': 'HASH'}
-            ],
-            AttributeDefinitions=[
-                {'AttributeName': 'api_key', 'AttributeType': 'S'}
-            ],
-            BillingMode='PAY_PER_REQUEST',
-            Tags=[
-                {'Key': 'Project', 'Value': 'CostGuard'},
-                {'Key': 'Phase', 'Value': 'Phase5'}
-            ]
-        )
-        
-        # Wait for table to be created
-        waiter = dynamodb.get_waiter('table_exists')
-        waiter.wait(TableName=API_KEYS_TABLE)
-        
-        print(f"✅ Table {API_KEYS_TABLE} created successfully")
-        return True
-    
-    except dynamodb.exceptions.ResourceInUseException:
-        print(f"ℹ️  Table {API_KEYS_TABLE} already exists")
-        return True
-    
-    except Exception as e:
-        print(f"❌ Error creating table: {str(e)}")
-        return False
+TABLES = {'costguard-api-keys': 'api_key', 'costguard-rate-limits': 'window_key'}
 
 
-def create_rate_limits_table():
-    """Create rate limits DynamoDB table."""
-    try:
-        print(f"Creating table: {RATE_LIMITS_TABLE}")
-        
-        dynamodb.create_table(
-            TableName=RATE_LIMITS_TABLE,
-            KeySchema=[
-                {'AttributeName': 'window_key', 'KeyType': 'HASH'}
-            ],
-            AttributeDefinitions=[
-                {'AttributeName': 'window_key', 'AttributeType': 'S'}
-            ],
-            BillingMode='PAY_PER_REQUEST',
-            Tags=[
-                {'Key': 'Project', 'Value': 'CostGuard'},
-                {'Key': 'Phase', 'Value': 'Phase5'}
-            ]
-        )
-        
-        # Wait for table to be created
-        waiter = dynamodb.get_waiter('table_exists')
-        waiter.wait(TableName=RATE_LIMITS_TABLE)
-        
-        # Enable TTL after table is created
+def bootstrap(client, principal, key_file, rotate_from=None):
+    for table, key in TABLES.items():
         try:
-            dynamodb.update_time_to_live(
-                TableName=RATE_LIMITS_TABLE,
-                TimeToLiveSpecification={
-                    'Enabled': True,
-                    'AttributeName': 'ttl'
-                }
-            )
-            print(f"✅ TTL enabled on {RATE_LIMITS_TABLE}")
-        except Exception as e:
-            print(f"⚠️  Could not enable TTL: {str(e)}")
-        
-        print(f"✅ Table {RATE_LIMITS_TABLE} created successfully")
-        return True
-    
-    except dynamodb.exceptions.ResourceInUseException:
-        print(f"ℹ️  Table {RATE_LIMITS_TABLE} already exists")
-        return True
-    
-    except Exception as e:
-        print(f"❌ Error creating table: {str(e)}")
-        return False
-
-
-def generate_api_key(user_id: str) -> str:
-    """Generate a secure API key."""
-    timestamp = str(int(time.time() * 1000000))
-    unique_string = f"{user_id}:{timestamp}:{hash(user_id + timestamp)}"
-    api_key = hashlib.sha256(unique_string.encode()).hexdigest()
-    return f"cg_{api_key[:32]}"
-
-
-def create_test_api_key():
-    """Create a test API key for Phase 5 testing."""
-    try:
-        user_id = 'test-user'
-        api_key = generate_api_key(user_id)
-        api_key_id = f"key_{int(time.time())}"
-        expires_at = datetime.now(UTC) + timedelta(days=365)
-        
-        print(f"\nCreating test API key for user: {user_id}")
-        
-        dynamodb.put_item(
-            TableName=API_KEYS_TABLE,
-            Item={
-                'api_key': {'S': api_key},
-                'api_key_id': {'S': api_key_id},
-                'user_id': {'S': user_id},
-                'permissions': {'SS': ['read', 'write']},
-                'rate_limit': {'N': '1000'},
-                'is_active': {'BOOL': True},
-                'created_at': {'S': datetime.now(UTC).isoformat()},
-                'expires_at': {'S': expires_at.isoformat()}
-            }
-        )
-        
-        print(f"✅ Test API key created successfully")
-        print(f"\n{'='*80}")
-        print(f"API KEY DETAILS")
-        print(f"{'='*80}")
-        print(f"API Key: {api_key}")
-        print(f"API Key ID: {api_key_id}")
-        print(f"User ID: {user_id}")
-        print(f"Permissions: read, write")
-        print(f"Rate Limit: 1000 requests/minute")
-        print(f"Expires: {expires_at.strftime('%Y-%m-%d')}")
-        print(f"{'='*80}")
-        print(f"\nUse this API key for testing:")
-        print(f"  -H 'x-api-key: {api_key}'")
-        print(f"{'='*80}\n")
-        
-        return api_key
-    
-    except Exception as e:
-        print(f"❌ Error creating test API key: {str(e)}")
-        return None
+            response = client.describe_table(TableName=table)
+            schema = response['Table']['KeySchema']
+            if schema != [{'AttributeName': key, 'KeyType': 'HASH'}]: raise ValueError('Unexpected key schema for ' + table)
+        except client.exceptions.ResourceNotFoundException:
+            client.create_table(TableName=table, KeySchema=[{'AttributeName': key, 'KeyType': 'HASH'}],
+                                AttributeDefinitions=[{'AttributeName': key, 'AttributeType': 'S'}], BillingMode='PAY_PER_REQUEST')
+            client.get_waiter('table_exists').wait(TableName=table)
+    ttl = client.describe_time_to_live(TableName='costguard-rate-limits')['TimeToLiveDescription']
+    if ttl.get('TimeToLiveStatus') == 'DISABLED': client.update_time_to_live(TableName='costguard-rate-limits', TimeToLiveSpecification={'Enabled': True, 'AttributeName': 'ttl'})
+    elif ttl.get('AttributeName') != 'ttl': raise ValueError('Unexpected rate-limit TTL attribute')
+    grant = validate_grant(principal)
+    key_file = Path(key_file)
+    if key_file.exists():
+        key = key_file.read_text().strip()
+    else:
+        key = secrets.token_urlsafe(32)
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        with key_file.open('x') as output: output.write(key)
+        key_file.chmod(0o600)
+    if len(key) < 32: raise ValueError('Key must contain at least 32 characters')
+    existing = client.get_item(TableName='costguard-api-keys', Key={'api_key': {'S': key}}, ConsistentRead=True).get('Item', {})
+    fingerprint = hashlib.sha256(key.encode()).hexdigest()
+    item = {'api_key': {'S': key}, 'api_key_id': {'S': 'key_' + fingerprint[:20]}, 'user_id': {'S': principal['user_id']},
+        'role': {'S': grant['role']}, 'organizations': {'SS': grant['organizations']}, 'accounts': {'SS': grant['accounts']},
+        'permissions': {'SS': principal.get('permissions', ['read'])}, 'rate_limit': {'N': str(principal.get('rate_limit', 100))},
+        'is_bff_gateway': {'BOOL': principal.get('is_bff_gateway', False)}, 'is_active': {'BOOL': True},
+        'created_at': existing.get('created_at', {'S': datetime.now(UTC).isoformat()}),
+        'expires_at': existing.get('expires_at', {'S': (datetime.now(UTC)+timedelta(days=365)).isoformat()})}
+    if existing != item: client.put_item(TableName='costguard-api-keys', Item=item)
+    if rotate_from:
+        prior = Path(rotate_from).read_text().strip()
+        if prior == key: raise ValueError('Rotation requires a different new key file')
+        client.update_item(TableName='costguard-api-keys', Key={'api_key': {'S': prior}},
+            UpdateExpression='SET is_active = :disabled', ExpressionAttributeValues={':disabled': {'BOOL': False}},
+            ConditionExpression='attribute_exists(api_key)')
+    return {'configured': True, 'key_fingerprint': fingerprint[:12], 'key_file': str(key_file), 'rotated': bool(rotate_from)}
 
 
 def main():
-    """Setup API authentication infrastructure."""
-    print("=" * 80)
-    print("Phase 5 API Authentication Setup")
-    print("=" * 80)
-    print()
-    
-    # Create tables
-    if not create_api_keys_table():
-        print("❌ Failed to create API keys table")
-        return
-    
-    if not create_rate_limits_table():
-        print("❌ Failed to create rate limits table")
-        return
-    
-    # Create test API key
-    api_key = create_test_api_key()
-    
-    if api_key:
-        print("✅ API authentication setup complete!")
-        print("\nYou can now test Phase 5 endpoints with the generated API key.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--principal', type=Path, required=True)
+    parser.add_argument('--key-file', type=Path, required=True)
+    parser.add_argument('--rotate-from-key-file', type=Path)
+    parser.add_argument('--region', default='us-east-1')
+    parser.add_argument('--profile')
+    parser.add_argument('--apply', action='store_true')
+    args = parser.parse_args()
+    principal = json.loads(args.principal.read_text())
+    validate_grant(principal)
+    if not isinstance(principal.get('user_id'), str) or not principal['user_id']: raise ValueError('Supply user_id')
+    permissions = principal.get('permissions', ['read'])
+    if not isinstance(permissions, list) or not permissions or not set(permissions).issubset({'read', 'write'}): raise ValueError('Supply nonempty read/write key permissions')
+    if type(principal.get('rate_limit', 100)) is not int or not 1 <= principal.get('rate_limit', 100) <= 10000: raise ValueError('Invalid rate limit')
+    if type(principal.get('is_bff_gateway', False)) is not bool: raise ValueError('Invalid gateway flag')
+    if args.apply:
+        import boto3
+        result = bootstrap(boto3.Session(profile_name=args.profile, region_name=args.region).client('dynamodb'), principal, args.key_file, args.rotate_from_key_file)
     else:
-        print("❌ Failed to create test API key")
+        result = {'applied': False, 'tables': TABLES, 'principal': principal['user_id'], 'role': principal['role'],
+                  'organizations': principal['organizations'], 'accounts': principal['accounts'], 'region': args.region,
+                  'key_file': str(args.key_file), 'rotation_requested': bool(args.rotate_from_key_file), 'aws_calls': 0}
+    print(json.dumps(result, indent=2))
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__': main()

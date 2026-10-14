@@ -1,5 +1,8 @@
 # CostGuard AI - Quick Reference Guide
 
+> **Current backend references (October 3, 2026):** [Project status](PROJECT_STATUS.md), [architecture](technical/architecture.md), [API contracts](technical/api-design.md), [database schemas](technical/database-design.md), and [known limitations](technical/documentation-code-sync.md). Historical deployment/test/planning reports preserve their original results; they do not certify present live operation.
+
+
 **Last Updated:** February 2026  
 **Purpose:** Fast access to commonly needed documentation
 
@@ -8,7 +11,7 @@
 ## 🚀 I Need To...
 
 ### Get Started
-- **Install & Deploy:** [README.md](../README.md#getting-started)
+- **Install & Deploy:** [README.md](../README.md#-getting-started)
 - **Understand Architecture:** [Architecture](./technical/architecture.md)
 - **See API Examples:** [API_EXAMPLES.md](./API_EXAMPLES.md)
 
@@ -16,8 +19,8 @@
 - **Phase 1 (Historical):** [API Examples - Phase 1](./API_EXAMPLES.md#phase-1-historical-cost-data)
 - **Phase 1.5 (Real-Time):** [API Examples - Phase 1.5](./API_EXAMPLES.md#phase-15-near-real-time-cost-estimation)
 - **Phase 2 (Forecasting):** [API Examples - Phase 2](./API_EXAMPLES.md#phase-2-ai-powered-cost-forecasting)
-- **Phase 3 (Prevention):** [API Examples - Phase 3](./API_EXAMPLES.md#phase-3-automated-cost-prevention)
-- **Phase 4 (AI Advisor):** [API Examples - Phase 4](./API_EXAMPLES.md#phase-4-ai-cost-advisor)
+- **Phase 3 (Prevention):** [API Examples - Phase 3](./API_EXAMPLES.md)
+- **Phase 4 (AI Advisor):** [API Examples - Phase 4](./API_EXAMPLES.md)
 - **Phase 5 (Multi-Account):** [Phase 5 API Docs](./technical/phase5-multi-account/API_DOCUMENTATION.md)
 
 ### Deploy
@@ -25,19 +28,19 @@
 - **Phase 1.5:** [Infrastructure Updates](./technical/phase1.5-near-realtime/infrastructure-updates.md)
 - **Phase 2:** [Infrastructure Updates](./technical/phase2-ai-forecasting/infrastructure-updates.md)
 - **Phase 3:** [Infrastructure Updates](./technical/phase3-automated-prevention/infrastructure-updates.md)
-- **Phase 4:** [Deployment Checklist](../DEPLOYMENT_CHECKLIST.md)
-- **Phase 5:** [Deployment Scripts](../DEPLOYMENT_SCRIPTS.md)
+- **Phase 4:** [Deployment Checklist](deployment/DEPLOYMENT_CHECKLIST.md)
+- **Phase 5:** [Deployment Scripts](deployment/DEPLOYMENT_SCRIPTS.md)
 
 ### Troubleshoot
 - **Phase 1 Issues:** [Phase 1 README - Troubleshooting](./technical/phase1-cost-pipeline/README.md#troubleshooting)
 - **Phase 1.5 Issues:** [Phase 1.5 README - Troubleshooting](./technical/phase1.5-near-realtime/README.md#troubleshooting)
-- **Phase 2 Issues:** [Phase 2 README - Troubleshooting](./technical/phase2-ai-forecasting/README.md#troubleshooting)
+- **Phase 2 Issues:** [Phase 2 README - Troubleshooting](./technical/phase2-ai-forecasting/README.md)
 - **Phase 3 Issues:** [Phase 3 README - Troubleshooting](./technical/phase3-automated-prevention/README.md#troubleshooting)
 - **Phase 4 Issues:** [Phase 4 README - Troubleshooting](./technical/phase4-ai-advisor/README.md#troubleshooting)
 
 ### Understand Costs
-- **Cost Breakdown:** [README - Cost Optimization](../README.md#cost-optimization)
-- **Free Tier Usage:** [AWS Services](./technical/aws-services.md#free-tier)
+- **Cost Breakdown:** [README - Cost Optimization](../README.md#-cost-optimization)
+- **Free Tier Usage:** [AWS Services](./technical/aws-services.md)
 - **Phase Costs:** [PROJECT_STATUS.md](./PROJECT_STATUS.md#monthly-cost-breakdown)
 
 ### Check Status
@@ -67,21 +70,21 @@
 
 ### Automated Prevention
 - **Overview:** [Phase 3 README](./technical/phase3-automated-prevention/README.md)
-- **API:** [API Examples - Phase 3](./API_EXAMPLES.md#phase-3-automated-cost-prevention)
+- **API:** [API Examples - Phase 3](./API_EXAMPLES.md)
 - **Design:** [Phase 3 Specification](./technical/phase3-automated-prevention/specification.md)
 - **EventBridge Setup:** [Infrastructure Updates](./technical/phase3-automated-prevention/infrastructure-updates.md)
 
 ### AI Cost Advisor
 - **Overview:** [Phase 4 README](./technical/phase4-ai-advisor/README.md)
-- **API:** [API Examples - Phase 4](./API_EXAMPLES.md#phase-4-ai-cost-advisor)
+- **API:** [API Examples - Phase 4](./API_EXAMPLES.md)
 - **Design:** [Phase 4 Specification](./technical/phase4-ai-advisor/specification.md)
-- **Deployment:** [Deployment Checklist](../DEPLOYMENT_CHECKLIST.md)
+- **Deployment:** [Deployment Checklist](deployment/DEPLOYMENT_CHECKLIST.md)
 
 ### Multi-Account Management
 - **Overview:** [Phase 5 README](./technical/phase5-multi-account/README.md)
 - **API:** [Phase 5 API Documentation](./technical/phase5-multi-account/API_DOCUMENTATION.md)
 - **Cross-Account Setup:** [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)
-- **Deployment:** [Deployment Scripts](../DEPLOYMENT_SCRIPTS.md)
+- **Deployment:** [Deployment Scripts](deployment/DEPLOYMENT_SCRIPTS.md)
 
 ### GPU Cost Management
 - **Overview:** [Phase 6 User Guide](./user-guide/phase6-user-guide.md)
@@ -99,25 +102,25 @@
 ## 🔧 By Technology
 
 ### AWS Services
-- **Cost Explorer:** [AWS Services Guide](./technical/aws-services.md#cost-explorer)
-- **CloudWatch:** [AWS Services Guide](./technical/aws-services.md#cloudwatch)
-- **Bedrock:** [AWS Services Guide](./technical/aws-services.md#amazon-bedrock)
+- **Cost Explorer:** [AWS Services Guide](./technical/aws-services.md)
+- **CloudWatch:** [AWS Services Guide](./technical/aws-services.md)
+- **Bedrock:** [AWS Services Guide](./technical/aws-services.md)
 - **DynamoDB:** [Database Design](./technical/database-design.md)
-- **Lambda:** [Architecture](./technical/architecture.md#lambda-functions)
+- **Lambda:** [Architecture](./technical/architecture.md)
 - **API Gateway:** [API Design](./technical/api-design.md)
-- **EventBridge:** [AWS Services Guide](./technical/aws-services.md#eventbridge)
-- **Organizations:** [Phase 5 README](./technical/phase5-multi-account/README.md#organizations-integration)
+- **EventBridge:** [AWS Services Guide](./technical/aws-services.md)
+- **Organizations:** [Phase 5 README](./technical/phase5-multi-account/README.md)
 
 ### AI/ML
-- **Bedrock Integration:** [Architecture - AI](./technical/architecture.md#ai-model-selection)
-- **Nova Lite Model:** [AWS Services - Nova](./technical/aws-services.md#nova-lite)
-- **Forecasting:** [Phase 2 Design](./technical/phase2-ai-forecasting/design.md#forecasting-engine)
-- **NLP:** [Phase 4 Design](./technical/phase4-ai-advisor/design.md#query-processor)
-- **Conversational AI:** [Phase 4 README](./technical/phase4-ai-advisor/README.md#conversational-ai)
+- **Bedrock Integration:** [Architecture - AI](./technical/architecture.md)
+- **Nova Lite Model:** [AWS Services - Nova](./technical/aws-services.md)
+- **Forecasting:** [Phase 2 Design](../.kiro/specs/ai-cost-forecasting/design.md)
+- **NLP:** [Phase 4 Design](../.kiro/specs/ai-cost-advisor/design.md)
+- **Conversational AI:** [Phase 4 README](./technical/phase4-ai-advisor/README.md)
 
 ### Testing
-- **Testing Strategy:** [Architecture - Testing](./technical/architecture.md#testing-strategy)
-- **Property-Based Testing:** [Best Practices](./resources/best-practices.md#property-based-testing)
+- **Testing Strategy:** [Architecture - Testing](./technical/architecture.md)
+- **Property-Based Testing:** [Best Practices](./resources/best-practices.md)
 - **Test Results:** [PROJECT_STATUS.md - Test Coverage](./PROJECT_STATUS.md#test-coverage)
 
 ---
@@ -129,10 +132,10 @@
 | **1** | [README](./technical/phase1-cost-pipeline/README.md) | [API](./API_EXAMPLES.md#phase-1-historical-cost-data) | [Spec](./technical/phase1-cost-pipeline/specification.md) | [Deploy](./technical/phase1-cost-pipeline/README.md#deployment) | [Tests](./technical/phase1-cost-pipeline/implementation-summary.md) |
 | **1.5** | [README](./technical/phase1.5-near-realtime/README.md) | [API](./API_EXAMPLES.md#phase-15-near-real-time-cost-estimation) | [Design](./technical/phase1.5-near-realtime/design.md) | [Infra](./technical/phase1.5-near-realtime/infrastructure-updates.md) | [Tests](./technical/phase1.5-near-realtime/implementation-summary.md) |
 | **2** | [README](./technical/phase2-ai-forecasting/README.md) | [API](./API_EXAMPLES.md#phase-2-ai-powered-cost-forecasting) | [Spec](./technical/phase2-ai-forecasting/specification.md) | [Infra](./technical/phase2-ai-forecasting/infrastructure-updates.md) | [Tests](./technical/phase2-ai-forecasting/implementation-summary.md) |
-| **3** | [README](./technical/phase3-automated-prevention/README.md) | [API](./API_EXAMPLES.md#phase-3-automated-cost-prevention) | [Spec](./technical/phase3-automated-prevention/specification.md) | [Infra](./technical/phase3-automated-prevention/infrastructure-updates.md) | [Tests](./technical/phase3-automated-prevention/implementation-summary.md) |
-| **4** | [README](./technical/phase4-ai-advisor/README.md) | [API](./API_EXAMPLES.md#phase-4-ai-cost-advisor) | [Spec](./technical/phase4-ai-advisor/specification.md) | [Checklist](../DEPLOYMENT_CHECKLIST.md) | [Tests](./technical/phase4-ai-advisor/implementation-summary.md) |
-| **5** | [README](./technical/phase5-multi-account/README.md) | [API Docs](./technical/phase5-multi-account/API_DOCUMENTATION.md) | [Design](../.kiro/specs/multi-account-cost-management/design.md) | [Scripts](../DEPLOYMENT_SCRIPTS.md) | [Tasks](../.kiro/specs/multi-account-cost-management/tasks.md#task-32-run-comprehensive-test-suite) |
-| **6** | [User Guide](./user-guide/phase6-user-guide.md) | [API Docs](./api/phase6-api-documentation.md) | [Deployment](./deployment/phase6-deployment-guide.md) | [Deploy](./deployment/phase6-deployment-guide.md) | [Validation](../PHASE6_VALIDATION_REPORT.md) |
+| **3** | [README](./technical/phase3-automated-prevention/README.md) | [API](./API_EXAMPLES.md) | [Spec](./technical/phase3-automated-prevention/specification.md) | [Infra](./technical/phase3-automated-prevention/infrastructure-updates.md) | [Tests](./technical/phase3-automated-prevention/implementation-summary.md) |
+| **4** | [README](./technical/phase4-ai-advisor/README.md) | [API](./API_EXAMPLES.md) | [Spec](./technical/phase4-ai-advisor/specification.md) | [Checklist](deployment/DEPLOYMENT_CHECKLIST.md) | [Tests](./technical/phase4-ai-advisor/implementation-summary.md) |
+| **5** | [README](./technical/phase5-multi-account/README.md) | [API Docs](./technical/phase5-multi-account/API_DOCUMENTATION.md) | [Design](../.kiro/specs/multi-account-cost-management/design.md) | [Scripts](deployment/DEPLOYMENT_SCRIPTS.md) | [Tasks](../.kiro/specs/multi-account-cost-management/tasks.md) |
+| **6** | [User Guide](./user-guide/phase6-user-guide.md) | [API Docs](./api/phase6-api-documentation.md) | [Deployment](./deployment/phase6-deployment-guide.md) | [Deploy](./deployment/phase6-deployment-guide.md) | [Validation](project/PHASE6_VALIDATION_REPORT.md) |
 | **7-8** | [Future Roadmap](./FUTURE_ROADMAP.md) | [Phase 7 Rec](./project/phase7-recommendation.md) | [Timeline](./project/phase-timeline.md) | ⏸️ Post-Hackathon | ⏸️ Planned |
 
 ---
@@ -143,7 +146,7 @@
 
 **...get started quickly?**
 1. Read [README.md](../README.md)
-2. Follow [Getting Started](../README.md#getting-started)
+2. Follow [Getting Started](../README.md#-getting-started)
 3. Try [API Examples](./API_EXAMPLES.md)
 
 **...deploy to AWS?**
@@ -153,13 +156,13 @@
 
 **...use the AI advisor?**
 1. Read [Phase 4 README](./technical/phase4-ai-advisor/README.md)
-2. Deploy using [Deployment Checklist](../DEPLOYMENT_CHECKLIST.md)
-3. Try [Phase 4 API Examples](./API_EXAMPLES.md#phase-4-ai-cost-advisor)
+2. Deploy using [Deployment Checklist](deployment/DEPLOYMENT_CHECKLIST.md)
+3. Try [Phase 4 API Examples](./API_EXAMPLES.md)
 
 **...set up multi-account?**
 1. Read [Phase 5 README](./technical/phase5-multi-account/README.md)
 2. Follow [Cross-Account Setup](../infrastructure/CROSS_ACCOUNT_SETUP.md)
-3. Deploy with [Deployment Scripts](../DEPLOYMENT_SCRIPTS.md)
+3. Deploy with [Deployment Scripts](deployment/DEPLOYMENT_SCRIPTS.md)
 
 **...track GPU costs?**
 1. Read [Phase 6 User Guide](./user-guide/phase6-user-guide.md#gpu-cost-tracking)
@@ -178,8 +181,8 @@
 
 **...stop idle GPUs?**
 1. Read [GPU Prevention Guide](./user-guide/phase6-user-guide.md#gpu-prevention)
-2. Check [Idle GPU Detection](./api/phase6-api-documentation.md#get-idle-gpus)
-3. Use [GPU Prevention API](./api/phase6-api-documentation.md#run-gpu-prevention-cycle)
+2. Check [Idle GPU Detection](./api/phase6-api-documentation.md#3-get-idle-gpus)
+3. Use [GPU Prevention API](./api/phase6-api-documentation.md#16-run-gpu-prevention-cycle)
 
 **...see future roadmap?**
 1. Read [Future Roadmap](./FUTURE_ROADMAP.md) - Phase 7-8 post-hackathon features
@@ -194,12 +197,12 @@
 **...check test coverage?**
 1. See [PROJECT_STATUS.md - Test Coverage](./PROJECT_STATUS.md#test-coverage)
 2. Review phase-specific test results (see [By Phase](#-by-phase))
-3. Read [Testing Strategy](./technical/architecture.md#testing-strategy)
+3. Read [Testing Strategy](./technical/architecture.md)
 
 **...estimate costs?**
-1. Read [Cost Optimization](../README.md#cost-optimization)
+1. Read [Cost Optimization](../README.md#-cost-optimization)
 2. Check [Monthly Cost Breakdown](./PROJECT_STATUS.md#monthly-cost-breakdown)
-3. Review [Free Tier Usage](./technical/aws-services.md#free-tier)
+3. Review [Free Tier Usage](./technical/aws-services.md)
 
 **...find API documentation?**
 1. Start with [API_EXAMPLES.md](./API_EXAMPLES.md)
@@ -219,10 +222,10 @@
 - GPU Costs: [Phase 6](#gpu-cost-management)
 
 **AI/ML:**
-- Bedrock: [AWS Services](./technical/aws-services.md#amazon-bedrock)
+- Bedrock: [AWS Services](./technical/aws-services.md)
 - Forecasting: [Phase 2](#ai-forecasting)
 - Advisor: [Phase 4](#ai-cost-advisor)
-- NLP: [Phase 4 Design](./technical/phase4-ai-advisor/design.md#query-processor)
+- NLP: [Phase 4 Design](../.kiro/specs/ai-cost-advisor/design.md)
 - GPU Tracking: [Phase 6](#gpu-cost-management)
 - Workload Classification: [Phase 6 User Guide](./user-guide/phase6-user-guide.md#workload-classification)
 - ML Optimization: [Phase 6 User Guide](./user-guide/phase6-user-guide.md)

@@ -1,5 +1,7 @@
 # Phase 4: AI Cost Advisor - Implementation Summary
 
+> **Historical report.** These implementation/review notes preserve earlier findings and test results. Use [current project status](../../PROJECT_STATUS.md) and its linked source references for the checked-in backend reviewed October 3, 2026.
+
 **Keywords:** implementation, test results, deliverables, code complete, test coverage, property-based testing, unit testing, Phase 4, AI advisor, conversational AI, Amazon Bedrock, Nova Lite, natural language processing, query processing, context management, response caching, proactive insights
 
 **Status:** ✅ **CODE COMPLETE** - Ready for AWS Deployment  

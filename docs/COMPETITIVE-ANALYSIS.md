@@ -695,8 +695,8 @@
 ## See Also
 
 ### Core Documentation
-- **[PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md)** - 💰 **Phase 6 Unit Economics + RI/SP Optimization - Detailed plan**
-- **[PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md)** - 🔥 **Phase 5 Multi-Account Cost Management - Foundation**
+- **[PHASE6_RECOMMENDATION.md](project/phase6-recommendation.md)** - 💰 **Phase 6 Unit Economics + RI/SP Optimization - Detailed plan**
+- **[PHASE5_RECOMMENDATION.md](project/phase5-recommendation.md)** - 🔥 **Phase 5 Multi-Account Cost Management - Foundation**
 - **[IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md)** - 📊 **Brutal honest impact assessment - will current goal make real impact? (6.5/10 - Updated with Research)**
 - **[TECHNICAL-FEASIBILITY-ASSESSMENT.md](./TECHNICAL-FEASIBILITY-ASSESSMENT.md)** - 🔍 **Brutal honest technical feasibility analysis - can we actually deliver?**
 - **[submission/SUBMISSION-READY-PITCH.md](./submission/SUBMISSION-READY-PITCH.md)** - ⭐ Current submission pitch (needs refinement based on this analysis)

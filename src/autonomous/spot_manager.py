@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import time
+import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
@@ -204,61 +205,13 @@ def verify_checkpoint_integrity(checkpoint_id: str, s3_key: str, original_data: 
 
 
 def restore_from_checkpoint(checkpoint_id: str, new_instance_id: str) -> bool:
+    """Legacy metadata-only checkpoints cannot prove training restoration.
+
+    Use parameters.training on an approved replacement action. The configured
+    worker restores real weights/optimizer state and verifies output progress.
     """
-    Restore training from checkpoint to new instance.
-    
-    Args:
-        checkpoint_id: Checkpoint ID to restore
-        new_instance_id: New EC2 instance ID
-        
-    Returns:
-        True if restoration successful
-    """
-    try:
-        # Query checkpoint metadata
-        response = training_checkpoints_table.query(
-            KeyConditionExpression=Key("checkpoint_id").eq(checkpoint_id),
-            Limit=1
-        )
-        
-        if not response.get("Items"):
-            print(f"ERROR: Checkpoint not found: {checkpoint_id}")
-            return False
-        
-        checkpoint_item = response["Items"][0]
-        
-        # Verify integrity before restoration
-        if not checkpoint_item.get("integrity_verified"):
-            print(f"ERROR: Checkpoint integrity not verified: {checkpoint_id}")
-            return False
-        
-        # Extract S3 location
-        s3_location = checkpoint_item["s3_location"]
-        s3_key = s3_location.replace(f"s3://{CHECKPOINT_BUCKET}/", "")
-        
-        # Download checkpoint from S3
-        response = s3_client.get_object(Bucket=CHECKPOINT_BUCKET, Key=s3_key)
-        checkpoint_data = response['Body'].read()
-        training_state = json.loads(checkpoint_data.decode('utf-8'))
-        
-        print(f"Restored training state from checkpoint {checkpoint_id}")
-        print(f"  Epoch: {training_state.get('epoch')}, Step: {training_state.get('step')}")
-        
-        # Update restored count
-        training_checkpoints_table.update_item(
-            Key={"checkpoint_id": checkpoint_id, "created_at": checkpoint_item["created_at"]},
-            UpdateExpression="SET restored_count = restored_count + :inc, last_restored_at = :timestamp",
-            ExpressionAttributeValues={
-                ":inc": 1,
-                ":timestamp": datetime.utcnow().isoformat(),
-            }
-        )
-        
-        return True
-        
-    except Exception as e:
-        print(f"ERROR: Failed to restore from checkpoint: {e}")
-        return False
+    print("Training restore requires the approved executor training contract")
+    return False
 
 
 def select_most_recent_checkpoint(training_job_id: str) -> Optional[str]:
@@ -293,56 +246,39 @@ def select_most_recent_checkpoint(training_job_id: str) -> Optional[str]:
         return None
 
 
-def acquire_replacement_instance(region: str, instance_type: str, training_job_id: str) -> Tuple[Optional[str], str]:
-    """
-    Acquire replacement instance (spot first, on-demand fallback).
-    
-    Args:
-        region: AWS region
-        instance_type: EC2 instance type
-        training_job_id: Training job ID
-        
-    Returns:
-        Tuple of (instance_id, instance_mode) where mode is 'spot' or 'ondemand'
-    """
-    start_time = time.time()
-    
-    # Try to acquire spot instance first
-    print(f"Attempting to acquire spot instance: {instance_type} in {region}")
-    
+def acquire_replacement_instance(region: str, instance_type: str, training_job_id: str,
+                                 parameters=None, request_id=None) -> Tuple[Optional[str], str]:
+    """Queue a real replacement request; never manufacture a running instance."""
+    parameters = dict(parameters or {})
+    parameters.update(region=region, instance_type=instance_type, training_job_id=training_job_id)
+    if check_spot_availability(region, instance_type):
+        submitted = submit_replacement_request("spot_migration", parameters, request_id)
+    else:
+        submitted = submit_replacement_request("ondemand_fallback", parameters, request_id)
+    return None, "pending_approval" if submitted else "failed"
+
+
+def submit_replacement_request(action_type, parameters, request_id=None):
+    from autonomous.action_executor import validate_parameters
     try:
-        # In production, this would use EC2 RunInstances with spot request
-        # For now, simulate the attempt
-        spot_available = check_spot_availability(region, instance_type)
-        
-        if spot_available:
-            # Simulate spot instance acquisition
-            instance_id = f"i-spot-{int(time.time())}"
-            print(f"Acquired spot instance: {instance_id}")
-            return instance_id, "spot"
-        
-        # Check if timeout exceeded
-        elapsed = time.time() - start_time
-        if elapsed >= SPOT_TIMEOUT_SECONDS:
-            print(f"Spot acquisition timeout ({elapsed:.2f}s >= {SPOT_TIMEOUT_SECONDS}s)")
-            
-            # Request approval for on-demand fallback if required
-            if APPROVAL_REQUIRED_FOR_ONDEMAND:
-                approved = request_ondemand_approval(training_job_id, instance_type, region)
-                if not approved:
-                    print("On-demand fallback not approved")
-                    return None, "cancelled"
-            
-            # Fallback to on-demand
-            print(f"Falling back to on-demand instance: {instance_type}")
-            instance_id = f"i-ondemand-{int(time.time())}"
-            return instance_id, "ondemand"
-        
-        return None, "failed"
-        
-    except Exception as e:
-        print(f"ERROR: Failed to acquire replacement instance: {e}")
-        return None, "error"
+        validate_parameters(action_type, parameters)
+        request_id = request_id or "req_" + uuid.uuid4().hex
+        action_request = {
+            "request_id": request_id, "action_id": "act_" + request_id,
+            "action_type": action_type, "parameters": parameters,
+            "approval_required": True, "confidence_score": 0.5,
+            "expected_cost_impact": 0, "timestamp": parameters.pop("request_timestamp", datetime.utcnow().isoformat()),
+        }
+        response = events_client.put_events(Entries=[{
+            "Source": "costguard.autonomous.rightsizer" if action_type == "right_sizing" else "costguard.autonomous.spotmanager",
+            "DetailType": "ActionRequest",
+            "Detail": json.dumps(action_request), "EventBusName": EVENT_BUS_NAME}])
+        if response.get("FailedEntryCount", 0):
+            raise RuntimeError("Replacement action was not accepted")
+        return request_id
+    except (ValueError, KeyError, TypeError) as error:
+        print(f"Replacement request rejected: {error}")
+        return None
 
 
 def check_spot_availability(region: str, instance_type: str) -> bool:
@@ -377,47 +313,12 @@ def check_spot_availability(region: str, instance_type: str) -> bool:
         return False
 
 
-def request_ondemand_approval(training_job_id: str, instance_type: str, region: str) -> bool:
-    """
-    Request approval for on-demand fallback.
-    
-    Args:
-        training_job_id: Training job ID
-        instance_type: Instance type
-        region: Region
-        
-    Returns:
-        True if approved
-    """
-    # Publish ActionRequest event to Safety Guard
-    action_request = {
-        "request_id": f"req_{int(time.time())}",
-        "action_type": "ondemand_fallback",
-        "training_job_id": training_job_id,
-        "instance_type": instance_type,
-        "region": region,
-        "timeout_minutes": 15,
-    }
-    
-    try:
-        events_client.put_events(
-            Entries=[{
-                "Source": "costguard.autonomous.spotmanager",
-                "DetailType": "ActionRequest",
-                "Detail": json.dumps(action_request, default=str),
-                "EventBusName": EVENT_BUS_NAME,
-            }]
-        )
-        
-        print(f"Approval request sent: {action_request['request_id']}")
-        
-        # In production, would wait for approval response
-        # For now, simulate approval
-        return True
-        
-    except Exception as e:
-        print(f"ERROR: Failed to request approval: {e}")
-        return False
+def request_ondemand_approval(training_job_id: str, instance_type: str, region: str,
+                             parameters=None):
+    """Return a submitted request ID, not a simulated approval decision."""
+    parameters = dict(parameters or {})
+    parameters.update(training_job_id=training_job_id, instance_type=instance_type, region=region)
+    return submit_replacement_request("ondemand_fallback", parameters)
 
 
 def track_spot_cost(instance_id: str, duration_hours: float) -> Decimal:
@@ -557,131 +458,36 @@ def calculate_total_training_cost(training_job_id: str) -> Dict[str, Decimal]:
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Save supplied checkpoint metadata and submit a replacement for approval.
+
+    The configured launch template must boot the actual workload. Checkpoint
+    metadata alone does not establish restoration of model weights or training.
     """
-    Lambda handler for Spot Manager.
-    
-    Args:
-        event: EC2 spot interruption warning or EventBridge event
-        context: Lambda context
-        
-    Returns:
-        Response with migration status
-    """
-    print(f"Spot Manager invoked with event: {json.dumps(event, default=str)}")
-    
-    # Get metrics publisher
-    metrics = get_metrics_publisher()
-    
-    # Parse event
     detail = event.get("detail", {})
-    instance_id = detail.get("instance_id", "unknown")
-    training_job_id = detail.get("training_job_id", "unknown")
-    instance_type = detail.get("instance_type", "g4dn.xlarge")
-    region = event.get("region", "us-east-1")
-    
-    # Step 1: Save checkpoint
-    print(f"Step 1: Saving checkpoint for instance {instance_id}")
-    training_state = {
-        "training_job_id": training_job_id,
-        "epoch": detail.get("epoch", 0),
-        "step": detail.get("step", 0),
-        "loss": detail.get("loss", 0.0),
-        "model_name": detail.get("model_name", "model"),
-    }
-    
-    success = True
-    
+    parameters = dict(detail.get("parameters", {}))
+    parameters.setdefault("region", event.get("region", os.environ.get("AWS_REGION", "us-east-1")))
+    instance_id = detail.get("instance_id", detail.get("instance-id"))
+    training_job_id = detail.get("training_job_id")
+    if not instance_id or not training_job_id:
+        return {"statusCode": 400, "body": json.dumps({"error": "instance_id and training_job_id are required"})}
+    if os.environ.get("DRY_RUN_MODE", "true").lower() == "true":
+        return {"statusCode": 200, "body": json.dumps({"status": "dry_run"})}
+    from autonomous.action_executor import validate_parameters
     try:
-        checkpoint_id = save_checkpoint(instance_id, training_state)
-        print(f"Checkpoint saved: {checkpoint_id}")
-    except Exception as e:
-        print(f"ERROR: Checkpoint save failed: {e}")
-        success = False
-        metrics.publish_action_success_rate("spot_migration", 0.0)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Checkpoint save failed", "details": str(e)})
-        }
-    
-    # Step 2: Acquire replacement instance
-    print(f"Step 2: Acquiring replacement instance")
-    new_instance_id, instance_mode = acquire_replacement_instance(region, instance_type, training_job_id)
-    
-    if not new_instance_id:
-        print("ERROR: Failed to acquire replacement instance")
-        success = False
-        metrics.publish_action_success_rate("spot_migration", 0.0)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Failed to acquire replacement instance"})
-        }
-    
-    print(f"Acquired {instance_mode} instance: {new_instance_id}")
-    
-    # Step 3: Restore from checkpoint
-    print(f"Step 3: Restoring from checkpoint")
-    restore_success = restore_from_checkpoint(checkpoint_id, new_instance_id)
-    
-    if not restore_success:
-        print("ERROR: Failed to restore from checkpoint")
-        success = False
-        metrics.publish_action_success_rate("spot_migration", 0.0)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Failed to restore from checkpoint"})
-        }
-    
-    # Step 4: Track costs
-    spot_duration = 1.0  # Simplified: 1 hour
-    ondemand_duration = 0.0
-    
-    if instance_mode == "spot":
-        spot_cost = track_spot_cost(new_instance_id, spot_duration)
-        ondemand_cost = Decimal("0")
-    else:
-        spot_cost = Decimal("0")
-        ondemand_cost = track_ondemand_cost(new_instance_id, spot_duration)
-    
-    # Record action in history
-    timestamp = datetime.utcnow().isoformat()
-    ttl = int((datetime.utcnow() + timedelta(days=90)).timestamp())
-    
-    action_history_table.put_item(Item={
-        "action_id": f"act_{int(time.time())}",
-        "timestamp": timestamp,
-        "action_type": "spot_migration",
-        "status": "completed",
-        "parameters": {
-            "training_job_id": training_job_id,
-            "old_instance_id": instance_id,
-            "new_instance_id": new_instance_id,
-            "instance_mode": instance_mode,
-            "checkpoint_id": checkpoint_id,
-            "spot_cost": float(spot_cost),
-            "ondemand_cost": float(ondemand_cost),
-        },
-        "success": success,
-        "ttl": ttl,
-    })
-    
-    # Calculate total training cost
-    total_costs = calculate_total_training_cost(training_job_id)
-    
-    # Publish CloudWatch metrics
-    metrics.publish_action_success_rate("spot_migration", 1.0 if success else 0.0)
-    print(f"Published success rate metric for spot_migration: {1.0 if success else 0.0}")
-    
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "message": "Migration completed successfully",
-            "checkpoint_id": checkpoint_id,
-            "new_instance_id": new_instance_id,
-            "instance_mode": instance_mode,
-            "costs": {
-                "spot_cost": float(spot_cost),
-                "ondemand_cost": float(ondemand_cost),
-                "total_training_cost": float(total_costs["total_cost"]),
-            }
-        }, default=str)
-    }
+        validate_parameters("ondemand_fallback", parameters)
+    except (ValueError, KeyError, TypeError) as error:
+        return {"statusCode": 400, "body": json.dumps({"error": str(error)})}
+    # Use only caller-supplied checkpoint state. Never invent training progress.
+    checkpoint_id = None
+    if detail.get("training_state"):
+        state = dict(detail["training_state"], training_job_id=training_job_id)
+        checkpoint_id = save_checkpoint(instance_id, state)
+        parameters["checkpoint_id"] = checkpoint_id
+    parameters["source_instance_id"] = instance_id
+    parameters["request_timestamp"] = event.get("time") or datetime.utcnow().isoformat()
+    request_id = "req_" + hashlib.sha256((event.get("id") or json.dumps(detail, sort_keys=True)).encode()).hexdigest()[:40]
+    _, mode = acquire_replacement_instance(parameters["region"], detail.get("instance_type", "g4dn.xlarge"),
+                                          training_job_id, parameters, request_id)
+    return {"statusCode": 202 if mode == "pending_approval" else 400,
+            "body": json.dumps({"status": mode, "request_id": request_id,
+                                "action_id": "act_" + request_id, "checkpoint_id": checkpoint_id})}

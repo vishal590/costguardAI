@@ -31,6 +31,12 @@ from aws_cdk import (
     aws_cloudwatch_actions as cw_actions,
     aws_logs as logs,
     CfnOutput,
+    CfnParameter,
+    ArnFormat,
+    aws_scheduler as scheduler,
+    aws_secretsmanager as secretsmanager,
+    aws_sqs as sqs,
+    aws_ssm as ssm,
 )
 from constructs import Construct
 
@@ -163,7 +169,11 @@ class AutonomousStack(Stack):
             description="Archive of autonomous action events for debugging",
             retention=Duration.days(7),
             event_pattern=events.EventPattern(
-                source=["costguard.autonomous"],
+                source=["costguard.autonomous", "costguard.autonomous.api",
+                        "costguard.autonomous.demo", "costguard.autonomous.scheduler",
+                        "costguard.autonomous.spotmanager", "costguard.autonomous.safetyguard",
+                        "costguard.autonomous.learningengine", "costguard.autonomous.rightsizer",
+                        "costguard.autonomous.circuitbreaker", "costguard.autonomous.executor"],
             ),
         )
 
@@ -737,7 +747,7 @@ class AutonomousStack(Stack):
             function_name="CostGuard-GPU-Scheduler",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="autonomous.gpu_scheduler.handler",
-            code=lambda_.Code.from_asset("../src"),
+            code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
             role=gpu_scheduler_role,
             timeout=Duration.minutes(5),
             memory_size=512,
@@ -757,7 +767,7 @@ class AutonomousStack(Stack):
             function_name="CostGuard-Spot-Manager",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="autonomous.spot_manager.handler",
-            code=lambda_.Code.from_asset("../src"),
+            code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
             role=spot_manager_role,
             timeout=Duration.minutes(15),
             memory_size=1024,
@@ -779,7 +789,7 @@ class AutonomousStack(Stack):
             function_name="CostGuard-Right-Sizer",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="autonomous.right_sizer.handler",
-            code=lambda_.Code.from_asset("../src"),
+            code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
             role=right_sizer_role,
             timeout=Duration.minutes(10),
             memory_size=512,
@@ -800,7 +810,7 @@ class AutonomousStack(Stack):
             function_name="CostGuard-Learning-Engine",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="autonomous.learning_engine.handler",
-            code=lambda_.Code.from_asset("../src"),
+            code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
             role=learning_engine_role,
             timeout=Duration.minutes(5),
             memory_size=512,
@@ -820,7 +830,7 @@ class AutonomousStack(Stack):
             function_name="CostGuard-Safety-Guard",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="autonomous.safety_guard.handler",
-            code=lambda_.Code.from_asset("../src"),
+            code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
             role=safety_guard_role,
             timeout=Duration.minutes(15),
             memory_size=256,
@@ -839,6 +849,89 @@ class AutonomousStack(Stack):
         # =====================================================================
         # EventBridge Rules for Lambda Triggers
         # =====================================================================
+
+        # Resource execution stays disabled until deployment explicitly opts in.
+        enable_execution = CfnParameter(self, "EnableAutonomousExecution", type="String",
+            default="false", allowed_values=["true", "false"],
+            description="Enable approved EC2 changes; defaults to analysis and approval only")
+        schedule_group = scheduler.CfnScheduleGroup(self, "ExecutionScheduleGroup",
+                                                    name="costguard-autonomous")
+        schedule_role = iam.Role(self, "ExecutionScheduleRole",
+            assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com", conditions={
+                "StringEquals": {"aws:SourceAccount": self.account},
+                "ArnEquals": {"aws:SourceArn": schedule_group.attr_arn}}))
+        executor_role = iam.Role(self, "ActionExecutorRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")])
+        action_history_table.grant_read_write_data(executor_role)
+        migration_rollbacks_table.grant_read_write_data(executor_role)
+        autonomous_event_bus.grant_put_events_to(executor_role)
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["ce:GetCostAndUsage"], resources=["*"]))
+        executor_role.add_to_policy(iam.PolicyStatement(
+            actions=["ec2:DescribeInstances", "ec2:DescribeLaunchTemplates", "ec2:DescribeLaunchTemplateVersions",
+                     "ec2:RunInstances", "ec2:CreateTags", "ec2:StartInstances", "ec2:StopInstances",
+                     "ec2:TerminateInstances", "ec2:ModifyInstanceAttribute"], resources=["*"],
+            conditions={"StringEquals": {"aws:RequestedRegion": self.region}}))
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["scheduler:CreateSchedule", "scheduler:DeleteSchedule"],
+            resources=[self.format_arn(service="scheduler", resource="schedule",
+                                      resource_name="costguard-autonomous/cg-*")]))
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["iam:PassRole"],
+            resources=[schedule_role.role_arn], conditions={"StringEquals": {"iam:PassedToService": "scheduler.amazonaws.com"}}))
+        execution_dlq = sqs.Queue(self, "AutonomousExecutionDLQ", retention_period=Duration.days(14))
+        execution_dlq.grant_send_messages(schedule_role)
+        training_role = iam.Role(self, "TrainingInstanceRole", assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
+            managed_policies=[iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore")])
+        training_role.add_to_policy(iam.PolicyStatement(actions=["s3:GetObject", "s3:PutObject"],
+            resources=[checkpoints_bucket.arn_for_objects("training/*")]))
+        training_profile = iam.CfnInstanceProfile(self, "TrainingInstanceProfile", roles=[training_role.role_name])
+        training_document = ssm.CfnDocument(self, "TrainingResumeDocument", document_type="Command",
+            content={"schemaVersion": "2.2", "description": "Run the installed CostGuard reference SGD worker",
+                "parameters": {"request": {"type": "String", "allowedPattern": "^[A-Za-z0-9+/=]+$"},
+                    "timeout": {"type": "String", "allowedPattern": "^[0-9]{1,3}$"}},
+                "mainSteps": [{"action": "aws:runShellScript", "name": "train", "inputs": {
+                    "timeoutSeconds": "{{ timeout }}", "runCommand": [
+                        'PYTHONPATH=/opt/costguard/src /opt/costguard/venv/bin/python -m autonomous.training_worker --request-base64 "{{ request }}"']}}]})
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["iam:PassRole"], resources=[training_role.role_arn],
+            conditions={"StringEquals": {"iam:PassedToService": "ec2.amazonaws.com"}}))
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["ssm:SendCommand"],
+            resources=[self.format_arn(service="ssm", resource="document", resource_name=training_document.ref),
+                       self.format_arn(service="ec2", resource="instance", resource_name="*")]))
+        executor_role.add_to_policy(iam.PolicyStatement(actions=["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation", "ssm:CancelCommand"], resources=["*"]))
+        checkpoints_bucket.grant_read(executor_role, "training/*")
+        CfnOutput(self, "TrainingInstanceProfileArn", value=training_profile.attr_arn)
+        CfnOutput(self, "TrainingDocumentName", value=training_document.ref)
+
+        executor_arn = self.format_arn(service="lambda", resource="function", resource_name="CostGuard-Action-Executor",
+                                       arn_format=ArnFormat.COLON_RESOURCE_NAME)
+        action_executor_lambda = lambda_.Function(self, "ActionExecutorFunction",
+            function_name="CostGuard-Action-Executor", runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="autonomous.action_executor.handler", code=lambda_.Code.from_asset(os.path.join(os.path.dirname(__file__), "..", "src"), exclude=["**/__pycache__", "**/*.pyc"]),
+            role=executor_role, timeout=Duration.minutes(15), memory_size=512,
+            dead_letter_queue=execution_dlq,
+            environment={**common_env, "EXECUTION_ENABLED": enable_execution.value_as_string,
+                         "DRY_RUN_MODE": "false", "MIGRATION_ROLLBACKS_TABLE": migration_rollbacks_table.table_name,
+                         "SCHEDULE_GROUP": "costguard-autonomous", "EXECUTOR_ARN": executor_arn,
+                         "SCHEDULE_ROLE_ARN": schedule_role.role_arn, "SCHEDULE_DLQ_ARN": execution_dlq.queue_arn,
+                         "FREE_TIER_BUDGET_LIMIT": "5", "CHECKPOINT_BUCKET": checkpoints_bucket.bucket_name,
+                         "TRAINING_DOCUMENT": training_document.ref,
+                         "TRAINING_INSTANCE_PROFILE_ARN": training_profile.attr_arn},
+            description="Executes approved reversible EC2 operations and resource rollback")
+        action_executor_lambda.grant_invoke(schedule_role)
+        approval_secret = secretsmanager.Secret(self, "AutonomousApprovalSecret",
+            description="HMAC key for autonomous approval requests")
+        approval_secret.grant_read(safety_guard_lambda)
+        safety_guard_lambda.add_environment("APPROVAL_SECRET_ARN", approval_secret.secret_arn)
+
+        recommendation_rule = events.Rule(self, "ScheduleRecommendationRule",
+            rule_name="costguard-schedule-recommendation-approval", event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(source=["costguard.autonomous.scheduler"], detail_type=["ScheduleRecommendation"]))
+        recommendation_rule.add_target(targets.LambdaFunction(safety_guard_lambda))
+        executor_rule = events.Rule(self, "ApprovedExecutionRule",
+            rule_name="costguard-approved-action-execution", event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(source=["costguard.autonomous.safetyguard"],
+                                             detail_type=["ExecuteAction", "ExecuteRollback"]))
+        executor_rule.add_target(targets.LambdaFunction(action_executor_lambda, dead_letter_queue=execution_dlq))
+        CfnOutput(self, "ActionExecutorArn", value=action_executor_lambda.function_arn)
 
         # GPU Scheduler - Hourly scheduled trigger
         gpu_scheduler_rule = events.Rule(
@@ -873,7 +966,8 @@ class AutonomousStack(Stack):
             rule_name="costguard-learning-engine-action-completed",
             event_bus=autonomous_event_bus,
             event_pattern=events.EventPattern(
-                source=["costguard.autonomous"],
+                source=["costguard.autonomous", "costguard.autonomous.spotmanager",
+                        "costguard.autonomous.rightsizer", "costguard.autonomous.executor"],
                 detail_type=["ActionCompleted"],
             ),
             description="Trigger Learning Engine on ActionCompleted events",
@@ -886,12 +980,26 @@ class AutonomousStack(Stack):
             rule_name="costguard-safety-guard-action-request",
             event_bus=autonomous_event_bus,
             event_pattern=events.EventPattern(
-                source=["costguard.autonomous"],
+                source=["costguard.autonomous", "costguard.autonomous.spotmanager", "costguard.autonomous.rightsizer"],
                 detail_type=["ActionRequest"],
             ),
             description="Trigger Safety Guard on ActionRequest events",
         )
         safety_guard_rule.add_target(targets.LambdaFunction(safety_guard_lambda))
+
+        # API decisions and rollbacks are handled by Safety Guard. Keep this rule
+        # separate so worker-emitted approval events cannot loop back into it.
+        safety_guard_api_rule = events.Rule(
+            self, "SafetyGuardAPIRule",
+            rule_name="costguard-safety-guard-api-requests",
+            event_bus=autonomous_event_bus,
+            event_pattern=events.EventPattern(
+                source=["costguard.autonomous.api"],
+                detail_type=["ActionApproved", "ActionRejected", "RollbackRequested"],
+            ),
+            description="Validate API approval decisions and process rollback requests",
+        )
+        safety_guard_api_rule.add_target(targets.LambdaFunction(safety_guard_lambda))
 
         # Spot Manager - Event-driven trigger (SpotInterruptionDetected events)
         spot_manager_rule = events.Rule(
@@ -899,7 +1007,7 @@ class AutonomousStack(Stack):
             rule_name="costguard-spot-manager-interruption",
             event_bus=autonomous_event_bus,
             event_pattern=events.EventPattern(
-                source=["costguard.autonomous"],
+                source=["costguard.autonomous", "costguard.autonomous.demo"],
                 detail_type=["SpotInterruptionDetected"],
             ),
             description="Trigger Spot Manager on spot interruption warnings",
@@ -907,7 +1015,7 @@ class AutonomousStack(Stack):
         spot_manager_rule.add_target(targets.LambdaFunction(spot_manager_lambda))
 
         # =====================================================================
-        # Autonomous API Lambda (REST API for demo, action-history, approve, etc.)
+ (REST API for demo, action-history, approve, etc.)
         # =====================================================================
 
         api_lambda_role = iam.Role(
@@ -932,6 +1040,11 @@ class AutonomousStack(Stack):
             code=lambda_.Code.from_asset(
                 project_root,
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out",
                     "infrastructure",
                     ".git",
@@ -970,6 +1083,9 @@ class AutonomousStack(Stack):
             timeout=Duration.seconds(29),
             memory_size=256,
             environment={
+                "BACKEND_API_KEY": self.node.try_get_context("bff_autonomous_key") or os.environ.get("BFF_AUTONOMOUS_API_KEY", ""),
+                "BACKEND_ACCOUNT_ID": Stack.of(self).account,
+                "ALLOW_DIRECT_API_KEYS": self.node.try_get_context("allow_direct_api_keys") or "false",
                 "ACTION_HISTORY_TABLE": action_history_table.table_name,
                 "EVENT_BUS_NAME": autonomous_event_bus.event_bus_name,
                 "GPU_SCHEDULER_FUNCTION": gpu_scheduler_lambda.function_name,

@@ -1,8 +1,13 @@
 # CostGuard AI - Future Roadmap (Phase 7-8)
 
+> **Current source boundary - October 14, 2026:** Phase 7 unit-economics ingestion/analysis and read-only RI/SP commitment analytics have local implementations with operator-input and observed-period limits. Advanced purchase optimization and external business-system integration remain outstanding. Phase 8 IDE/CI/IaC products below remain proposals; advisor evidence JSON export does not implement those products. All continuing tests/builds/browser/account/deployment validation is deferred. Use the [active backlog](technical/development-backlog.md), [current contracts](technical/access-and-feature-contracts.md) and [source sync summary](technical/documentation-code-sync.md).
+>
+> The original February roadmap below is historical planning. Its target quarters, effort/commercial assumptions, competitor claims and complete/deployed assertions are not current verified facts or release commitments.
+
+
 **Keywords:** future roadmap, post-hackathon, Phase 7, Phase 8, unit economics, RI/SP optimization, developer tools, VS Code extension, GitHub Action, IaC cost preview, planned features, commercial launch, semantic search, cross-reference
 
-**Status:** PLANNED - Post-Hackathon Development  
+**Status:** Historical roadmap; limited Phase 7 source now implemented, Phase 8 products still proposed  
 **Priority:** MEDIUM - Commercial viability features  
 **Last Updated:** February 2026
 

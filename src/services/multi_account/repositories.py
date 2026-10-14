@@ -4,6 +4,7 @@ DynamoDB Repository Classes for Multi-Account Cost Management
 Provides data access layer for multi-account tables.
 """
 import logging
+import os
 from typing import List, Dict, Optional
 from datetime import datetime
 from decimal import Decimal
@@ -20,6 +21,16 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+def _query_all(client, **request):
+    items = []
+    while True:
+        response = client.query(**request)
+        items.extend(response.get('Items', []))
+        cursor = response.get('LastEvaluatedKey')
+        if not cursor: return {'Items': items}
+        request['ExclusiveStartKey'] = cursor
+
+
 
 class OrganizationRepository:
     """Repository for organizations table"""
@@ -33,7 +44,7 @@ class OrganizationRepository:
             table_name: Optional table name (defaults to 'organizations')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = table_name or 'organizations'
+        self.table_name = table_name or os.environ.get('ORGANIZATIONS_TABLE', 'costguard-organizations')
 
     def save(self, organization: Organization, ttl: int) -> None:
         """
@@ -103,7 +114,7 @@ class AccountRepository:
             table_name: Optional table name (defaults to 'accounts')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = table_name or 'accounts'
+        self.table_name = table_name or os.environ.get('ACCOUNTS_TABLE', 'costguard-accounts')
 
     def save(self, account: Account, org_id: str) -> None:
         """
@@ -114,18 +125,17 @@ class AccountRepository:
             org_id: Organization ID
         """
         try:
-            self.dynamodb.put_item(
-                TableName=self.table_name,
-                Item={
-                    'account_id': {'S': account.id},
-                    'org_id': {'S': org_id},
-                    'name': {'S': account.name},
-                    'email': {'S': account.email},
-                    'status': {'S': account.status},
-                    'last_collection': {'N': '0'},
-                    'collection_status': {'S': 'PENDING'}
-                }
-            )
+            fields = {'org_id': {'S': org_id}, 'name': {'S': account.name}, 'email': {'S': account.email},
+                'status': {'S': account.state}, 'state': {'S': account.state}, 'arn': {'S': account.arn},
+                'joined_method': {'S': account.joined_method}}
+            if account.joined_timestamp: fields['joined_timestamp'] = {'S': account.joined_timestamp.isoformat()}
+            names = {'#field'+str(index): name for index, name in enumerate(fields)}
+            values = {':value'+str(index): value for index, value in enumerate(fields.values())}
+            assignments = [alias+' = :value'+alias[len('#field'):] for alias in names]
+            values.update({':zero': {'N': '0'}, ':pending': {'S': 'PENDING'}})
+            assignments.extend(['last_collection = if_not_exists(last_collection, :zero)', 'collection_status = if_not_exists(collection_status, :pending)'])
+            self.dynamodb.update_item(TableName=self.table_name, Key={'account_id': {'S': account.id}},
+                UpdateExpression='SET '+', '.join(assignments), ExpressionAttributeNames=names, ExpressionAttributeValues=values)
             logger.debug(f"Saved account: {account.id}")
         except ClientError as e:
             logger.error(f"Failed to save account: {e}")
@@ -153,12 +163,12 @@ class AccountRepository:
             item = response['Item']
             return Account(
                 id=item['account_id']['S'],
-                arn='',  # Not stored in table
+                arn=item.get('arn', {}).get('S', ''),
                 name=item['name']['S'],
                 email=item['email']['S'],
-                status=item['status']['S'],
-                joined_method='',  # Not stored in table
-                joined_timestamp=datetime.utcnow()  # Not stored in table
+                status=item.get('state', item.get('status', {'S': 'UNKNOWN'}))['S'],
+                joined_method=item.get('joined_method', {}).get('S', ''),
+                joined_timestamp=datetime.fromisoformat(item['joined_timestamp']['S']) if 'joined_timestamp' in item else None
             )
         except ClientError as e:
             logger.error(f"Failed to get account: {e}")
@@ -175,7 +185,7 @@ class AccountRepository:
             List of accounts
         """
         try:
-            response = self.dynamodb.query(
+            response = _query_all(self.dynamodb,
                 TableName=self.table_name,
                 IndexName='org_id-index',
                 KeyConditionExpression='org_id = :org_id',
@@ -188,12 +198,12 @@ class AccountRepository:
             for item in response.get('Items', []):
                 account = Account(
                     id=item['account_id']['S'],
-                    arn='',
+                    arn=item.get('arn', {}).get('S', ''),
                     name=item['name']['S'],
                     email=item['email']['S'],
-                    status=item['status']['S'],
-                    joined_method='',
-                    joined_timestamp=datetime.utcnow()
+                    status=item.get('state', item.get('status', {'S': 'UNKNOWN'}))['S'],
+                    joined_method=item.get('joined_method', {}).get('S', ''),
+                    joined_timestamp=datetime.fromisoformat(item['joined_timestamp']['S']) if 'joined_timestamp' in item else None
                 )
                 accounts.append(account)
             
@@ -215,7 +225,7 @@ class MultiAccountCostRepository:
             table_name: Optional table name (defaults to 'multi_account_costs')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = table_name or 'multi_account_costs'
+        self.table_name = table_name or os.environ.get('MULTI_ACCOUNT_COSTS_TABLE', 'costguard-multi-account-costs')
 
     def save(self, cost_data: AccountCostData) -> None:
         """
@@ -241,8 +251,11 @@ class MultiAccountCostRepository:
                 TableName=self.table_name,
                 Item={
                     'account_id': {'S': cost_data.account_id},
-                    'date': {'S': cost_data.start_date},
+                    'date': {'S': str(cost_data.start_date)},
+                    'end_date': {'S': str(cost_data.end_date)},
+                    **({'costs_by_tag_service': {'M': {tag: {'M': {service: {'N': str(cost)} for service, cost in services.items()}} for tag, services in cost_data.costs_by_tag_service.items()}}} if getattr(cost_data, 'costs_by_tag_service', None) is not None else {}),
                     'total_cost': {'N': str(cost_data.total_cost)},
+                    'is_estimated': {'BOOL': cost_data.is_estimated} if cost_data.is_estimated is not None else {'NULL': True},
                     'costs_by_service': {'M': costs_by_service_item},
                     'costs_by_day': {'M': costs_by_day_item},
                     'collection_timestamp': {'N': str(int(cost_data.collection_timestamp.timestamp()))}
@@ -298,7 +311,8 @@ class MultiAccountCostRepository:
                 costs_by_service=costs_by_service,
                 costs_by_day=costs_by_day,
                 collection_timestamp=datetime.fromtimestamp(int(item['collection_timestamp']['N'])),
-                status='SUCCESS'
+                status='SUCCESS', is_estimated=item.get('is_estimated', {}).get('BOOL'),
+                costs_by_tag_service={tag: {service: Decimal(cost['N']) for service, cost in value['M'].items()} for tag, value in item['costs_by_tag_service']['M'].items()} if 'costs_by_tag_service' in item else None
             )
         except ClientError as e:
             logger.error(f"Failed to get cost data: {e}")
@@ -317,6 +331,42 @@ class MultiAccountCostRepository:
         """
         return self.get(account_id, date)
 
+    def get_period(self, account_id, start_date, end_date):
+        """Aggregate observed daily records, retaining missing-date coverage."""
+        from datetime import date, timedelta
+        first, last = date.fromisoformat(start_date), date.fromisoformat(end_date)
+        if last < first or (last-first).days > 365: raise ValueError('Select at most 366 ordered days')
+        records = self.list_range(account_id, start_date, end_date)
+        if not records: raise ValueError('No observed daily cost data for the selected account and period')
+        services, days = {}, {}
+        for record in records:
+            days[record.start_date] = record.total_cost
+            for service, amount in record.costs_by_service.items(): services[service] = services.get(service, Decimal('0')) + amount
+        expected = {(first+timedelta(days=index)).isoformat() for index in range((last-first).days+1)}
+        missing = sorted(expected-set(days))
+        return {'total_cost': sum(days.values(), Decimal('0')), 'costs_by_service': services, 'costs_by_day': days,
+                'complete': not missing, 'missing_dates': missing}
+
+    def list_range(self, account_id, start_date, end_date):
+        """Query complete daily history for one account without N individual reads."""
+        from boto3.dynamodb.types import TypeDeserializer
+        decoder = TypeDeserializer()
+        request = dict(TableName=self.table_name, KeyConditionExpression='account_id = :account AND #day BETWEEN :start AND :end',
+            ExpressionAttributeNames={'#day': 'date'}, ExpressionAttributeValues={':account': {'S': account_id}, ':start': {'S': start_date}, ':end': {'S': end_date}})
+        records = []
+        while True:
+            response = self.dynamodb.query(**request)
+            for encoded in response.get('Items', []):
+                item = {key: decoder.deserialize(value) for key, value in encoded.items()}
+                if item.get('end_date', item['date']) != item['date'] or (item.get('costs_by_day') and set(item['costs_by_day']) != {item['date']}):
+                    continue  # Legacy period aggregates cannot represent a measured daily record.
+                records.append(AccountCostData(account_id=item['account_id'], start_date=item['date'], end_date=item['date'],
+                    total_cost=Decimal(item['total_cost']), costs_by_service=item.get('costs_by_service', {}), costs_by_day=item.get('costs_by_day', {}),
+                    collection_timestamp=datetime.fromtimestamp(int(item['collection_timestamp'])), status='SUCCESS', costs_by_tag_service=item.get('costs_by_tag_service'), is_estimated=item.get('is_estimated')))
+            if not response.get('LastEvaluatedKey'): break
+            request['ExclusiveStartKey'] = response['LastEvaluatedKey']
+        return records
+
     def list_by_date(self, date: str) -> List[AccountCostData]:
         """
         List all account costs for a specific date
@@ -328,7 +378,7 @@ class MultiAccountCostRepository:
             List of account cost data
         """
         try:
-            response = self.dynamodb.query(
+            response = _query_all(self.dynamodb,
                 TableName=self.table_name,
                 IndexName='date-index',
                 KeyConditionExpression='#date = :date',
@@ -382,7 +432,7 @@ class AllocationRuleRepository:
             table_name: Optional table name (defaults to 'allocation_rules')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = table_name or 'allocation_rules'
+        self.table_name = table_name or os.environ.get('ALLOCATION_RULES_TABLE', 'costguard-allocation-rules')
 
     def save(self, rule: AllocationRule, org_id: str) -> None:
         """
@@ -394,10 +444,10 @@ class AllocationRuleRepository:
         """
         try:
             # Convert conditions dict to DynamoDB format
-            conditions_item = {
-                key: {'S': str(value)}
-                for key, value in rule.conditions.items()
-            }
+            from boto3.dynamodb.types import TypeSerializer
+            serializer = TypeSerializer()
+            conditions_item = {key: serializer.serialize(Decimal(str(value)) if type(value) is float else value)
+                               for key, value in rule.conditions.items()}
             
             self.dynamodb.put_item(
                 TableName=self.table_name,
@@ -429,9 +479,9 @@ class AllocationRuleRepository:
             List of allocation rules sorted by priority
         """
         try:
-            response = self.dynamodb.query(
+            response = _query_all(self.dynamodb,
                 TableName=self.table_name,
-                IndexName='org_id-index',
+                IndexName='org_id-priority-index',
                 KeyConditionExpression='org_id = :org_id',
                 ExpressionAttributeValues={
                     ':org_id': {'S': org_id}
@@ -441,10 +491,11 @@ class AllocationRuleRepository:
             
             rules = []
             for item in response.get('Items', []):
-                conditions = {
-                    key: value['S']
-                    for key, value in item.get('conditions', {}).get('M', {}).items()
-                }
+                from boto3.dynamodb.types import TypeDeserializer
+                deserializer = TypeDeserializer()
+                conditions = {key: deserializer.deserialize(value) for key, value in item.get('conditions', {}).get('M', {}).items()}
+                if item['rule_type']['S'] == 'PERCENTAGE' and isinstance(conditions.get('percentage'), str):
+                    conditions['percentage'] = Decimal(conditions['percentage'])
                 
                 rule = AllocationRule(
                     rule_id=item['rule_id']['S'],
@@ -474,10 +525,10 @@ class BudgetRepository:
             table_name: Optional table name (defaults to 'budgets')
         """
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
-        self.table_name = table_name or 'budgets'
+        self.table_name = table_name or os.environ.get('BUDGETS_TABLE', 'costguard-budgets')
 
     def save(self, budget_id: str, entity_id: str, entity_type: str, 
-             budget_amount: Decimal, period: str) -> None:
+             budget_amount: Decimal, period: str, budget_name: str = None, currency: str = "USD") -> None:
         """
         Save budget to DynamoDB
         
@@ -497,8 +548,10 @@ class BudgetRepository:
                     'entity_type': {'S': entity_type},
                     'budget_amount': {'N': str(budget_amount)},
                     'period': {'S': period},
-                    'current_spend': {'N': '0'},
-                    'utilization_percentage': {'N': '0'},
+                    'budget_name': {'S': budget_name or budget_id},
+                    'currency': {'S': currency},
+                    'current_spend': {'NULL': True},
+                    'utilization_percentage': {'NULL': True},
                     'last_updated': {'N': str(int(datetime.utcnow().timestamp()))}
                 }
             )
@@ -533,8 +586,10 @@ class BudgetRepository:
                 'entity_type': item['entity_type']['S'],
                 'budget_amount': Decimal(item['budget_amount']['N']),
                 'period': item['period']['S'],
-                'current_spend': Decimal(item['current_spend']['N']),
-                'utilization_percentage': float(item['utilization_percentage']['N'])
+                'budget_name': item.get('budget_name', {}).get('S', item['budget_id']['S']),
+                'currency': item.get('currency', {}).get('S', 'USD'),
+                'current_spend': Decimal(item['current_spend']['N']) if 'N' in item.get('current_spend', {}) else None,
+                'utilization_percentage': float(item['utilization_percentage']['N']) if 'N' in item.get('utilization_percentage', {}) else None
             }
         except ClientError as e:
             logger.error(f"Failed to get budget: {e}")
@@ -552,9 +607,9 @@ class BudgetRepository:
             List of budgets
         """
         try:
-            response = self.dynamodb.query(
+            response = _query_all(self.dynamodb,
                 TableName=self.table_name,
-                IndexName='entity_id-index',
+                IndexName='entity_id-type-index',
                 KeyConditionExpression='entity_id = :entity_id AND entity_type = :entity_type',
                 ExpressionAttributeValues={
                     ':entity_id': {'S': entity_id},
@@ -570,8 +625,10 @@ class BudgetRepository:
                     'entity_type': item['entity_type']['S'],
                     'budget_amount': Decimal(item['budget_amount']['N']),
                     'period': item['period']['S'],
-                    'current_spend': Decimal(item['current_spend']['N']),
-                    'utilization_percentage': float(item['utilization_percentage']['N'])
+                    'budget_name': item.get('budget_name', {}).get('S', item['budget_id']['S']),
+                    'currency': item.get('currency', {}).get('S', 'USD'),
+                    'current_spend': Decimal(item['current_spend']['N']) if 'N' in item.get('current_spend', {}) else None,
+                    'utilization_percentage': float(item['utilization_percentage']['N']) if 'N' in item.get('utilization_percentage', {}) else None
                 }
                 budgets.append(budget)
             

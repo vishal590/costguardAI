@@ -1,5 +1,10 @@
 # Phase 6 Recommendation: Unit Economics + RI/SP Optimization
 
+> **Current source note (October 14, 2026):** This planning document predates the continuing implementation. Limited Phase 7 unit economics and read-only commitment analytics now exist locally; source inputs/coverage are bounded and advanced purchase optimization/live integrations remain outstanding. Historical schedules and complete/deployed claims below do not validate the current working tree. Use the [current status](../PROJECT_STATUS.md) and [active backlog](../technical/development-backlog.md). All continuing validation remains deferred.
+
+
+> **October 14, 2026 update:** Initial [unit economics](../technical/phase7-unit-economics.md) and [read-only commitment analytics](../technical/commitment-analytics.md) are now implemented locally. Validation and live AWS work remain deferred. This older proposal remains planning history; advanced purchase optimization and independent business-data reconciliation are not claimed complete.
+
 **⚠️ STATUS: DEFERRED TO PHASE 7** - Replaced by AI/ML Workload Cost Management for Phase 6
 
 **Keywords:** Phase 7, unit economics, RI/SP optimization, Reserved Instances, Savings Plans, cost per customer, cost per transaction, commitment optimization, enterprise features, SMB pricing, CloudZero alternative, nOps alternative, Vantage alternative, commercial viability, FinOps, CFO metrics, semantic search, cross-reference, DEFERRED
@@ -12,14 +17,14 @@
 **Reason:** AI/ML Workload Cost Management has higher hackathon alignment and competitive differentiation
 
 **Related Documentation:**
-- [PHASE6_RECOMMENDATION.md](./PHASE6_RECOMMENDATION.md) - ⭐ **NEW Phase 6: AI/ML Workload Cost Management (ACTIVE)**
-- [HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md) - Why AI/ML was chosen over Unit Economics
-- [PHASE5_RECOMMENDATION.md](./PHASE5_RECOMMENDATION.md) - Phase 5 multi-account cost management
-- [IMPACT-ASSESSMENT.md](./IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
-- [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) - Market positioning vs. CloudZero/nOps/Vantage
-- [project/planning.md](./project/planning.md) - Overall project plan with all phases
-- [PHASE4_STATUS.md](./PHASE4_STATUS.md) - Current implementation status
-- [INDEX.md](./INDEX.md) - Master documentation index
+- [PHASE6_RECOMMENDATION.md](phase6-recommendation.md) - ⭐ **NEW Phase 6: AI/ML Workload Cost Management (ACTIVE)**
+- [HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) - Why AI/ML was chosen over Unit Economics
+- [PHASE5_RECOMMENDATION.md](phase5-recommendation.md) - Phase 5 multi-account cost management
+- [IMPACT-ASSESSMENT.md](../IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
+- [COMPETITIVE-ANALYSIS.md](../COMPETITIVE-ANALYSIS.md) - Market positioning vs. CloudZero/nOps/Vantage
+- [project/planning.md](planning.md) - Overall project plan with all phases
+- [PHASE4_STATUS.md](../PHASE4_STATUS.md) - Current implementation status
+- [INDEX.md](../INDEX.md) - Master documentation index
 
 ---
 
@@ -37,7 +42,7 @@
 
 **This feature is still planned, just moved to Phase 7 (post-Phase 6).**
 
-See [HACKATHON-EMPHASIS-ANALYSIS.md](./HACKATHON-EMPHASIS-ANALYSIS.md) for detailed analysis.
+See [HACKATHON-EMPHASIS-ANALYSIS.md](../HACKATHON-EMPHASIS-ANALYSIS.md) for detailed analysis.
 
 ---
 

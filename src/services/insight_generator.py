@@ -52,164 +52,85 @@ class InsightGenerator:
         
         logger.info("InsightGenerator initialized")
     
-    def generate_daily_summary(self, user_id: str) -> Optional[Insight]:
-        """
-        Generate daily cost summary.
-        
-        Args:
-            user_id: User identifier
-            
-        Returns:
-            Daily summary Insight or None
-        """
-        if not self.cost_explorer_client:
-            logger.warning("No Cost Explorer client, cannot generate summary")
-            return None
-        
-        try:
-            # Get yesterday's costs
-            yesterday = datetime.now(UTC) - timedelta(days=1)
-            yesterday_str = yesterday.strftime('%Y-%m-%d')
-            today_str = datetime.now(UTC).strftime('%Y-%m-%d')
-            
-            response = self.cost_explorer_client.get_cost_and_usage(
-                TimePeriod={
-                    'Start': yesterday_str,
-                    'End': today_str
-                },
-                Granularity='DAILY',
-                Metrics=['BlendedCost']
-            )
-            
-            if not response.get('ResultsByTime'):
-                return None
-            
-            yesterday_cost = float(
-                response['ResultsByTime'][0]['Total']['BlendedCost']['Amount']
-            )
-            
-            # Compare to 7-day average (simplified)
-            week_ago = yesterday - timedelta(days=7)
-            week_response = self.cost_explorer_client.get_cost_and_usage(
-                TimePeriod={
-                    'Start': week_ago.strftime('%Y-%m-%d'),
-                    'End': yesterday_str
-                },
-                Granularity='DAILY',
-                Metrics=['BlendedCost']
-            )
-            
-            week_costs = [
-                float(day['Total']['BlendedCost']['Amount'])
-                for day in week_response.get('ResultsByTime', [])
-            ]
-            
-            avg_cost = sum(week_costs) / len(week_costs) if week_costs else yesterday_cost
-            
-            # Determine severity
-            diff_percent = ((yesterday_cost - avg_cost) / avg_cost * 100) if avg_cost > 0 else 0
-            
-            if diff_percent > 20:
-                severity = "warning"
-                description = f"Yesterday's cost (${yesterday_cost:.2f}) was {diff_percent:.1f}% higher than your 7-day average (${avg_cost:.2f})."
-            elif diff_percent < -20:
-                severity = "info"
-                description = f"Good news! Yesterday's cost (${yesterday_cost:.2f}) was {abs(diff_percent):.1f}% lower than your 7-day average (${avg_cost:.2f})."
-            else:
-                severity = "info"
-                description = f"Yesterday's cost was ${yesterday_cost:.2f}, consistent with your 7-day average (${avg_cost:.2f})."
-            
-            return Insight(
-                insight_type="summary",
-                title="Daily Cost Summary",
-                description=description,
-                severity=severity,
-                action_required=False,
-                related_services=[],
-                estimated_impact=yesterday_cost
-            )
-            
-        except Exception as e:
-            logger.error(f"Error generating daily summary: {e}")
-            return None
-    
-    def detect_anomalies(self, user_id: str) -> List[Insight]:
-        """
-        Detect cost anomalies and generate alerts.
-        
-        Args:
-            user_id: User identifier
-            
-        Returns:
-            List of anomaly Insights
-        """
-        if not self.cost_explorer_client:
-            logger.warning("No Cost Explorer client, cannot detect anomalies")
-            return []
-        
-        try:
-            # Get last 30 days of costs by service
-            end_date = datetime.now(UTC)
-            start_date = end_date - timedelta(days=30)
-            
-            response = self.cost_explorer_client.get_cost_and_usage(
-                TimePeriod={
-                    'Start': start_date.strftime('%Y-%m-%d'),
-                    'End': end_date.strftime('%Y-%m-%d')
-                },
-                Granularity='DAILY',
-                Metrics=['BlendedCost'],
-                GroupBy=[
-                    {'Type': 'DIMENSION', 'Key': 'SERVICE'}
-                ]
-            )
-            
-            anomalies = []
-            
-            # Simplified anomaly detection: look for sudden spikes
-            service_costs: Dict[str, List[float]] = {}
-            
+    def _daily_totals(self, start, end):
+        """Read explicit USD daily totals with paging and provider provenance."""
+        import math
+        request = {'TimePeriod': {'Start': start, 'End': end}, 'Granularity': 'DAILY', 'Metrics': ['BlendedCost']}
+        totals, seen = {}, set()
+        while True:
+            response = self.cost_explorer_client.get_cost_and_usage(**request)
             for result in response.get('ResultsByTime', []):
-                for group in result.get('Groups', []):
-                    service = group['Keys'][0]
-                    cost = float(group['Metrics']['BlendedCost']['Amount'])
-                    
-                    if service not in service_costs:
-                        service_costs[service] = []
-                    service_costs[service].append(cost)
-            
-            # Check each service for anomalies
-            for service, costs in service_costs.items():
-                if len(costs) < 7:
-                    continue
-                
-                # Compare last day to previous week average
-                last_day_cost = costs[-1]
-                prev_week_avg = sum(costs[-8:-1]) / 7
-                
-                if prev_week_avg == 0:
-                    continue
-                
-                spike_percent = ((last_day_cost - prev_week_avg) / prev_week_avg * 100)
-                
-                if spike_percent > 50:  # 50% spike
-                    anomalies.append(Insight(
-                        insight_type="anomaly",
-                        title=f"Cost Spike Detected: {service}",
-                        description=f"{service} costs increased by {spike_percent:.1f}% (${last_day_cost:.2f} vs ${prev_week_avg:.2f} average).",
-                        severity="warning",
-                        action_required=True,
-                        related_services=[service],
-                        estimated_impact=last_day_cost - prev_week_avg
-                    ))
-            
-            logger.info(f"Detected {len(anomalies)} anomalies")
-            return anomalies
-            
-        except Exception as e:
-            logger.error(f"Error detecting anomalies: {e}")
+                stamp = result['TimePeriod']['Start']
+                metric = result['Total']['BlendedCost']
+                value = float(metric['Amount'])
+                if metric.get('Unit') != 'USD' or not math.isfinite(value): raise ValueError('Daily USD observations unavailable')
+                point = {'cost': value, 'is_estimated': result.get('Estimated') if type(result.get('Estimated')) is bool else None}
+                if stamp in totals and totals[stamp] != point: raise ValueError('Conflicting daily totals')
+                totals[stamp] = point
+            token = response.get('NextPageToken')
+            if not token: return totals
+            if token in seen: raise ValueError('Repeated daily total page token')
+            seen.add(token)
+            request['NextPageToken'] = token
+
+    def generate_daily_summary(self, user_id: str) -> Optional[Insight]:
+        if not self.cost_explorer_client: return None
+        try:
+            today = datetime.now(UTC).date()
+            first = today-timedelta(days=8)
+            expected = [(first+timedelta(days=index)).isoformat() for index in range(8)]
+            totals = self._daily_totals(first.isoformat(), today.isoformat())
+            if set(totals) != set(expected): return None
+            yesterday = totals[expected[-1]]['cost']
+            baseline = sum(totals[stamp]['cost'] for stamp in expected[:-1])/7
+            change = (yesterday-baseline)/baseline*100 if baseline > 0 else None
+            if change is None:
+                comparison = f'The prior seven observed dates average {baseline:.2f} USD; a percentage comparison is unavailable for a nonpositive baseline.'
+            else:
+                comparison = f'The prior seven observed dates average {baseline:.2f} USD; the change is {change:+.1f}%.'
+            estimated = [stamp for stamp in expected if totals[stamp]['is_estimated'] is True]
+            unknown = [stamp for stamp in expected if totals[stamp]['is_estimated'] is None]
+            return Insight(insight_type='summary', title='Observed Daily Cost Summary',
+                description=f'Observed cost for {expected[-1]}: {yesterday:.2f} USD. {comparison} Provider estimates can change.',
+                severity='warning' if change is not None and change > 20 else 'info', action_required=False,
+                related_services=[], estimated_impact=None, method='observed_7_day_comparison',
+                data_quality={'cost_metric': 'BlendedCost', 'baseline_dates': expected[:-1], 'estimated_dates': estimated, 'unknown_estimate_dates': unknown})
+        except Exception as error:
+            logger.warning('Daily comparison unavailable: %s', type(error).__name__)
+            return None
+
+    def detect_anomalies(self, user_id: str) -> List[Insight]:
+        """Flag observed increases using eight dated points; no probability claim."""
+        if not self.cost_explorer_client: return []
+        try:
+            from .cost_explorer import CostExplorerParams, fetch_cost_data
+            today = datetime.now(UTC).date()
+            first = today-timedelta(days=8)
+            dates = [(first+timedelta(days=index)).isoformat() for index in range(8)]
+            records = fetch_cost_data(CostExplorerParams(first.isoformat(), today.isoformat(), 'DAILY'), self.cost_explorer_client)
+            grouped = {}
+            for record in records:
+                if record.currency != 'USD': raise ValueError('USD observations required')
+                grouped.setdefault(record.service, {})[record.date] = record
+            insights = []
+            for service, observations in grouped.items():
+                if set(observations) != set(dates): continue
+                baseline = sum(observations[stamp].blended_cost for stamp in dates[:-1])/7
+                current = observations[dates[-1]].blended_cost
+                if baseline <= 0: continue
+                percent = (current-baseline)/baseline*100
+                if percent <= 50: continue
+                insights.append(Insight(insight_type='anomaly', title=f'Observed Cost Increase: {service}',
+                    description=f'{service} cost for {dates[-1]} is {current:.2f} USD versus {baseline:.2f} USD across the seven preceding observed dates ({percent:.1f}% increase). This is a comparison heuristic, not a calibrated anomaly probability.',
+                    severity='warning', action_required=True, related_services=[service], estimated_impact=current-baseline,
+                    method='observed_7_day_comparison', data_quality={'cost_metric': 'BlendedCost', 'baseline_dates': dates[:-1],
+                        'estimated_dates': [stamp for stamp in dates if observations[stamp].is_estimated is True],
+                        'unknown_estimate_dates': [stamp for stamp in dates if observations[stamp].is_estimated is None]}))
+            return insights
+        except Exception as error:
+            logger.warning('Observed increase insights unavailable: %s', type(error).__name__)
             return []
-    
+
     def suggest_optimizations(self, user_id: str) -> List[Insight]:
         """
         Suggest cost optimization opportunities based on Phase 3 idle detection.
@@ -241,17 +162,17 @@ class InsightGenerator:
             # Check each resource for idle status
             for resource in resources:
                 try:
-                    metadata = self.resource_manager.get_resource_metadata(resource)
+                    metadata = None  # Use the dedicated observed-window adapter.
                     idle_status = self.idle_detector.is_resource_idle(resource, metadata)
                     
-                    if idle_status.is_idle and idle_status.idle_duration >= 7 * 24 * 60:  # At least 7 days
+                    if idle_status.is_idle and idle_status.observation_status == 'rule_matched':
                         service = resource.service
                         if service not in idle_resources_by_service:
                             idle_resources_by_service[service] = []
                         
                         # Estimate monthly savings using real pricing
                         estimated_monthly_savings = self._estimate_resource_savings(resource)
-                        total_estimated_savings += estimated_monthly_savings
+                        if estimated_monthly_savings is not None: total_estimated_savings += estimated_monthly_savings
                         
                         idle_resources_by_service[service].append({
                             'resource_id': resource.resource_id,
@@ -269,7 +190,9 @@ class InsightGenerator:
                     continue
                     
                 count = len(idle_resources)
-                service_savings = sum(r['estimated_savings'] for r in idle_resources)
+                values = [resource['estimated_savings'] for resource in idle_resources]
+                service_savings = sum(values) if all(value is not None for value in values) else None
+                opportunity = f'Potential compute-only cost at 730 hours: ${service_savings:.2f}/month; savings are not verified.' if service_savings is not None else 'Monetary savings are unavailable; review rates and retained charges.'
                 avg_duration = sum(r['idle_duration_days'] for r in idle_resources) / count if count > 0 else 0.0
                 
                 resource_list = ", ".join([r['resource_id'] for r in idle_resources[:5]])  # Show first 5
@@ -278,9 +201,9 @@ class InsightGenerator:
                 
                 suggestions.append(Insight(
                     insight_type="optimization",
-                    title=f"Idle {service.upper()} Resources Detected",
-                    description=f"{count} {service} resources have been idle for {avg_duration:.1f} days on average. "
-                               f"Resources: {resource_list}. Estimated savings: ${service_savings:.2f}/month if stopped.",
+                    title=f"Low-Usage {service.upper()} Resources Observed",
+                    description=f"{count} {service} resources matched low-usage rules over {avg_duration*24:.1f} observed hours on average; workload inactivity is not verified. "
+                               f"Resources: {resource_list}. {opportunity}",
                     severity="info" if count < 5 else "warning",
                     action_required=count >= 5,
                     related_services=[service],
@@ -299,159 +222,47 @@ class InsightGenerator:
         return suggestions
     
     def check_forecast_alerts(self, user_id: str) -> List[Insight]:
-        """
-        Check forecasts for budget overrun predictions using real budget data.
-        
-        Args:
-            user_id: User identifier
-            
-        Returns:
-            List of forecast alert Insights
-        """
-        if not self.dynamodb_client:
-            logger.warning("No DynamoDB client, cannot check forecasts")
-            return []
-        
+        """Use AWS Budgets' own matching-period projection, not a rolling-model sum."""
+        if not self.budgets_client: return []
         try:
-            # Query forecast data from Phase 2
-            table_name = "cost-forecasts"
-            
-            # Get total forecast for next 30 days
-            response = self.dynamodb_client.query(
-                TableName=table_name,
-                KeyConditionExpression="service = :svc",
-                ExpressionAttributeValues={
-                    ":svc": {"S": "total"}
-                },
-                Limit=30
-            )
-            
-            alerts = []
-            
-            # Calculate forecasted monthly cost
-            forecast_items = response.get('Items', [])
-            if not forecast_items:
-                return []
-            
-            total_forecast = sum(
-                float(item.get('predicted_cost', {}).get('N', 0))
-                for item in forecast_items
-            )
-            
-            # Get real budget data from AWS Budgets or Phase 3
-            budget_limits = []
-            
-            # Try Phase 3 BudgetMonitor first
-            if self.budget_monitor:
-                try:
-                    threshold_events = self.budget_monitor.poll_budgets()
-                    for event in threshold_events:
-                        budget_status = event.budget_status
-                        budget_limits.append({
-                            'name': budget_status.budget_name,
-                            'limit': budget_status.limit,
-                            'currency': budget_status.currency
-                        })
-                except Exception as e:
-                    logger.debug(f"Failed to get budgets from BudgetMonitor: {e}")
-            
-            # Fallback to AWS Budgets API
-            if not budget_limits and self.budgets_client:
-                try:
-                    import boto3
-                    sts = boto3.client('sts')
-                    account_id = sts.get_caller_identity()['Account']
-                    
-                    budgets_response = self.budgets_client.describe_budgets(AccountId=account_id)
-                    for budget in budgets_response.get('Budgets', []):
-                        limit = float(budget['BudgetLimit']['Amount'])
-                        currency = budget['BudgetLimit']['Unit']
-                        budget_limits.append({
-                            'name': budget['BudgetName'],
-                            'limit': limit,
-                            'currency': currency
-                        })
-                except Exception as e:
-                    logger.debug(f"Failed to get budgets from AWS Budgets API: {e}")
-            
-            # Check forecast against each budget
-            for budget in budget_limits:
-                budget_limit = budget['limit']
-                budget_name = budget['name']
-                currency = budget.get('currency', 'USD')
-                
-                # Convert forecast to monthly (30-day forecast assumed to be monthly)
-                monthly_forecast = total_forecast
-                
-                if monthly_forecast > budget_limit:
-                    overage = monthly_forecast - budget_limit
-                    overage_percent = (overage / budget_limit * 100) if budget_limit > 0 else 0
-                    
-                    alerts.append(Insight(
-                        insight_type="forecast_alert",
-                        title=f"Budget Overrun Predicted: {budget_name}",
-                        description=f"Forecasted costs (${monthly_forecast:.2f} {currency}) exceed budget "
-                                   f"(${budget_limit:.2f} {currency}) by ${overage:.2f} ({overage_percent:.1f}%).",
-                        severity="critical" if overage_percent > 20 else "warning",
-                        action_required=True,
-                        related_services=[],
-                        estimated_impact=overage
-                    ))
-            
-            # If no budgets found, log warning but don't create alert
-            if not budget_limits:
-                logger.warning("No budgets found - cannot check forecast overruns. Configure AWS Budgets or Phase 3 budget monitoring.")
-            
-            logger.info(f"Generated {len(alerts)} forecast alerts")
-            return alerts
-            
-        except Exception as e:
-            logger.error(f"Error checking forecast alerts: {e}")
+            from .budget_monitor import BudgetMonitor
+            monitor = BudgetMonitor(self.budgets_client, None)
+            request = {'AccountId': monitor._get_account_id()}
+            alerts, seen = [], set()
+            while True:
+                response = self.budgets_client.describe_budgets(**request)
+                for budget in response.get('Budgets', []):
+                    if budget.get('BudgetType') != 'COST' or budget.get('BudgetLimit', {}).get('Unit') != 'USD': continue
+                    status = monitor._create_budget_status(budget)
+                    if status.forecasted_spend is None or status.forecasted_spend <= status.limit: continue
+                    overage = status.forecasted_spend-status.limit
+                    reset_unit = budget.get('TimeUnit') or 'reported'
+                    alerts.append(Insight(insight_type='forecast_alert',
+                        title=f'Provider Budget Projection: {status.budget_name}',
+                        description=f'AWS Budgets projects {status.forecasted_spend:.2f} USD against a {status.limit:.2f} USD limit for its {reset_unit} reset period. Projected overage: {overage:.2f} USD. This provider projection can change.',
+                        severity='critical' if overage/status.limit > 0.2 else 'warning',
+                        action_required=True, related_services=[], estimated_impact=overage))
+                token = response.get('NextToken')
+                if not token: return alerts
+                if token in seen: raise ValueError('Repeated budget page token')
+                seen.add(token)
+                request['NextToken'] = token
+        except Exception as error:
+            logger.warning('Budget projection insights unavailable: %s', type(error).__name__)
             return []
-    
-    def _estimate_resource_savings(self, resource) -> float:
-        """
-        Estimate monthly savings from stopping/optimizing resource using real pricing.
-        
-        Args:
-            resource: Resource object with service, region, resource_id
-            
-        Returns:
-            Estimated monthly savings in USD
-        """
+
+    def _estimate_resource_savings(self, resource) -> Optional[float]:
+        """Estimate supported compute opportunity without fabricated default savings."""
+        if resource.service != 'ec2': return None
         try:
-            # Initialize PricingManager if not provided
             if not self.pricing_manager:
-                from ..pricing_manager import PricingManager
-                import os
-                region = resource.region if hasattr(resource, 'region') else os.environ.get('AWS_REGION', 'us-east-1')
-                self.pricing_manager = PricingManager(region=region)
-            
-            region = resource.region if hasattr(resource, 'region') else 'us-east-1'
-            
-            # Service-specific pricing logic (similar to action_executor)
-            if resource.service == 'ec2':
-                return self._estimate_ec2_savings(resource, region)
-            elif resource.service == 'rds':
-                return self._estimate_rds_savings(resource, region)
-            elif resource.service == 'lambda':
-                return self._estimate_lambda_savings(resource, region)
-            elif resource.service == 'dynamodb':
-                return self._estimate_dynamodb_savings(resource, region)
-            elif resource.service == 'ebs':
-                return self._estimate_ebs_savings(resource, region)
-            elif resource.service == 'nat_gateway':
-                return self._estimate_nat_gateway_savings(resource, region)
-            else:
-                # Fallback for unknown services
-                logger.debug(f"Unknown service for savings estimation: {resource.service}")
-                return self._estimate_default_savings(resource)
-                
-        except Exception as e:
-            logger.warning(f"Error estimating savings for {resource.resource_id}: {e}")
-            # Fallback to default
-            return self._estimate_default_savings(resource)
-    
+                from .pricing_manager import PricingManager
+                self.pricing_manager = PricingManager(region=resource.region)
+            return self._estimate_ec2_savings(resource, resource.region)
+        except Exception as error:
+            logger.debug('Resource opportunity unavailable: %s', type(error).__name__)
+            return None
+
     def _estimate_ec2_savings(self, resource, region: str) -> float:
         """Estimate EC2 instance savings."""
         try:
@@ -462,6 +273,7 @@ class InsightGenerator:
             if self.resource_manager and hasattr(self.resource_manager, 'clients'):
                 ec2 = self.resource_manager.clients.get('ec2')
             
+            if ec2 is not None and getattr(getattr(ec2, 'meta', None), 'region_name', None) != region: return None
             if not ec2:
                 ec2 = boto3.client('ec2', region_name=region)
             
@@ -471,14 +283,17 @@ class InsightGenerator:
                 return self._estimate_default_savings(resource)
             
             instance = response['Reservations'][0]['Instances'][0]
-            instance_type = instance.get('InstanceType', 't3.micro')
+            if instance.get('PlatformDetails') != 'Linux/UNIX' or instance.get('Placement', {}).get('Tenancy') != 'default' or instance.get('InstanceLifecycle'):
+                return None
+            instance_type = instance.get('InstanceType')
             
             # Get pricing for instance type
             pricing_data = self.pricing_manager.get_pricing_data('ec2', region)
+            if pricing_data.source != 'aws_pricing' or pricing_data.currency != 'USD': return None
             hourly_price = pricing_data.prices.get(instance_type)
             
-            if hourly_price:
-                monthly_savings = float(hourly_price) * 24 * 30
+            if hourly_price is not None and hourly_price.is_finite() and hourly_price >= 0:
+                monthly_savings = float(hourly_price) * 730
                 logger.debug(f"EC2 savings estimate: ${monthly_savings:.2f}/month for {instance_type}")
                 return monthly_savings
             else:
@@ -551,10 +366,6 @@ class InsightGenerator:
         logger.debug(f"NAT Gateway savings estimate: ${monthly_savings:.2f}/month")
         return monthly_savings
     
-    def _estimate_default_savings(self, resource) -> float:
-        """Default savings estimation fallback."""
-        # Conservative default: $0.10/hour = $72/month
-        default_hourly = 0.10
-        monthly_savings = default_hourly * 24 * 30
-        logger.debug(f"Using default savings estimate for {resource.service}: ${monthly_savings:.2f}/month")
-        return monthly_savings
+    def _estimate_default_savings(self, resource) -> Optional[float]:
+        """Missing observed pricing cannot establish a monetary opportunity."""
+        return None

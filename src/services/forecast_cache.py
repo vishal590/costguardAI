@@ -15,6 +15,7 @@ from typing import Optional, Dict, Any, List, Callable
 from datetime import datetime, UTC, timedelta
 import json
 import hashlib
+import uuid
 from botocore.exceptions import ClientError
 
 
@@ -37,6 +38,9 @@ class ForecastCacheManager:
         self.base_ttl_hours = ttl_hours
         self.cache_hits = 0
         self.cache_misses = 0
+        self._data_revision = None
+        self._cache_disabled = False
+        self._scope_date = datetime.now(UTC).date().isoformat()
         # Adaptive TTL: frequently accessed forecasts get longer TTL
         self.max_ttl_hours = ttl_hours * 2  # Max 48 hours for frequently accessed
         
@@ -58,8 +62,16 @@ class ForecastCacheManager:
             Cache key string
         """
         # Create deterministic key from parameters
+        if self._data_revision is None:
+            try:
+                response = self.dynamodb_client.get_item(TableName=self.table_name,
+                    Key={'cache_key': {'S': 'CACHE_DATA_REVISION'}}, ConsistentRead=True)
+                self._data_revision = response.get('Item', {}).get('revision', {}).get('S', 'initial')
+            except (ClientError, ValueError, TypeError, KeyError):
+                self._data_revision = uuid.uuid4().hex
+                self._cache_disabled = True
         service_str = service if service else "total"
-        key_parts = [service_str, str(days), granularity]
+        key_parts = ["forecast-contract-v4", self._scope_date, self._data_revision, service_str, str(days), granularity]
         key_string = ":".join(key_parts)
         
         # Use hash for consistent key format
@@ -85,6 +97,7 @@ class ForecastCacheManager:
             Cached forecast dict if found and valid, None otherwise
         """
         cache_key = self.get_cache_key(service, days, granularity)
+        if self._cache_disabled: return None
         
         try:
             response = self.dynamodb_client.get_item(
@@ -103,7 +116,15 @@ class ForecastCacheManager:
             ttl = int(item['ttl']['N'])
             current_time = int(datetime.now(UTC).timestamp())
             
-            if current_time >= ttl:
+            try:
+                created = datetime.fromisoformat(item['created_at']['S'].replace('Z', '+00:00'))
+                if created.tzinfo is None: raise ValueError('Missing cache timestamp timezone')
+                maximum_age = int((created+timedelta(hours=self.max_ttl_hours)).timestamp())
+                if created.timestamp() > current_time+300: raise ValueError('Future cache creation time')
+            except (KeyError, ValueError, TypeError):
+                self.cache_misses += 1
+                return None
+            if current_time >= min(ttl, maximum_age):
                 # Expired
                 self.cache_misses += 1
                 self._record_cache_miss(cache_key)
@@ -125,7 +146,7 @@ class ForecastCacheManager:
             self.cache_misses += 1
             self._record_cache_miss(cache_key)
             return None
-        except (KeyError, json.JSONDecodeError) as e:
+        except (KeyError, ValueError, TypeError, OverflowError) as e:
             # Malformed cache entry - treat as miss
             print(f"Cache parse error: {e}")
             self.cache_misses += 1
@@ -149,6 +170,7 @@ class ForecastCacheManager:
             granularity: Time resolution
         """
         cache_key = self.get_cache_key(service, days, granularity)
+        if self._cache_disabled: return
         
         # Check if this forecast was previously cached (for adaptive TTL)
         previous_access_count = self._get_access_count(cache_key)
@@ -192,46 +214,18 @@ class ForecastCacheManager:
             print(f"Cache storage error: {e}")
         
     def invalidate_all(self) -> None:
+        """Advance dataset revision without scanning/deleting forecasts.
+
+        Managers pin a revision before lookup, so in-flight model work stores
+        under its original revision. Old entries expire through their TTL.
+        Failure propagates so a cost refresh cannot claim successful invalidation.
         """
-        Invalidate all cached forecasts.
-        
-        This is called when new cost data is fetched to ensure
-        forecasts are regenerated with latest data.
-        """
-        try:
-            # Scan all items in cache table
-            response = self.dynamodb_client.scan(
-                TableName=self.table_name,
-                ProjectionExpression='cache_key'
-            )
-            
-            # Delete each item
-            for item in response.get('Items', []):
-                cache_key = item['cache_key']['S']
-                self.dynamodb_client.delete_item(
-                    TableName=self.table_name,
-                    Key={'cache_key': {'S': cache_key}}
-                )
-            
-            # Handle pagination if needed
-            while 'LastEvaluatedKey' in response:
-                response = self.dynamodb_client.scan(
-                    TableName=self.table_name,
-                    ProjectionExpression='cache_key',
-                    ExclusiveStartKey=response['LastEvaluatedKey']
-                )
-                
-                for item in response.get('Items', []):
-                    cache_key = item['cache_key']['S']
-                    self.dynamodb_client.delete_item(
-                        TableName=self.table_name,
-                        Key={'cache_key': {'S': cache_key}}
-                    )
-                    
-        except ClientError as e:
-            # Log error but don't fail
-            print(f"Cache invalidation error: {e}")
-        
+        self.dynamodb_client.put_item(TableName=self.table_name, Item={
+            'cache_key': {'S': 'CACHE_DATA_REVISION'},
+            'revision': {'S': uuid.uuid4().hex},
+            'updated_at': {'S': datetime.now(UTC).isoformat()}
+        })
+
     def track_cache_hit_rate(self) -> float:
         """
         Calculate and return cache hit rate (in-memory).
@@ -304,14 +298,21 @@ class ForecastCacheManager:
             else:
                 new_ttl = current_ttl
             
+            created_at = item.get('created_at', {}).get('S')
+            if not created_at: return
+            created = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            if created.tzinfo is None: return
+            new_ttl = min(new_ttl, int((created+timedelta(hours=self.max_ttl_hours)).timestamp()))
             self.dynamodb_client.update_item(
                 TableName=self.table_name,
                 Key={'cache_key': {'S': cache_key}},
-                UpdateExpression='SET access_count = :count, last_accessed = :accessed, ttl = :ttl',
+                UpdateExpression='SET access_count = :count, last_accessed = :accessed, #expiry = :ttl',
+                ConditionExpression='created_at = :original',
+                ExpressionAttributeNames={'#expiry': 'ttl'},
                 ExpressionAttributeValues={
                     ':count': {'N': str(access_count)},
                     ':accessed': {'S': datetime.now(UTC).isoformat()},
-                    ':ttl': {'N': str(new_ttl)}
+                    ':ttl': {'N': str(new_ttl)}, ':original': {'S': created_at}
                 }
             )
             

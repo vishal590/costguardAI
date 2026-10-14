@@ -95,7 +95,9 @@ class MultiAccountCostCollector:
         org_id: str,
         account_ids: List[str],
         start_date: date,
-        end_date: date
+        end_date: date,
+        role_name: Optional[str] = None,
+        external_id: Optional[str] = None
     ) -> CollectionResult:
         """
         Collect cost data from all accounts in organization.
@@ -114,6 +116,8 @@ class MultiAccountCostCollector:
             f"from {start_date} to {end_date}"
         )
         
+        external_id = external_id or os.environ.get('EXTERNAL_ID')
+        if not external_id: raise ValueError('Configure the external ID used by member role trust policies')
         metrics_service = get_metrics_service()
         
         with metrics_collector('MultiAccountCostCollection', 
@@ -122,7 +126,7 @@ class MultiAccountCostCollector:
             start_time = time.time()
             
             # Collect costs in parallel
-            account_data = self.collect_parallel(account_ids, start_date, end_date)
+            account_data = self.collect_parallel(account_ids, start_date, end_date, role_name, external_id)
             
             # Calculate summary statistics
             successful = sum(1 for data in account_data if data.status == "SUCCESS")
@@ -160,7 +164,7 @@ class MultiAccountCostCollector:
         account_id: str,
         start_date: date,
         end_date: date,
-        role_name: str = "CostGuardCollectorRole",
+        role_name: Optional[str] = None,
         external_id: Optional[str] = None
     ) -> AccountCostData:
         """
@@ -178,6 +182,11 @@ class MultiAccountCostCollector:
         """
         logger.info(f"Collecting costs for account {account_id}")
         
+        role_name = role_name or self.role_manager.default_role_name
+        external_id = external_id or os.environ.get('EXTERNAL_ID')
+        if not external_id: raise ValueError('Configure the external ID used by member role trust policies')
+        if not isinstance(start_date, date) or not isinstance(end_date, date) or end_date <= start_date:
+            raise ValueError('Supply date objects with an exclusive end after start')
         # Retry logic
         last_error = None
         for attempt in range(self.max_retries):
@@ -244,44 +253,72 @@ class MultiAccountCostCollector:
         session = self.role_manager.create_boto3_session(credentials)
         ce_client = session.client('ce')
         
-        # Query Cost Explorer
-        response = ce_client.get_cost_and_usage(
-            TimePeriod={
-                'Start': start_date.strftime('%Y-%m-%d'),
-                'End': end_date.strftime('%Y-%m-%d')
-            },
-            Granularity='DAILY',
-            Metrics=['UnblendedCost'],
-            GroupBy=[
-                {'Type': 'DIMENSION', 'Key': 'SERVICE'}
-            ]
-        )
-        
-        # Parse response
-        costs_by_service = {}
-        costs_by_day = {}
-        total_cost = Decimal("0")
-        
-        for result in response.get('ResultsByTime', []):
-            day_date = datetime.strptime(result['TimePeriod']['Start'], '%Y-%m-%d').date()
-            day_total = Decimal("0")
-            
+        period = {'Start': start_date.isoformat(), 'End': end_date.isoformat()}
+        def pages(grouping):
+            request = dict(TimePeriod=period, Granularity='DAILY', Metrics=['UnblendedCost'], GroupBy=grouping)
+            seen = set()
+            while True:
+                page = ce_client.get_cost_and_usage(**request)
+                yield from page.get('ResultsByTime', [])
+                token = page.get('NextPageToken')
+                if not token: break
+                if token in seen: raise ValueError('Repeated Cost Explorer page token')
+                seen.add(token)
+                request['NextPageToken'] = token
+        costs_by_service, costs_by_day, daily_services, daily_tags = {}, {}, {}, {}
+        daily_estimates = {}
+        total_cost = Decimal('0')
+        for result in pages([{'Type': 'DIMENSION', 'Key': 'SERVICE'}]):
+            day = result['TimePeriod']['Start']
+            flag = result.get('Estimated') if type(result.get('Estimated')) is bool else None
+            previous = daily_estimates.get(day, flag)
+            daily_estimates[day] = True if previous is True or flag is True else None if previous is None or flag is None else False
+            daily_services.setdefault(day, {})
             for group in result.get('Groups', []):
-                service = group['Keys'][0]
-                cost = Decimal(group['Metrics']['UnblendedCost']['Amount'])
-                
-                # Aggregate by service
-                if service in costs_by_service:
-                    costs_by_service[service] += cost
-                else:
-                    costs_by_service[service] = cost
-                
-                day_total += cost
-            
-            # Store daily total
-            costs_by_day[day_date.strftime('%Y-%m-%d')] = day_total
-            total_cost += day_total
-        
+                metric = group['Metrics']['UnblendedCost']
+                if metric.get('Unit') != 'USD': raise ValueError('Only USD collection is supported')
+                service, amount = group['Keys'][0], Decimal(metric['Amount'])
+                if not amount.is_finite(): raise ValueError('Observed cost must be finite')
+                costs_by_service[service] = costs_by_service.get(service, Decimal('0')) + amount
+                daily_services[day][service] = daily_services[day].get(service, Decimal('0')) + amount
+                costs_by_day[day] = costs_by_day.get(day, Decimal('0')) + amount
+                total_cost += amount
+            costs_by_day.setdefault(day, Decimal('0'))
+        expected_days = {(start_date+timedelta(days=index)).isoformat() for index in range((end_date-start_date).days)}
+        if set(costs_by_day) != expected_days:
+            raise ValueError('Cost Explorer did not return every requested daily period')
+        collect_tags = os.environ.get('COLLECT_ALLOCATION_TAGS', 'false').lower() == 'true'
+        if collect_tags:
+            tag_coverage = {day: set() for day in costs_by_day}
+            daily_tags = {day: {} for day in costs_by_day}
+            for tag_key in ('Team', 'Project', 'Environment'):
+                for result in pages([{'Type': 'TAG', 'Key': tag_key}, {'Type': 'DIMENSION', 'Key': 'SERVICE'}]):
+                    day = result['TimePeriod']['Start']
+                    if day not in daily_tags: raise ValueError('Tag collection returned an unexpected date')
+                    tag_coverage[day].add(tag_key)
+                    flag = result.get('Estimated') if type(result.get('Estimated')) is bool else None
+                    previous = daily_estimates.get(day)
+                    daily_estimates[day] = True if previous is True or flag is True else None if previous is None or flag is None else False
+                    for group in result.get('Groups', []):
+                        tagged, service = group['Keys']
+                        key, separator, value = tagged.partition('$')
+                        if not separator or key != tag_key or not value: continue
+                        if group['Metrics']['UnblendedCost'].get('Unit') != 'USD': raise ValueError('Only USD allocation collection is supported')
+                        amount = Decimal(group['Metrics']['UnblendedCost']['Amount'])
+                        if not amount.is_finite(): raise ValueError('Allocation cost must be finite')
+                        category = tag_key + ':' + value
+                        services = daily_tags[day].setdefault(category, {})
+                        services[service] = services.get(service, Decimal('0')) + amount
+            if any(keys != {'Team', 'Project', 'Environment'} for keys in tag_coverage.values()):
+                raise ValueError('Daily tag collection is incomplete; no full allocation coverage was established')
+        # Store real daily records; aggregate return values are not written as a single day.
+        from .models import AccountCostData as StoredCostData
+        for day, amount in costs_by_day.items():
+            self.cost_repository.save(StoredCostData(
+                account_id=account_id, start_date=day, end_date=day, total_cost=amount,
+                costs_by_service=daily_services[day], costs_by_day={day: amount},
+                collection_timestamp=datetime.utcnow(), status='SUCCESS',
+                costs_by_tag_service=daily_tags.get(day) if collect_tags else None, is_estimated=daily_estimates.get(day)))
         account_data = AccountCostData(
             account_id=account_id,
             start_date=start_date,
@@ -294,7 +331,6 @@ class MultiAccountCostCollector:
         )
         
         # Store in DynamoDB
-        self._store_cost_data(account_data)
         
         logger.info(f"Successfully collected costs for account {account_id}: ${total_cost}")
         return account_data
@@ -304,7 +340,7 @@ class MultiAccountCostCollector:
         account_ids: List[str],
         start_date: date,
         end_date: date,
-        role_name: str = "CostGuardCollectorRole",
+        role_name: Optional[str] = None,
         external_id: Optional[str] = None
     ) -> List[AccountCostData]:
         """
@@ -372,20 +408,7 @@ class MultiAccountCostCollector:
         return results
     
     def _store_cost_data(self, account_data: AccountCostData) -> None:
-        """
-        Store collected cost data in DynamoDB.
-        
-        Args:
-            account_data: Cost data to store
-        """
-        try:
-            self.cost_repository.save_cost_data(
-                account_id=account_data.account_id,
-                date=account_data.start_date,
-                total_cost=float(account_data.total_cost),
-                costs_by_service={k: float(v) for k, v in account_data.costs_by_service.items()},
-                costs_by_day={k: float(v) for k, v in account_data.costs_by_day.items()}
-            )
-        except Exception as e:
-            logger.error(f"Failed to store cost data for account {account_data.account_id}: {e}")
-            # Don't raise - we still want to return the collected data
+        """Persist an explicitly single-day record through the repository API."""
+        if len(account_data.costs_by_day) != 1:
+            raise ValueError("Daily persistence requires a single-day record")
+        self.cost_repository.save(account_data)

@@ -31,6 +31,9 @@ from aws_cdk import (
 from constructs import Construct
 
 
+BUDGET_MONITOR_INTERVAL_MINUTES = 5
+
+
 class CostGuardStack(Stack):
     """
     CDK Stack for CostGuard cost management and automated prevention system.
@@ -332,6 +335,7 @@ class CostGuardStack(Stack):
                 "rds:StartDBInstance",
                 "rds:StopDBCluster",
                 "rds:StartDBCluster",
+                "lambda:GetFunctionConcurrency",
                 "lambda:PutFunctionConcurrency",
                 "lambda:DeleteFunctionConcurrency",
                 "dynamodb:UpdateTable",
@@ -369,6 +373,11 @@ class CostGuardStack(Stack):
             code=lambda_.Code.from_asset(
                 os.path.join(os.path.dirname(__file__), ".."),
                 exclude=[
+                    # Local runtime bundles, credentials and generated output are not Lambda code.
+                    ".artifacts", ".artifacts/**", ".aws", ".aws/**",
+                    ".env", ".env.*", ".codex", ".agents", "htmlcov",
+                    "*.key", "*.pem", "*.whl", "*.zip", "*.tar.gz", "*.tgz", "cdk.context.json",
+                    "**/__pycache__", "**/*.pyc", "node_modules",
                     "cdk.out/*",
                     "infrastructure/cdk.out/*",
                     "infrastructure/*",
@@ -408,17 +417,22 @@ class CostGuardStack(Stack):
             timeout=Duration.minutes(15),
             memory_size=512,
             environment={
+                "BACKEND_API_KEY": self.node.try_get_context("bff_main_key") or os.environ.get("BFF_MAIN_API_KEY", ""),
+                "BACKEND_ACCOUNT_ID": Stack.of(self).account,
+                "ALLOW_DIRECT_API_KEYS": self.node.try_get_context("allow_direct_api_keys") or "false",
                 "COST_DATA_TABLE": cost_data_table.table_name,
                 "FORECAST_CACHE_TABLE": forecast_cache_table.table_name,
+                "ADVISOR_BUDGET_NAME": self.node.try_get_context("advisor_budget_name") or "",
                 "PREVENTION_CONFIG_TABLE": prevention_config_table.table_name,
                 "RESOURCE_INVENTORY_TABLE": resource_inventory_table.table_name,
                 "PREVENTION_AUDIT_TABLE": prevention_audit_table.table_name,
                 "APPROVAL_REQUESTS_TABLE": approval_requests_table.table_name,
                 "PREVENTION_ENABLED": "false",
+                "PREVENTION_EXECUTION_ENABLED": "false",
                 "DRY_RUN_MODE": "true",
                 "APPROVAL_REQUIRED": "true",
                 "APPROVAL_TIMEOUT_MINUTES": "30",
-                "BUDGET_POLL_INTERVAL_MINUTES": "5",
+                "BUDGET_POLL_INTERVAL_MINUTES": str(BUDGET_MONITOR_INTERVAL_MINUTES),
                 "RESOURCE_REFRESH_INTERVAL_MINUTES": "15",
                 "WARNING_THRESHOLD_PERCENT": "80",
                 "ACTION_THRESHOLD_PERCENT": "90",
@@ -465,6 +479,7 @@ class CostGuardStack(Stack):
 
         cost_data_resource = api_resource.add_resource("cost-data")
         cost_data_resource.add_method("GET", lambda_integration)
+        cost_data_resource.add_resource("summary").add_method("GET", lambda_integration)
         # POST /api/cost-data/fetch (frontend uses this path; CORS OPTIONS auto-added)
         cost_data_fetch = cost_data_resource.add_resource("fetch")
         cost_data_fetch.add_method("POST", lambda_integration)
@@ -494,11 +509,17 @@ class CostGuardStack(Stack):
         prevention_status = prevention_resource.add_resource("status")
         prevention_status.add_method("GET", lambda_integration)
 
+        prevention_config = prevention_resource.add_resource("config")
+        prevention_config.add_method("POST", lambda_integration)
+
         prevention_enable = prevention_resource.add_resource("enable")
         prevention_enable.add_method("POST", lambda_integration)
 
         prevention_disable = prevention_resource.add_resource("disable")
         prevention_disable.add_method("POST", lambda_integration)
+
+        prevention_inspection = prevention_resource.add_resource("resource")
+        prevention_inspection.add_method("GET", lambda_integration)
 
         prevention_resources = prevention_resource.add_resource("resources")
         prevention_resources.add_method("GET", lambda_integration)
@@ -548,7 +569,7 @@ class CostGuardStack(Stack):
             self, "BudgetMonitorRule",
             rule_name="costguard-budget-monitor",
             description="Trigger CostGuard Lambda every 5 minutes for budget monitoring",
-            schedule=events.Schedule.rate(Duration.minutes(5)),
+            schedule=events.Schedule.rate(Duration.minutes(BUDGET_MONITOR_INTERVAL_MINUTES)),
         )
 
         # Add Lambda as target

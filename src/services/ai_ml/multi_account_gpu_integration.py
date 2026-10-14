@@ -8,11 +8,11 @@ import logging
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Dict, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..multi_account.cross_account_role_manager import CrossAccountRoleManager, Credentials
 from ..multi_account.models import AccountCostData, AggregatedCosts
-from .gpu_cost_tracker import GPUCostTracker, GPUCostData
+from .gpu_cost_tracker import GPUCostTracker, GPUCostData, GPUCostDataUnavailable
 from .workload_classifier import WorkloadClassifier
 from .error_handler import retry_with_exponential_backoff, handle_cost_explorer_error
 
@@ -26,13 +26,16 @@ class MultiAccountGPUCosts:
     org_id: str
     start_date: date
     end_date: date
-    total_gpu_cost: Decimal
+    total_gpu_cost: Optional[Decimal]
     account_count: int
-    costs_by_account: Dict[str, Decimal]
-    costs_by_workload_type: Dict[str, Decimal]  # training, inference, idle
+    costs_by_account: Dict[str, Optional[Decimal]]
+    costs_by_workload_type: Dict[str, Optional[Decimal]]  # training, inference, idle
     costs_by_instance_type: Dict[str, Decimal]  # p3.2xlarge, p4d.24xlarge, etc.
-    gpu_hours_by_account: Dict[str, float]
-    utilization_by_account: Dict[str, float]
+    gpu_hours_by_account: Dict[str, Optional[float]]
+    utilization_by_account: Dict[str, Optional[float]]
+    observed_partial_cost: Optional[Decimal] = None
+    account_data_quality: Dict[str, Dict] = field(default_factory=dict)
+    result_scope: str = 'observed_type_usage_costs_with_unavailable_attribution'
 
 
 class MultiAccountGPUIntegration:
@@ -93,68 +96,34 @@ class MultiAccountGPUIntegration:
             f"from {start_date} to {end_date}"
         )
         
-        total_gpu_cost = Decimal("0")
-        costs_by_account: Dict[str, Decimal] = {}
-        costs_by_workload_type: Dict[str, Decimal] = {
-            "training": Decimal("0"),
-            "inference": Decimal("0"),
-            "idle": Decimal("0")
-        }
-        costs_by_instance_type: Dict[str, Decimal] = {}
-        gpu_hours_by_account: Dict[str, float] = {}
-        utilization_by_account: Dict[str, float] = {}
-        
+        account_ids = list(dict.fromkeys(account_ids))
+        if not 1 <= len(account_ids) <= 25: raise ValueError('Select 1-25 accounts')
+        total_gpu_cost = Decimal('0')
+        costs_by_account, costs_by_instance_type, account_quality = {}, {}, {}
+        costs_by_workload_type = {'training': None, 'inference': None, 'idle': None, 'unknown': None}
+        gpu_hours_by_account, utilization_by_account = {}, {}
+        observed_any = False
         for account_id in account_ids:
+            gpu_hours_by_account[account_id], utilization_by_account[account_id] = None, None
             try:
-                # Collect GPU costs for this account
-                account_gpu_costs = self._collect_account_gpu_costs(
-                    account_id=account_id,
-                    start_date=start_date,
-                    end_date=end_date,
-                    role_name=role_name,
-                    external_id=external_id
-                )
-                
-                # Aggregate by account
-                account_total = sum(
-                    Decimal(str(cost.cost)) for cost in account_gpu_costs
-                )
-                costs_by_account[account_id] = account_total
-                total_gpu_cost += account_total
-                
-                # Aggregate by workload type
-                for cost_data in account_gpu_costs:
-                    workload_type = cost_data.workload_type
-                    costs_by_workload_type[workload_type] += Decimal(str(cost_data.cost))
-                    
-                    # Aggregate by instance type
-                    instance_type = cost_data.instance_type
-                    if instance_type not in costs_by_instance_type:
-                        costs_by_instance_type[instance_type] = Decimal("0")
-                    costs_by_instance_type[instance_type] += Decimal(str(cost_data.cost))
-                
-                # Calculate GPU hours and utilization for account
-                total_gpu_hours = sum(cost.gpu_hours for cost in account_gpu_costs)
-                avg_utilization = (
-                    sum(cost.utilization for cost in account_gpu_costs) / len(account_gpu_costs)
-                    if account_gpu_costs else 0.0
-                )
-                
-                gpu_hours_by_account[account_id] = total_gpu_hours
-                utilization_by_account[account_id] = avg_utilization
-                
-                logger.info(
-                    f"Collected GPU costs for account {account_id}: "
-                    f"${account_total}, {total_gpu_hours} GPU hours"
-                )
-                
-            except Exception as e:
-                logger.error(f"Failed to collect GPU costs for account {account_id}: {e}")
-                # Continue with other accounts
-                costs_by_account[account_id] = Decimal("0")
-                gpu_hours_by_account[account_id] = 0.0
-                utilization_by_account[account_id] = 0.0
-        
+                records = self._collect_account_gpu_costs(account_id, start_date, end_date, role_name, external_id)
+                quality = dict(self.gpu_cost_tracker.last_observation_report)
+                account_quality[account_id] = quality
+                amount = sum((Decimal(str(record.cost)) for record in records), Decimal('0')) if records else None
+                costs_by_account[account_id] = amount
+                if amount is not None:
+                    observed_any = True
+                    total_gpu_cost += amount
+                    costs_by_workload_type['unknown'] = (costs_by_workload_type['unknown'] or Decimal('0'))+amount
+                for record in records:
+                    costs_by_instance_type[record.instance_type] = costs_by_instance_type.get(record.instance_type, Decimal('0'))+Decimal(str(record.cost))
+            except Exception as error:
+                logger.warning('GPU account observation unavailable for %s: %s', account_id, type(error).__name__)
+                costs_by_account[account_id] = None
+                account_quality[account_id] = {'status': 'unavailable', 'complete_date_coverage': False}
+        observed_partial_cost = total_gpu_cost if observed_any else None
+        complete = all(costs_by_account.get(account) is not None and account_quality[account].get('complete_date_coverage') is True for account in account_ids)
+        total_gpu_cost = total_gpu_cost if complete else None
         result = MultiAccountGPUCosts(
             org_id=org_id,
             start_date=start_date,
@@ -165,7 +134,8 @@ class MultiAccountGPUIntegration:
             costs_by_workload_type=costs_by_workload_type,
             costs_by_instance_type=costs_by_instance_type,
             gpu_hours_by_account=gpu_hours_by_account,
-            utilization_by_account=utilization_by_account
+            utilization_by_account=utilization_by_account,
+            observed_partial_cost=observed_partial_cost, account_data_quality=account_quality
         )
         
         logger.info(
@@ -209,8 +179,8 @@ class MultiAccountGPUIntegration:
             
             # Collect GPU costs using the assumed role session
             gpu_costs = self.gpu_cost_tracker.collect_gpu_costs(
-                start_date=start_date,
-                end_date=end_date,
+                start_date=start_date.date().isoformat() if isinstance(start_date, datetime) else start_date.isoformat(),
+                end_date=end_date.date().isoformat() if isinstance(end_date, datetime) else end_date.isoformat(),
                 boto3_session=session
             )
             
@@ -218,7 +188,7 @@ class MultiAccountGPUIntegration:
             
         except Exception as e:
             logger.error(f"Error collecting GPU costs for account {account_id}: {e}")
-            return []
+            raise GPUCostDataUnavailable('Account GPU cost observations are unavailable') from e
     
     def aggregate_gpu_costs_by_workload(
         self,
@@ -286,7 +256,7 @@ class MultiAccountGPUIntegration:
         
         # Sort accounts by GPU cost
         sorted_accounts = sorted(
-            multi_account_costs.costs_by_account.items(),
+            [(account, cost) for account, cost in multi_account_costs.costs_by_account.items() if cost is not None],
             key=lambda x: x[1],
             reverse=True
         )[:limit]
@@ -296,9 +266,9 @@ class MultiAccountGPUIntegration:
         result = []
         
         for account_id, cost in sorted_accounts:
-            percentage = float(cost / total_cost * 100) if total_cost > 0 else 0.0
-            gpu_hours = multi_account_costs.gpu_hours_by_account.get(account_id, 0.0)
-            utilization = multi_account_costs.utilization_by_account.get(account_id, 0.0)
+            percentage = float(cost / total_cost * 100) if total_cost is not None and total_cost > 0 else None
+            gpu_hours = multi_account_costs.gpu_hours_by_account.get(account_id)
+            utilization = multi_account_costs.utilization_by_account.get(account_id)
             
             result.append({
                 "account_id": account_id,
@@ -340,23 +310,8 @@ class MultiAccountGPUIntegration:
             end_date=end_date
         )
         
-        # Calculate organization-wide metrics
-        total_gpu_hours = sum(multi_account_costs.gpu_hours_by_account.values())
-        avg_utilization = (
-            sum(multi_account_costs.utilization_by_account.values()) / len(account_ids)
-            if account_ids else 0.0
-        )
-        
-        # Calculate idle GPU cost percentage
-        idle_cost = multi_account_costs.costs_by_workload_type.get("idle", Decimal("0"))
-        idle_percentage = (
-            float(idle_cost / multi_account_costs.total_gpu_cost * 100)
-            if multi_account_costs.total_gpu_cost > 0 else 0.0
-        )
-        
-        return {
-            "total_gpu_hours": total_gpu_hours,
-            "avg_utilization": avg_utilization,
-            "idle_cost_percentage": idle_percentage,
-            "total_gpu_cost": float(multi_account_costs.total_gpu_cost)
-        }
+        return {'total_gpu_hours': None, 'avg_utilization': None, 'idle_cost_percentage': None,
+                'total_gpu_cost': float(multi_account_costs.total_gpu_cost) if multi_account_costs.total_gpu_cost is not None else None,
+                'observed_partial_cost': float(multi_account_costs.observed_partial_cost) if multi_account_costs.observed_partial_cost is not None else None,
+                'account_data_quality': multi_account_costs.account_data_quality,
+                'result_scope': 'billing_type_aggregates_without_device_utilization'}

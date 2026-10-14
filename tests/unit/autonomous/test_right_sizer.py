@@ -113,7 +113,8 @@ class TestUtilizationAnalysis:
     
     def test_analyze_utilization_returns_data(self):
         """Test that analyze_utilization returns UtilizationData."""
-        data = analyze_utilization("i-test123", days=7)
+        with patch.dict(os.environ, {"DEMO_MODE": "true"}):
+            data = analyze_utilization("i-test123", days=7)
         
         assert data is not None
         assert isinstance(data, UtilizationData)
@@ -122,11 +123,12 @@ class TestUtilizationAnalysis:
     
     def test_analyze_utilization_different_days(self):
         """Test analysis with different day counts."""
-        data_7 = analyze_utilization("i-test", days=7)
-        data_30 = analyze_utilization("i-test", days=30)
+        with patch.dict(os.environ, {"DEMO_MODE": "false"}):
+            data_7 = analyze_utilization("i-test", days=7)
+            data_30 = analyze_utilization("i-test", days=30)
         
-        assert data_7 is not None
-        assert data_30 is not None
+        assert data_7 is None
+        assert data_30 is None
     
     def test_calculate_average_utilization(self):
         """Test average utilization calculation."""
@@ -357,9 +359,10 @@ class TestMigrationAndRollback:
         """Test successful rollback point creation."""
         mock_table.put_item.return_value = {}
         
-        rollback_id = create_rollback_point("i-test123")
+        with patch("autonomous.action_executor.instance", return_value={"InstanceType": "g4dn.xlarge", "State": {"Name": "stopped"}}):
+            rollback_id = create_rollback_point("i-test123")
         
-        assert rollback_id.startswith("rollback_")
+        assert rollback_id.startswith("inspection_")
         assert "i-test123" in rollback_id
         mock_table.put_item.assert_called_once()
     
@@ -388,8 +391,8 @@ class TestMigrationAndRollback:
             
             result = migrate_workload("i-test", "g4dn.xlarge", "rollback_123")
             
-            assert result is True
-            mock_table.update_item.assert_called_once()
+            assert result is False
+            mock_table.update_item.assert_not_called()
     
     def test_monitor_performance_returns_valid_degradation(self):
         """Test that performance monitoring returns valid degradation."""
@@ -410,8 +413,8 @@ class TestMigrationAndRollback:
         
         result = execute_rollback("rollback_123")
         
-        assert result is True
-        mock_table.update_item.assert_called_once()
+        assert result is False
+        mock_table.update_item.assert_not_called()
     
     @patch('autonomous.right_sizer.migration_rollbacks_table')
     def test_execute_rollback_not_found(self, mock_table):

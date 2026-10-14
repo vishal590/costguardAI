@@ -321,7 +321,7 @@ python deploy_multi_account.py --create-tables
 ```
 
 **Deployment:**
-See [CROSS_ACCOUNT_SETUP.md](../../infrastructure/CROSS_ACCOUNT_SETUP.md) for detailed setup instructions.
+See [CROSS_ACCOUNT_SETUP.md](../../../infrastructure/CROSS_ACCOUNT_SETUP.md) for detailed setup instructions.
 
 ---
 
@@ -474,7 +474,7 @@ aws cloudformation create-stack-instances \
   --regions us-east-1
 ```
 
-**See:** [MEMBER_ACCOUNT_DEPLOYMENT.md](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
+**See:** [MEMBER_ACCOUNT_DEPLOYMENT.md](../../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
 
 ---
 
@@ -701,9 +701,9 @@ aws cloudformation delete-stack-set \
 
 - **[README.md](./README.md)** - Phase 5 overview
 - **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference
-- **[CROSS_ACCOUNT_SETUP.md](../../infrastructure/CROSS_ACCOUNT_SETUP.md)** - Cross-account setup guide
-- **[MEMBER_ACCOUNT_DEPLOYMENT.md](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)** - Member account setup
-- **[DEPLOYMENT_SCRIPTS.md](../../DEPLOYMENT_SCRIPTS.md)** - Deployment scripts
+- **[CROSS_ACCOUNT_SETUP.md](../../../infrastructure/CROSS_ACCOUNT_SETUP.md)** - Cross-account setup guide
+- **[MEMBER_ACCOUNT_DEPLOYMENT.md](../../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)** - Member account setup
+- **[DEPLOYMENT_SCRIPTS.md](../../deployment/DEPLOYMENT_SCRIPTS.md)** - Deployment scripts
 - **[implementation-summary.md](./implementation-summary.md)** - Implementation details
 
 ---

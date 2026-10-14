@@ -1,5 +1,7 @@
 # Phase 5: Multi-Account Cost Management
 
+> **Local implementation update October 14, 2026.** The stack now defines 24 methods; see [current API reference](API_DOCUMENTATION.md) and [access/feature contracts](../access-and-feature-contracts.md). New reports, scoped forecasts/advisor, disabled policy configuration, business measurements and Phase 7 analytics remain unvalidated. Historical test/deployment figures below do not validate this source.
+
 ## Overview
 
 Phase 5 transforms CostGuard AI from a single-account tool into a production-ready multi-account platform capable of managing costs across AWS Organizations. This phase enables cost visibility, allocation, and management across multiple AWS accounts within an organization.
@@ -218,7 +220,7 @@ cd ..
 
 ### 4. Set Up Cross-Account Roles
 
-See [Cross-Account Setup Guide](../../infrastructure/CROSS_ACCOUNT_SETUP.md) for detailed instructions.
+See [Cross-Account Setup Guide](../../../infrastructure/CROSS_ACCOUNT_SETUP.md) for detailed instructions.
 
 ### 5. Test Organization Discovery
 
@@ -291,7 +293,7 @@ aws cloudformation create-stack \
   --profile member-account-profile
 ```
 
-See [Member Account Deployment Guide](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md) for detailed instructions.
+See [Member Account Deployment Guide](../../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md) for detailed instructions.
 
 ### Step 3: Configure SNS Notifications
 
@@ -347,10 +349,10 @@ All API requests require an API key in the `X-API-Key` header. The multi-account
 **Obtaining an API key:** After deploying CostGuardMultiAccountStack, run in the backend repo (aws-ideas):
 
 ```bash
-python setup_api_auth.py
+python setup_api_auth.py --principal principal.json --key-file .artifacts/access/multi-account.key
 ```
 
-This creates the `costguard-api-keys` and `costguard-rate-limits` tables (if needed) and prints a test API key. Use that value in the frontend as `VITE_MULTI_ACCOUNT_API_KEY`. See `docs/deployment/DEPLOYMENT_BUGS_AND_FIXES.md` (Issue 5.2).
+Provide an explicitly scoped principal JSON first. The command prints a plan and makes no AWS calls. A separately authorized `--apply` configures tables/key records and keeps the key in the named private file; it does not print credentials. BFF gateway mode also requires `is_bff_gateway=true` and user access grants. See `docs/deployment/DEPLOYMENT_BUGS_AND_FIXES.md` (Issue 5.2).
 
 ```bash
 curl -H "x-api-key: YOUR_API_KEY" \
@@ -623,8 +625,8 @@ All logs include:
 **Symptom**: API requests return 401 with "Invalid API key"
 
 **Solution**:
-1. The multi-account API uses **DynamoDB** for key validation, not API Gateway. Run `python setup_api_auth.py` in the backend repo to create the `costguard-api-keys` table and a test key.
-2. Use the printed key as `VITE_MULTI_ACCOUNT_API_KEY` in the frontend (or in `X-API-Key` header for direct API calls).
+1. The multi-account API uses **DynamoDB** for key validation, not API Gateway. Run `python setup_api_auth.py --principal principal.json --key-file .artifacts/access/multi-account.key` in the backend repo to review a principal-scoped bootstrap plan. Live `--apply` remains deferred.
+2. For explicitly enabled direct mode, use the private key-file value as `VITE_MULTI_ACCOUNT_API_KEY` in the frontend (or in `X-API-Key` header for direct API calls).
 3. Ensure the key is at least 32 characters and the table exists in the same account/region as the Lambda.
 
 #### API Returns 200 with Empty Data / "Your account is not a member of an AWS Organization"
@@ -681,7 +683,7 @@ aws lambda update-function-configuration \
 For additional support:
 1. Check [FAQ](#faq) below
 2. Review [API Examples](../../API_EXAMPLES.md)
-3. See [Cross-Account Setup Guide](../../infrastructure/CROSS_ACCOUNT_SETUP.md)
+3. See [Cross-Account Setup Guide](../../../infrastructure/CROSS_ACCOUNT_SETUP.md)
 4. Check CloudWatch logs for detailed errors
 
 ---
@@ -705,7 +707,7 @@ A: Yes! CostGuard is optimized for AWS Free Tier with on-demand DynamoDB billing
 A: No! Deploy CostGuard only in the management account. It uses cross-account roles to access member accounts.
 
 **Q: How do I deploy cross-account roles?**  
-A: Use StackSets for automatic deployment, or manually deploy CloudFormation templates to each member account. See [Cross-Account Setup Guide](../../infrastructure/CROSS_ACCOUNT_SETUP.md).
+A: Use StackSets for automatic deployment, or manually deploy CloudFormation templates to each member account. See [Cross-Account Setup Guide](../../../infrastructure/CROSS_ACCOUNT_SETUP.md).
 
 **Q: Can I use CostGuard without AWS Organizations?**  
 A: Multi-account features require AWS Organizations. However, single-account mode works without Organizations.
@@ -783,7 +785,7 @@ A: Yes! All data is encrypted at rest (DynamoDB) and in transit (TLS 1.2+).
 ## Next Steps
 
 1. **Deploy Infrastructure**: Follow the [Setup Guide](#setup-guide)
-2. **Configure Cross-Account Roles**: See [Cross-Account Setup](../../infrastructure/CROSS_ACCOUNT_SETUP.md)
+2. **Configure Cross-Account Roles**: See [Cross-Account Setup](../../../infrastructure/CROSS_ACCOUNT_SETUP.md)
 3. **Set Up Cost Allocation**: Create allocation rules and tags
 4. **Configure Budgets**: Set organization, OU, and account budgets
 5. **Monitor Costs**: Use API or CloudWatch dashboards
@@ -792,10 +794,10 @@ A: Yes! All data is encrypted at rest (DynamoDB) and in transit (TLS 1.2+).
 
 ## Related Documentation
 
-- [Cross-Account Setup Guide](../../infrastructure/CROSS_ACCOUNT_SETUP.md)
-- [Member Account Deployment](../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
+- [Cross-Account Setup Guide](../../../infrastructure/CROSS_ACCOUNT_SETUP.md)
+- [Member Account Deployment](../../../infrastructure/MEMBER_ACCOUNT_DEPLOYMENT.md)
 - [API Examples](../../API_EXAMPLES.md)
-- [Deployment Scripts](../../../DEPLOYMENT_SCRIPTS.md)
+- [Deployment Scripts](../../deployment/DEPLOYMENT_SCRIPTS.md)
 - [Project Status](../../PROJECT_STATUS.md)
 
 ---

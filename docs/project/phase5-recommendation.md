@@ -8,12 +8,12 @@
 **Last Updated:** February 2026
 
 **Related Documentation:**
-- [Project Planning](./project/planning.md) - Original Phase 5 plan (React frontend), updated with Phase 6
-- [Problem Statement](./PROBLEM-STATEMENT.md) - Core problem we're solving
-- [Competitive Analysis](./COMPETITIVE-ANALYSIS.md) - Market positioning
-- [Architecture](./technical/architecture.md) - Current system architecture
-- [Phase 4 Status](./PHASE4_STATUS.md) - Current implementation status
-- [Impact Assessment](./IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
+- [Project Planning](planning.md) - Original Phase 5 plan (React frontend), updated with Phase 6
+- [Problem Statement](../PROBLEM-STATEMENT.md) - Core problem we're solving
+- [Competitive Analysis](../COMPETITIVE-ANALYSIS.md) - Market positioning
+- [Architecture](../technical/architecture.md) - Current system architecture
+- [Phase 4 Status](../PHASE4_STATUS.md) - Current implementation status
+- [Impact Assessment](../IMPACT-ASSESSMENT.md) - SMB/startup impact analysis
 
 ---
 

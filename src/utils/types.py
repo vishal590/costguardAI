@@ -37,6 +37,9 @@ class CostRecord:
     unblended_cost: float
     currency: str
     unit: str
+    granularity: str = "UNKNOWN"
+    period_end: Optional[str] = None
+    is_estimated: Optional[bool] = None
 
 
 @dataclass
@@ -52,6 +55,9 @@ class DynamoDBRecord:
     unit: str
     timestamp: str       # ISO 8601
     ttl: Optional[int] = None   # Unix timestamp
+    granularity: str = "UNKNOWN"
+    period_end: Optional[str] = None
+    is_estimated: Optional[bool] = None
 
 
 @dataclass
@@ -61,6 +67,9 @@ class QueryParams:
     end_date: Optional[str] = None
     service: Optional[str] = None
     limit: Optional[int] = None
+    granularity: str = "DAILY"
+    before_date: Optional[str] = None
+    before_service: Optional[str] = None
 
 
 @dataclass
@@ -102,6 +111,7 @@ class EC2Metrics:
     network_out: Decimal
     disk_read_bytes: Decimal
     running_hours: Decimal
+    billing_profile: str = "unknown"
 
 
 @dataclass
@@ -112,6 +122,7 @@ class LambdaMetrics:
     duration_ms: Decimal
     memory_mb: int
     errors: int
+    billing_profile: str = "unknown"
 
 
 @dataclass
@@ -120,6 +131,7 @@ class DynamoDBMetrics:
     table_name: str
     consumed_read_capacity: Decimal
     consumed_write_capacity: Decimal
+    billing_profile: str = "unknown"
 
 
 @dataclass
@@ -130,6 +142,7 @@ class S3Metrics:
     bucket_size_bytes: Decimal
     get_requests: int
     put_requests: int
+    billing_profile: str = "unknown"
 
 
 @dataclass
@@ -142,6 +155,7 @@ class RDSMetrics:
     write_iops: Decimal
     storage_gb: Decimal
     running_hours: Decimal
+    billing_profile: str = "unknown"
 
 
 @dataclass
@@ -153,6 +167,8 @@ class PricingData:
     currency: str
     last_updated: datetime
     ttl: int
+    source: str = "unknown"
+    pricing_profile: str = "unspecified"
 
 
 @dataclass
@@ -201,14 +217,21 @@ class RDSPricing:
 class CostEstimate:
     """Cost estimate for a service."""
     service: str
-    estimated_cost: Decimal
+    estimated_cost: Optional[Decimal]
     currency: str
-    confidence_lower: Decimal
-    confidence_upper: Decimal
+    confidence_lower: Optional[Decimal]
+    confidence_upper: Optional[Decimal]
     timestamp: datetime
     period_start: datetime
     period_end: datetime
     metrics_count: int
+    status: str = "estimated"
+    pricing_source: str = "unknown"
+    reason: Optional[str] = None
+    pricing_profile: str = "unspecified"
+    range_method: str = "unavailable"
+    covered_components: Optional[List[str]] = None
+    missing_components: Optional[List[str]] = None
 
 
 @dataclass
@@ -231,8 +254,8 @@ class ForecastDataPoint:
     """Single forecast data point with confidence interval."""
     date: str  # ISO 8601 format (YYYY-MM-DD)
     predicted_cost: float  # Predicted cost in USD
-    confidence_lower: float  # Lower bound of 95% confidence interval
-    confidence_upper: float  # Upper bound of 95% confidence interval
+    confidence_lower: float  # Lower uncalibrated uncertainty bound
+    confidence_upper: float  # Upper uncalibrated uncertainty bound
     currency: str = "USD"
 
 
@@ -247,6 +270,14 @@ class ForecastMetadata:
     services_included: Optional[List[str]]  # For total forecasts
     cache_hit: bool  # True if returned from cache
     historical_data_days: int  # Days of historical data used
+    range_method: str = "unspecified"
+    observed_history_days: Optional[int] = None
+    missing_history_dates: Optional[List[str]] = None
+    history_method: str = "observed_only"
+    cost_metric: str = "unspecified"
+    forecast_start_date: Optional[str] = None
+    estimated_dates: Optional[List[str]] = None
+    unknown_estimate_dates: Optional[List[str]] = None
 
 
 @dataclass
@@ -272,7 +303,14 @@ class ProcessedData:
     timestamps: List[str]  # ISO 8601 dates
     costs: List[float]  # Corresponding costs
     service: Optional[str]  # Service name
-    total_days: int  # Number of data points
+    total_days: int  # Number of actual observed dates
+    observed_days: Optional[int] = None
+    missing_dates: Optional[List[str]] = None
+    history_method: str = "observed_only"
+    cost_metric: str = "unspecified"
+    forecast_start_date: Optional[str] = None
+    estimated_dates: Optional[List[str]] = None
+    unknown_estimate_dates: Optional[List[str]] = None
 
 
 @dataclass
@@ -292,6 +330,7 @@ class BedrockResponse:
     dates: List[str]  # Forecast dates
     model_id: str
     latency_ms: int
+    range_method: str = "unspecified"
 
 
 # Custom exceptions for Phase 2
@@ -325,7 +364,7 @@ class BudgetStatus:
     budget_name: str
     limit: float
     actual_spend: float
-    forecasted_spend: float
+    forecasted_spend: Optional[float]
     utilization_percent: float
     currency: str
     time_period: str
@@ -350,15 +389,16 @@ class Resource:
     region: str
     tags: Dict[str, str]
     state: str
-    creation_date: str
+    creation_date: Optional[str]
+    properties: Optional[Dict[str, Any]] = None
 
 
 @dataclass
 class ResourceMetadata:
     """Detailed resource metadata."""
     resource: Resource
-    cost_per_hour: float
-    last_activity: str
+    cost_per_hour: Optional[float]
+    last_activity: Optional[str]
     metrics: Dict[str, float]
 
 
@@ -369,7 +409,12 @@ class IdleStatus:
     is_idle: bool
     idle_duration: int  # minutes
     metrics_used: Dict[str, float]
-    confidence: float  # 0.0 to 1.0
+    confidence: Optional[float]  # None without a calibrated confidence model
+    observation_status: str = "unavailable"
+    reason: Optional[str] = None
+    window_start: Optional[str] = None
+    window_end: Optional[str] = None
+    confidence_method: str = "unavailable"
 
 
 @dataclass
@@ -407,7 +452,7 @@ class ActionResult:
     error_message: Optional[str]
     pre_action_state: Dict[str, Any]
     post_action_state: Dict[str, Any]
-    estimated_savings: float
+    estimated_savings: Optional[float]
     timestamp: str
 
 
@@ -418,7 +463,7 @@ class PlannedAction:
     resource_type: str
     action: str
     reason: str
-    estimated_savings: float
+    estimated_savings: Optional[float]
 
 
 @dataclass
@@ -426,7 +471,7 @@ class ApprovalRequest:
     """Approval request for automated actions."""
     request_id: str
     actions: List[PlannedAction]
-    total_estimated_savings: float
+    total_estimated_savings: Optional[float]
     expires_at: str
 
 
@@ -480,6 +525,8 @@ class CostContext:
     prevention_actions: List[Dict[str, Any]]
     current_budget: Optional[BudgetStatus]
     anomalies: List[Dict[str, Any]]
+    data_quality: Optional[Dict[str, Any]] = None
+    prompt_metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -497,8 +544,10 @@ class AdvisorResponse:
     response_text: str  # Formatted markdown response
     recommendations: List['Recommendation']
     cost_data: Dict[str, Any]  # Structured cost data
-    confidence: float  # AI confidence score
+    confidence: Optional[float]  # None unless an actual calibrated score is available
     cached: bool  # Whether response was cached
+    confidence_method: str = "unavailable"
+    status: str = "available"
 
 
 @dataclass
@@ -506,9 +555,9 @@ class Recommendation:
     """Cost optimization recommendation."""
     action: str  # Description of recommended action
     rationale: str  # Why this is recommended
-    estimated_savings: float  # Monthly savings estimate
-    priority: int  # 1-5, 5 being highest
-    safe: bool  # Whether action respects safety guards
+    estimated_savings: Optional[float]  # Unavailable without verified monetary attribution
+    priority: Optional[int]  # Unavailable without an explicit ranking basis
+    safe: Optional[bool]  # Unavailable without an actual safety assessment
 
 
 @dataclass
@@ -521,3 +570,5 @@ class Insight:
     action_required: bool
     related_services: List[str]
     estimated_impact: Optional[float]  # Cost impact
+    method: Optional[str] = None
+    data_quality: Optional[Dict[str, Any]] = None

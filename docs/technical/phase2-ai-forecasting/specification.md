@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-Phase 2 extends CostGuard with AI-powered cost forecasting capabilities using Amazon Bedrock Nova Lite. This enables users to predict future AWS spending for 7-30 days with 95% confidence intervals, supporting proactive budget management and cost optimization.
+Phase 2 extends CostGuard with AI-powered cost forecasting capabilities using Amazon Bedrock Nova Lite. This enables users to predict future AWS spending for 7-30 days with model-provided bounds or +/-20% fallback ranges, supporting proactive budget management and cost optimization.
 
 **Key Capabilities:**
 - AI-powered cost predictions using Amazon Bedrock Nova Lite
 - 7, 14, or 30-day forecast horizons
 - Daily or weekly granularity
-- 95% confidence intervals for all predictions
+- Model-provided confidence bounds requested at 95%, with +/-20% fallback bounds when absent
 - Service-specific and total cost forecasts
 - Intelligent 24-hour forecast caching (80%+ hit rate)
 - Full backward compatibility with Phase 1 & 1.5
@@ -19,7 +19,7 @@ For complete requirements, see [requirements.md](../../../.kiro/specs/ai-cost-fo
 
 ### Core Requirements Summary
 
-1. **Historical Data Retrieval** - Retrieve 90 days of historical cost data with gap interpolation
+1. **Historical Data Retrieval** - Retrieve 30 days of historical cost data with gap interpolation
 2. **Bedrock Integration** - Integrate with Amazon Bedrock Nova Lite for AI predictions
 3. **Forecast Generation** - Generate 7-30 day forecasts with confidence intervals
 4. **Forecast Caching** - Cache forecasts for 24 hours to minimize Bedrock costs
@@ -64,10 +64,10 @@ API Gateway → Lambda Handler → Forecast Engine
    - Implements exponential backoff retry logic
 
 3. **Historical Data Retriever** (`historical_data.py`)
-   - Retrieves 90 days of historical cost data
+   - Retrieves 30 days of historical cost data
    - Aggregates by service and date
    - Interpolates missing dates
-   - Validates data completeness (minimum 30 days)
+   - Validates data completeness (minimum 7 days)
 
 4. **Forecast Cache Manager** (`forecast_cache.py`)
    - Manages forecast caching in DynamoDB
@@ -179,7 +179,7 @@ src/
 
 ### Key Properties Tested
 
-1. Historical data validation (minimum 30 days)
+1. Historical data validation (minimum 7 days)
 2. Data interpolation completeness (no gaps)
 3. Forecast length consistency (H days = H data points)
 4. Confidence interval validity (lower ≤ predicted ≤ upper)
@@ -353,7 +353,7 @@ Log group: `/aws/lambda/costguard-cost-data-handler`
 1. **Forecast Horizons:** Only 7, 14, or 30 days supported
 2. **Service Support:** Same services as Phase 1 (EC2, Lambda, DynamoDB, S3, RDS, etc.)
 3. **Region Support:** Single region (us-east-1 by default)
-4. **Historical Data:** Requires minimum 30 days of data
+4. **Historical Data:** Requires at least 7 days of data
 5. **Forecast Accuracy:** ±5-10% compared to actual costs (typical for AI forecasting)
 
 ### Known Issues
@@ -426,7 +426,7 @@ None at this time.
   - AI-powered cost forecasting with Bedrock Nova Lite
   - 7, 14, 30-day forecast horizons
   - Daily and weekly granularity
-  - 95% confidence intervals
+  - Model-provided bounds requested at 95%, with +/-20% fallback when absent
   - 24-hour forecast caching
   - Service-specific and total forecasts
   - Comprehensive test suite (412 tests, 94.16% coverage)

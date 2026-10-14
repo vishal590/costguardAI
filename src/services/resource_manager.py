@@ -11,7 +11,7 @@ Supported services:
 - CDN: CloudFront
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, UTC
 import logging
 import os
@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 _BOTO_SERVICE_MAP = {
     'ec2': 'ec2', 'rds': 'rds', 'lambda': 'lambda', 's3': 's3', 'dynamodb': 'dynamodb',
     'elasticache': 'elasticache', 'redshift': 'redshift', 'ecs': 'ecs', 'eks': 'eks',
-    'nat_gateway': 'ec2', 'elastic_ip': 'ec2', 'elb': 'elasticloadbalancing',
-    'alb': 'elasticloadbalancing', 'nlb': 'elasticloadbalancing',
+    'nat_gateway': 'ec2', 'elastic_ip': 'ec2', 'elb': 'elb',
+    'alb': 'elbv2', 'nlb': 'elbv2',
     'sns': 'sns', 'sqs': 'sqs', 'api_gateway': 'apigateway', 'apigateway': 'apigateway',
     'step_functions': 'stepfunctions', 'stepfunctions': 'stepfunctions',
     'glue': 'glue', 'sagemaker': 'sagemaker', 'cloudfront': 'cloudfront',
@@ -43,6 +43,8 @@ class ResourceManager:
         """
         self._clients = dict(aws_clients) if aws_clients else {}
         self.clients = self._clients  # for tests / backward compat
+        self.last_discovery_report = None
+        self._discovery_active = False
         self.dynamodb = dynamodb_client
         self.inventory_table = os.environ.get("RESOURCE_INVENTORY_TABLE", "costguard-resource-inventory")
         
@@ -53,37 +55,143 @@ class ResourceManager:
                 import boto3
                 self._clients[boto_name] = boto3.client(boto_name)
             except Exception as e:
+                self._record_discovery_issue('client_unavailable')
                 logger.warning(f"Could not create {boto_name} client: {e}")
                 return None
-        return self._clients.get(boto_name)
+        client = self._clients.get(boto_name)
+        if client is None: self._record_discovery_issue('client_unavailable')
+        return client
         
+    def _bounded_pages(self, pages, result_path, operation):
+        """Inspect at most five provider pages/100 listed identities per operation."""
+        report = {'service': getattr(self, '_active_discovery_service', 'unavailable'), 'operation': operation,
+            'page_limit': 5, 'item_limit': 100, 'pages_read': 0, 'listed_items_seen': 0,
+            'retained_items': 0, 'bound_reached': False, 'provider_listing_exhausted': False,
+            'status': 'reading'}
+        if self._discovery_active and len(self._listing_reports) < 50: self._listing_reports.append(report)
+        iterator = iter(pages)
+        try:
+            for _ in range(5):
+                try: page = next(iterator)
+                except StopIteration:
+                    report['provider_listing_exhausted'] = True; break
+                if not isinstance(page, dict): raise ValueError('Invalid listing page')
+                report['pages_read'] += 1
+                container = page
+                for name in result_path[:-1]:
+                    container = container.get(name, {})
+                    if not isinstance(container, dict): raise ValueError('Invalid nested listing')
+                rows = container.get(result_path[-1], [])
+                if not isinstance(rows, list): raise ValueError('Invalid listing items')
+                # EC2 reservations are grouping envelopes, not individual resource identities.
+                if result_path == ('Reservations',):
+                    rows = [instance for reservation in rows for instance in reservation.get('Instances', [])]
+                report['listed_items_seen'] += len(rows)
+                remaining = 100-report['retained_items']
+                kept = rows[:remaining]
+                report['retained_items'] += len(kept)
+                bounded_page = dict(page)
+                target = bounded_page
+                original = page
+                for name in result_path[:-1]:
+                    target[name] = dict(original.get(name, {}))
+                    target, original = target[name], original.get(name, {})
+                target[result_path[-1]] = [{'Instances': kept}] if result_path == ('Reservations',) else kept
+                if report['retained_items'] >= 100:
+                    report['bound_reached'] = True
+                yield bounded_page
+                if report['bound_reached']: break
+            else:
+                report['bound_reached'] = True
+            report['status'] = 'bounded_selection' if report['bound_reached'] else 'observed_provider_pages'
+            if report['bound_reached']: self._record_discovery_issue('listing_selection_bound_reached')
+        except Exception:
+            report['status'] = 'unavailable_or_partial'
+            raise
+        finally:
+            if report['status'] == 'reading':
+                report['status'] = 'unavailable_or_partial'
+                self._record_discovery_issue('listing_consumer_stopped')
+
+    def _list_all(self, client, operation, result_key, **parameters):
+        """Collect a bounded selection; unpageable truncation remains explicit."""
+        if client.can_paginate(operation):
+            pages = client.get_paginator(operation).paginate(**parameters)
+        else:
+            response = getattr(client, operation)(**parameters)
+            if any(response.get(key) for key in ('NextToken', 'NextMarker', 'Marker',
+                    'ContinuationToken', 'NextContinuationToken', 'IsTruncated')):
+                raise ValueError('Resource list is truncated but SDK pagination is unavailable')
+            pages = [response]
+        return {result_key: [item for page in self._bounded_pages(pages, (result_key,), operation) for item in page.get(result_key, [])]}
+
+    def _record_discovery_issue(self, category):
+        if not self._discovery_active: return
+        self._discovery_issue_count += 1
+        if len(self._discovery_issues) < 50:
+            self._discovery_issues.append({'service': self._active_discovery_service, 'category': category})
+
     def discover_resources(self, services: List[str]) -> List[Any]:
-        """
-        Discover all resources across specified services.
-        
-        Args:
-            services: List of service names to discover
-            
-        Returns:
-            List of Resource objects
-        """
-        logger.info(f"Discovering resources for services: {services}")
-        all_resources = []
-        
-        for service in services:
-            try:
-                resources = self._discover_service_resources(service)
-                all_resources.extend(resources)
-                logger.info(f"Discovered {len(resources)} {service} resources")
-            except Exception as e:
-                logger.error(f"Failed to discover {service} resources: {e}")
-                continue
-        
-        # Update inventory
-        self.update_inventory(all_resources)
-        
+        """Return observed resources and retain bounded discovery diagnostics."""
+        all_resources, service_results = [], []
+        services = list(dict.fromkeys(services))
+        load_balancer_services = {service for service in services if service in ('elb', 'alb', 'nlb')}
+        adapter_services = list(dict.fromkeys('load_balancers' if service in load_balancer_services else service for service in services))
+        duplicate_count, conflicts = 0, set()
+        self._discovery_issues, self._discovery_issue_count = [], 0
+        self._listing_reports = []
+        self._discovery_active = True
+        started_at = datetime.now(UTC).isoformat()
+        try:
+            for service in adapter_services:
+                self._active_discovery_service = service
+                before = self._discovery_issue_count
+                resources = []
+                try:
+                    resources = self._discover_load_balancers(load_balancer_services) if service == 'load_balancers' else self._discover_service_resources(service)
+                    if service == 'load_balancers':
+                        resources = [resource for resource in resources if resource.service in load_balancer_services]
+                    all_resources.extend(resources)
+                except Exception as error:
+                    self._record_discovery_issue('service_read_failed')
+                    logger.warning('Resource discovery unavailable for %s: %s', service, type(error).__name__)
+                issue_count = self._discovery_issue_count-before
+                service_results.append({'service': service,
+                    'requested_services': sorted(load_balancer_services) if service == 'load_balancers' else [service],
+                    'observed_resources': len(resources),
+                    'reported_issue_count': issue_count,
+                    'read_status': 'observed_with_reported_issues' if issue_count else 'observed_no_reported_issues'})
+            unique = {}
+            raw_count = len(all_resources)
+            for resource in all_resources:
+                identity = (resource.service, resource.region, resource.resource_id)
+                if identity in conflicts: continue
+                if identity in unique:
+                    duplicate_count += 1
+                    if unique[identity] != resource:
+                        self._active_discovery_service = resource.service
+                        self._record_discovery_issue('conflicting_resource_observations')
+                        conflicts.add(identity)
+                        del unique[identity]
+                else:
+                    unique[identity] = resource
+            all_resources = list(unique.values())
+        finally:
+            self._discovery_active = False
+        self.last_discovery_report = {'started_at': started_at, 'completed_at': datetime.now(UTC).isoformat(),
+            'requested_services': list(services), 'service_results': service_results,
+            'raw_observation_count': raw_count, 'unique_observed_resources': len(all_resources),
+            'duplicate_observation_count': duplicate_count, 'conflicting_resource_count': len(conflicts),
+            'reported_issue_count': self._discovery_issue_count, 'issue_examples': self._discovery_issues,
+            'issue_examples_truncated': self._discovery_issue_count > len(self._discovery_issues),
+            'inventory_completeness': 'unverified', 'all_metadata_reads_verified': False,
+            'listing_limits': {'page_limit_per_operation': 5, 'item_limit_per_operation': 100,
+                'scope': 'listed_identities_not_all_SDK_requests_or_wall_clock'},
+            'listing_reports': self._listing_reports}
+        persistence = self.update_inventory(all_resources)
+        self.last_discovery_report['inventory_persistence'] = persistence
         return all_resources
-    
+
     def get_resource_metadata(self, resource) -> Any:
         """
         Get detailed metadata for a resource.
@@ -112,37 +220,69 @@ class ResourceManager:
             metrics=metrics
         )
     
-    def update_inventory(self, resources: List[Any]) -> None:
-        """
-        Update resource inventory in DynamoDB.
-        
-        Args:
-            resources: List of Resource objects
-        """
+    @staticmethod
+    def _inventory_key(account, resource):
+        """Namespace the deployed string key without changing live resource identifiers."""
+        import hashlib
+        import json
+        parts = [account, resource.service, resource.region, resource.resource_id]
+        if any(not isinstance(part, str) or not part for part in parts): raise ValueError('Incomplete inventory identity')
+        if len(resource.service) > 128 or len(resource.region) > 64 or len(resource.resource_id) > 2048:
+            raise ValueError('Oversized inventory identity')
+        return 'v2#'+hashlib.sha256(json.dumps(parts, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+
+    def update_inventory(self, resources: List[Any]) -> Dict[str, Any]:
+        """Persist independent scoped observations; no complete snapshot or migration."""
+        import re
+        from boto3.dynamodb.types import TypeSerializer
+        report = {'schema_version': 2, 'attempted_rows': 0, 'stored_rows': 0, 'failed_rows': 0,
+            'superseded_rows': 0, 'requested_rows': len(resources), 'failure_examples': [],
+            'failure_examples_truncated': False, 'snapshot_complete': False,
+            'account_scope_basis': 'configured_backend_account_not_independently_verified',
+            'legacy_rows_migrated': False}
         if not self.dynamodb:
-            return
-        logger.info(f"Updating inventory with {len(resources)} resources")
-        
-        timestamp = datetime.now(UTC).isoformat()
-        
+            report['status'] = 'not_configured'; return report
+        account = os.environ.get('BACKEND_ACCOUNT_ID', '')
+        if not re.fullmatch(r'[0-9]{12}', account):
+            report['status'] = 'account_scope_not_configured'; return report
+        observed_at = datetime.now(UTC)
+        timestamp = observed_at.isoformat()
+        epoch = int(observed_at.timestamp())
+        epoch_us = int(observed_at.timestamp()*1_000_000)
+        report['observed_at'] = timestamp
+        serializer = TypeSerializer()
         for resource in resources:
+            report['attempted_rows'] += 1
             try:
-                self.dynamodb.put_item(
-                    TableName=self.inventory_table,
-                    Item={
-                        'resource_id': {'S': resource.resource_id},
-                        'timestamp': {'S': timestamp},
-                        'resource_type': {'S': resource.resource_type},
-                        'service': {'S': resource.service},
-                        'region': {'S': resource.region},
-                        'state': {'S': resource.state},
+                key = self._inventory_key(account, resource)
+                self.dynamodb.put_item(TableName=self.inventory_table,
+                    Item={'resource_id': {'S': key}, 'raw_resource_id': {'S': resource.resource_id},
+                        'schema_version': {'N': '2'}, 'account_id': {'S': account},
+                        'timestamp': {'S': timestamp}, 'observation_epoch_us': {'N': str(epoch_us)},
+                        'last_updated': {'N': str(epoch)}, 'ttl': {'N': str(epoch+90*24*60*60)},
+                        'properties': serializer.serialize(resource.properties or {}),
+                        'inventory_completeness': {'S': 'unverified'},
+                        'resource_type': {'S': resource.resource_type}, 'service': {'S': resource.service},
+                        'region': {'S': resource.region}, 'state': {'S': resource.state},
                         'tags': {'M': self._format_tags(resource.tags)},
-                        'creation_date': {'S': resource.creation_date}
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Failed to update inventory for {resource.resource_id}: {e}")
-    
+                        'creation_date': serializer.serialize(resource.creation_date)},
+                    ConditionExpression='attribute_not_exists(observation_epoch_us) OR observation_epoch_us <= :observed',
+                    ExpressionAttributeValues={':observed': {'N': str(epoch_us)}})
+                report['stored_rows'] += 1
+            except Exception as error:
+                if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
+                    report['superseded_rows'] += 1; continue
+                report['failed_rows'] += 1
+                if len(report['failure_examples']) < 20:
+                    report['failure_examples'].append({'resource_id': str(getattr(resource, 'resource_id', None) or 'unavailable')[:256],
+                        'service': str(getattr(resource, 'service', None) or 'unavailable')[:128], 'region': str(getattr(resource, 'region', None) or 'unavailable')[:64],
+                        'reason': 'inventory_observation_not_persisted'})
+                logger.warning('Inventory observation write unavailable: %s', type(error).__name__)
+        report['completed_at'] = datetime.now(UTC).isoformat()
+        report['failure_examples_truncated'] = report['failed_rows'] > len(report['failure_examples'])
+        report['status'] = 'partial_or_unavailable' if report['failed_rows'] else 'newer_observations_retained' if report['superseded_rows'] else 'observations_persisted'
+        return report
+
     def _discover_service_resources(self, service: str) -> List[Any]:
         """Discover resources for a specific service."""
         discovery_methods = {
@@ -176,10 +316,52 @@ class ResourceManager:
         if method:
             return method()
         else:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.warning(f"No discovery method for service: {service}")
             return []
     
-    def _discover_ec2(self) -> List[Any]:
+    @staticmethod
+    def validate_inspection(service, identifier):
+        import re
+        if service not in ('ec2', 'rds', 'lambda'): raise ValueError('Direct inspection supports ec2, rds and lambda')
+        if not isinstance(identifier, str): raise ValueError('A bare resource identifier is required')
+        if service == 'ec2':
+            valid = re.fullmatch(r'i-(?:[a-f0-9]{8}|[a-f0-9]{17})', identifier)
+        elif service == 'rds':
+            valid = re.fullmatch(r'[A-Za-z][A-Za-z0-9-]{0,62}', identifier) and not identifier.endswith('-') and '--' not in identifier
+        else:
+            valid = re.fullmatch(r'[A-Za-z0-9_-]{1,64}', identifier)
+        if not valid: raise ValueError('Use a valid bare EC2 ID, RDS instance name or unqualified Lambda function name; ARN/region/alias selectors are unsupported')
+
+    def inspect_resource(self, service, identifier):
+        """Observe one known resource without an inventory scan, write or eligibility assertion."""
+        self.validate_inspection(service, identifier)
+        client = self._get_client(service)
+        if client is None: raise RuntimeError('Resource inspection client is unavailable')
+        region = client.meta.region_name
+        if not isinstance(region, str) or not region: raise RuntimeError('Inspection region is unavailable')
+        if service == 'ec2':
+            rows = self._discover_ec2(identifier)
+            matches = [row for row in rows if row.resource_id == identifier]
+        elif service == 'rds':
+            rows = self._discover_rds(identifier.lower())
+            matches = [row for row in rows if row.resource_id.casefold() == identifier.casefold()]
+        else:
+            rows = self._discover_lambda(identifier)
+            matches = [row for row in rows if (row.properties or {}).get('function_name') == identifier]
+        if len(rows) != 1 or len(matches) != 1 or matches[0].region != region:
+            raise RuntimeError('Resource identity could not be observed unambiguously')
+        return matches[0]
+
+    @staticmethod
+    def _lambda_resource(details, region):
+        from ..utils.types import Resource
+        config = details['Configuration']
+        return Resource(resource_id=config['FunctionArn'], resource_type='function', service='lambda',
+            region=region, tags=details.get('Tags', {}), state=config.get('State', 'unknown'), creation_date=None,
+            properties={'function_name': config['FunctionName'], 'last_modified': config.get('LastModified')})
+
+    def _discover_ec2(self, instance_id=None) -> List[Any]:
         """Discover EC2 instances."""
         from ..utils.types import Resource
         
@@ -188,7 +370,7 @@ class ResourceManager:
             return []
         
         resources = []
-        response = ec2.describe_instances()
+        response = ec2.describe_instances(InstanceIds=[instance_id]) if instance_id else self._list_all(ec2, 'describe_instances', 'Reservations')
         
         for reservation in response.get('Reservations', []):
             for instance in reservation.get('Instances', []):
@@ -199,12 +381,13 @@ class ResourceManager:
                     region=ec2.meta.region_name,
                     tags=self._extract_tags(instance.get('Tags', [])),
                     state=instance['State']['Name'],
-                    creation_date=instance['LaunchTime'].isoformat()
+                    creation_date=None,
+                    properties={'last_launch_time': self._observed_timestamp(instance.get('LaunchTime')), 'instance_type': instance.get('InstanceType'), 'platform_details': instance.get('PlatformDetails'), 'tenancy': instance.get('Placement', {}).get('Tenancy'), 'lifecycle': instance.get('InstanceLifecycle'), 'root_device_type': instance.get('RootDeviceType')}
                 ))
         
         return resources
     
-    def _discover_rds(self) -> List[Any]:
+    def _discover_rds(self, instance_id=None) -> List[Any]:
         """Discover RDS instances."""
         from ..utils.types import Resource
         
@@ -213,7 +396,7 @@ class ResourceManager:
             return []
         
         resources = []
-        response = rds.describe_db_instances()
+        response = rds.describe_db_instances(DBInstanceIdentifier=instance_id) if instance_id else self._list_all(rds, 'describe_db_instances', 'DBInstances')
         
         for db in response.get('DBInstances', []):
             resources.append(Resource(
@@ -223,12 +406,17 @@ class ResourceManager:
                 region=rds.meta.region_name,
                 tags=self._extract_tags(db.get('TagList', [])),
                 state=db['DBInstanceStatus'],
-                creation_date=db['InstanceCreateTime'].isoformat()
+                creation_date=self._observed_timestamp(db.get('InstanceCreateTime')),
+                properties={'engine': db.get('Engine'), 'multi_az': db.get('MultiAZ'),
+                            'cluster_id': db.get('DBClusterIdentifier'),
+                            'replica_source': db.get('ReadReplicaSourceDBInstanceIdentifier'),
+                            'read_replicas': db.get('ReadReplicaDBInstanceIdentifiers', []),
+                            'topology_observed': True}
             ))
         
         return resources
     
-    def _discover_lambda(self) -> List[Any]:
+    def _discover_lambda(self, function_name=None) -> List[Any]:
         """Discover Lambda functions."""
         from ..utils.types import Resource
         
@@ -236,20 +424,19 @@ class ResourceManager:
         if not lambda_client:
             return []
         
+        if function_name:
+            return [self._lambda_resource(lambda_client.get_function(FunctionName=function_name), lambda_client.meta.region_name)]
         resources = []
-        response = lambda_client.list_functions()
+        response = self._list_all(lambda_client, 'list_functions', 'Functions')
         
         for func in response.get('Functions', []):
-            resources.append(Resource(
-                resource_id=func['FunctionArn'],
-                resource_type='function',
-                service='lambda',
-                region=lambda_client.meta.region_name,
-                tags={},  # Would need separate call to get tags
-                state='Active',
-                creation_date=func.get('LastModified', '')
-            ))
-        
+            try:
+                details = lambda_client.get_function(FunctionName=func['FunctionArn'])
+                resources.append(self._lambda_resource(details, lambda_client.meta.region_name))
+            except Exception as error:
+                self._record_discovery_issue('discovery_operation_failed')
+                logger.warning('Lambda resource detail unavailable: %s', type(error).__name__)
+
         return resources
     
     # Placeholder methods for other services
@@ -264,11 +451,11 @@ class ResourceManager:
         resources = []
         try:
             # List all buckets
-            response = s3.list_buckets()
+            response = self._list_all(s3, 'list_buckets', 'Buckets')
             
             for bucket in response.get('Buckets', []):
                 bucket_name = bucket['Name']
-                creation_date = bucket.get('CreationDate', datetime.now(UTC))
+                creation_date = bucket.get('CreationDate')
                 
                 # Get bucket location (region)
                 try:
@@ -304,9 +491,10 @@ class ResourceManager:
                     region=region,
                     tags=tags,
                     state=state,
-                    creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                    creation_date=self._observed_timestamp(creation_date)
                 ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering S3 buckets: {e}")
         
         return resources
@@ -324,7 +512,7 @@ class ResourceManager:
             # List all tables
             paginator = dynamodb.get_paginator('list_tables')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('TableNames',), 'list_tables'):
                 for table_name in page.get('TableNames', []):
                     try:
                         # Get table details
@@ -339,9 +527,9 @@ class ResourceManager:
                             )
                             tags = self._extract_tags(tag_response.get('Tags', []))
                         except Exception:
-                            pass
+                            self._record_discovery_issue('metadata_read_failed')
                         
-                        creation_date = table.get('CreationDateTime', datetime.now(UTC))
+                        creation_date = table.get('CreationDateTime')
                         
                         resources.append(Resource(
                             resource_id=table_name,
@@ -350,12 +538,14 @@ class ResourceManager:
                             region=dynamodb.meta.region_name,
                             tags=tags,
                             state=table.get('TableStatus', 'UNKNOWN'),
-                            creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                            creation_date=self._observed_timestamp(creation_date)
                         ))
                     except Exception as e:
+                        self._record_discovery_issue('discovery_operation_failed')
                         logger.warning(f"Failed to describe DynamoDB table {table_name}: {e}")
                         continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering DynamoDB tables: {e}")
         
         return resources
@@ -370,7 +560,7 @@ class ResourceManager:
         
         resources = []
         try:
-            response = ec2.describe_volumes()
+            response = self._list_all(ec2, 'describe_volumes', 'Volumes')
             
             for volume in response.get('Volumes', []):
                 resources.append(Resource(
@@ -380,9 +570,10 @@ class ResourceManager:
                     region=ec2.meta.region_name,
                     tags=self._extract_tags(volume.get('Tags', [])),
                     state=volume.get('State', 'unknown'),
-                    creation_date=volume.get('CreateTime', datetime.now(UTC)).isoformat() if isinstance(volume.get('CreateTime'), datetime) else volume.get('CreateTime', datetime.now(UTC).isoformat())
+                    creation_date=self._observed_timestamp(volume.get('CreateTime'))
                 ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering EBS volumes: {e}")
         
         return resources
@@ -400,7 +591,7 @@ class ResourceManager:
             # List all cache clusters
             paginator = elasticache.get_paginator('describe_cache_clusters')
             
-            for page in paginator.paginate(ShowCacheNodeInfo=False):
+            for page in self._bounded_pages(paginator.paginate(ShowCacheNodeInfo=False), ('CacheClusters',), 'describe_cache_clusters'):
                 for cluster in page.get('CacheClusters', []):
                     cluster_id = cluster.get('CacheClusterId', '')
                     
@@ -418,7 +609,7 @@ class ResourceManager:
                         # Tags may not be available or resource may not support tagging
                         pass
                     
-                    creation_date = cluster.get('CacheClusterCreateTime', datetime.now(UTC))
+                    creation_date = cluster.get('CacheClusterCreateTime')
                     
                     resources.append(Resource(
                         resource_id=cluster_id,
@@ -427,9 +618,10 @@ class ResourceManager:
                         region=elasticache.meta.region_name,
                         tags=tags,
                         state=cluster.get('CacheClusterStatus', 'unknown'),
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering ElastiCache clusters: {e}")
         
         return resources
@@ -446,7 +638,7 @@ class ResourceManager:
         try:
             paginator = redshift.get_paginator('describe_clusters')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('Clusters',), 'describe_clusters'):
                 for cluster in page.get('Clusters', []):
                     cluster_id = cluster.get('ClusterIdentifier', '')
                     
@@ -463,9 +655,9 @@ class ResourceManager:
                             tag_dict[tag_info.get('Key', '')] = tag_info.get('Value', '')
                         tags = tag_dict
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = cluster.get('ClusterCreateTime', datetime.now(UTC))
+                    creation_date = cluster.get('ClusterCreateTime')
                     
                     resources.append(Resource(
                         resource_id=cluster_id,
@@ -474,9 +666,10 @@ class ResourceManager:
                         region=redshift.meta.region_name,
                         tags=tags,
                         state=cluster.get('ClusterStatus', 'unknown'),
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering Redshift clusters: {e}")
         
         return resources
@@ -493,7 +686,7 @@ class ResourceManager:
         try:
             paginator = ecs.get_paginator('list_clusters')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('clusterArns',), 'list_clusters'):
                 cluster_arns = page.get('clusterArns', [])
                 if not cluster_arns:
                     continue
@@ -514,9 +707,9 @@ class ResourceManager:
                                 tag_response = ecs.list_tags_for_resource(resourceArn=cluster_arn)
                                 tags = self._extract_tags(tag_response.get('tags', []))
                             except Exception:
-                                pass
+                                self._record_discovery_issue('metadata_read_failed')
                             
-                            creation_date = cluster.get('registeredAt', datetime.now(UTC))
+                            creation_date = cluster.get('registeredAt')
                             
                             resources.append(Resource(
                                 resource_id=cluster_name,
@@ -525,12 +718,14 @@ class ResourceManager:
                                 region=ecs.meta.region_name,
                                 tags=tags,
                                 state=cluster.get('status', 'UNKNOWN'),
-                                creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                                creation_date=self._observed_timestamp(creation_date)
                             ))
                     except Exception as e:
+                        self._record_discovery_issue('discovery_operation_failed')
                         logger.warning(f"Failed to describe ECS clusters: {e}")
                         continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering ECS clusters: {e}")
         
         return resources
@@ -547,7 +742,7 @@ class ResourceManager:
         try:
             paginator = eks.get_paginator('list_clusters')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('clusters',), 'list_clusters'):
                 cluster_names = page.get('clusters', [])
                 
                 for cluster_name in cluster_names:
@@ -558,7 +753,7 @@ class ResourceManager:
                         # Get cluster tags
                         tags = cluster.get('tags', {})
                         
-                        creation_date = cluster.get('createdAt', datetime.now(UTC))
+                        creation_date = cluster.get('createdAt')
                         
                         resources.append(Resource(
                             resource_id=cluster_name,
@@ -567,12 +762,14 @@ class ResourceManager:
                             region=eks.meta.region_name,
                             tags=tags,
                             state=cluster.get('status', 'UNKNOWN'),
-                            creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                            creation_date=self._observed_timestamp(creation_date)
                         ))
                     except Exception as e:
+                        self._record_discovery_issue('discovery_operation_failed')
                         logger.warning(f"Failed to describe EKS cluster {cluster_name}: {e}")
                         continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering EKS clusters: {e}")
         
         return resources
@@ -587,7 +784,7 @@ class ResourceManager:
         
         resources = []
         try:
-            response = ec2.describe_nat_gateways()
+            response = self._list_all(ec2, 'describe_nat_gateways', 'NatGateways')
             
             for nat_gateway in response.get('NatGateways', []):
                 # Get NAT Gateway tags
@@ -595,7 +792,7 @@ class ResourceManager:
                 if 'Tags' in nat_gateway:
                     tags = self._extract_tags(nat_gateway.get('Tags', []))
                 
-                creation_date = nat_gateway.get('CreateTime', datetime.now(UTC))
+                creation_date = nat_gateway.get('CreateTime')
                 
                 resources.append(Resource(
                     resource_id=nat_gateway['NatGatewayId'],
@@ -604,9 +801,10 @@ class ResourceManager:
                     region=ec2.meta.region_name,
                     tags=tags,
                     state=nat_gateway.get('State', 'unknown'),
-                    creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                    creation_date=self._observed_timestamp(creation_date)
                 ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering NAT Gateways: {e}")
         
         return resources
@@ -621,7 +819,7 @@ class ResourceManager:
         
         resources = []
         try:
-            response = ec2.describe_addresses()
+            response = self._list_all(ec2, 'describe_addresses', 'Addresses')
             
             for address in response.get('Addresses', []):
                 allocation_id = address.get('AllocationId', '')
@@ -639,10 +837,10 @@ class ResourceManager:
                         )
                         tags = self._extract_tags(tag_response.get('Tags', []))
                 except Exception:
-                    pass
+                    self._record_discovery_issue('metadata_read_failed')
                 
                 # Elastic IPs don't have a creation date in the response
-                creation_date = datetime.now(UTC)
+                creation_date = None
                 
                 # Determine state: in-use if associated with instance, available if not
                 state = 'in-use' if address.get('InstanceId') or address.get('NetworkInterfaceId') else 'available'
@@ -654,19 +852,21 @@ class ResourceManager:
                     region=ec2.meta.region_name,
                     tags=tags,
                     state=state,
-                    creation_date=creation_date.isoformat()
+                    creation_date=self._observed_timestamp(creation_date)
                 ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering Elastic IPs: {e}")
         
         return resources
     
-    def _discover_load_balancers(self) -> List[Any]:
+    def _discover_load_balancers(self, selected_services=None) -> List[Any]:
         """Discover Load Balancers (ALB, NLB, ELB)."""
         from ..utils.types import Resource
         
-        elbv2 = self._get_client('elbv2')  # ALB and NLB
-        elb = self._get_client('elasticloadbalancing')  # Classic ELB
+        selected_services = {'elb', 'alb', 'nlb'} if selected_services is None else set(selected_services)
+        elbv2 = self._get_client('elbv2') if selected_services & {'alb', 'nlb'} else None
+        elb = self._get_client('elb') if 'elb' in selected_services else None
         resources = []
         
         # Discover ALB and NLB (Application and Network Load Balancers)
@@ -674,8 +874,10 @@ class ResourceManager:
             try:
                 paginator = elbv2.get_paginator('describe_load_balancers')
                 
-                for page in paginator.paginate():
+                for page in self._bounded_pages(paginator.paginate(), ('LoadBalancers',), 'describe_load_balancers'):
                     for lb in page.get('LoadBalancers', []):
+                        lb_service = {'application': 'alb', 'network': 'nlb'}.get(lb.get('Type'))
+                        if lb_service not in selected_services: continue
                         lb_arn = lb.get('LoadBalancerArn', '')
                         lb_name = lb.get('LoadBalancerName', '')
                         
@@ -688,35 +890,30 @@ class ResourceManager:
                                     tags = self._extract_tags(tag_desc.get('Tags', []))
                                     break
                         except Exception:
-                            pass
+                            self._record_discovery_issue('metadata_read_failed')
                         
-                        creation_date = lb.get('CreatedTime', datetime.now(UTC))
+                        creation_date = lb.get('CreatedTime')
                         lb_type = lb.get('Type', 'application')  # application, network, or gateway
                         
                         # Extract region from availability zones
                         region = elbv2.meta.region_name
-                        if lb.get('AvailabilityZones'):
-                            az = lb['AvailabilityZones'][0].get('ZoneName', '')
-                            if az:
-                                # Remove last character from AZ (e.g., us-east-1a -> us-east-1)
-                                region = az[:-1] if len(az) > 1 else region
-                        
                         resources.append(Resource(
-                            resource_id=lb_name,
+                            resource_id=lb_arn,
                             resource_type=f'{lb_type}_load_balancer',
-                            service='elb' if lb_type == 'application' else 'nlb',
+                            service={'application': 'alb', 'network': 'nlb'}.get(lb_type, 'unsupported_load_balancer'),
                             region=region,
                             tags=tags,
                             state=lb.get('State', {}).get('Code', 'unknown'),
-                            creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                            creation_date=self._observed_timestamp(creation_date)
                         ))
             except Exception as e:
+                self._record_discovery_issue('discovery_operation_failed')
                 logger.error(f"Error discovering ALB/NLB load balancers: {e}")
         
         # Discover Classic ELB
         if elb:
             try:
-                response = elb.describe_load_balancers()
+                response = self._list_all(elb, 'describe_load_balancers', 'LoadBalancerDescriptions')
                 
                 for lb in response.get('LoadBalancerDescriptions', []):
                     lb_name = lb.get('LoadBalancerName', '')
@@ -730,9 +927,9 @@ class ResourceManager:
                                 tags = self._extract_tags(tag_desc.get('Tags', []))
                                 break
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = lb.get('CreatedTime', datetime.now(UTC))
+                    creation_date = lb.get('CreatedTime')
                     
                     resources.append(Resource(
                         resource_id=lb_name,
@@ -741,9 +938,10 @@ class ResourceManager:
                         region=elb.meta.region_name,
                         tags=tags,
                         state='active',  # Classic ELB doesn't have state in describe response
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
             except Exception as e:
+                self._record_discovery_issue('discovery_operation_failed')
                 logger.error(f"Error discovering Classic ELB load balancers: {e}")
         
         return resources
@@ -760,7 +958,7 @@ class ResourceManager:
         try:
             paginator = sns.get_paginator('list_topics')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('Topics',), 'list_topics'):
                 for topic_arn in page.get('Topics', []):
                     topic_arn_str = topic_arn.get('TopicArn', '')
                     topic_name = topic_arn_str.split(':')[-1] if topic_arn_str else ''
@@ -776,14 +974,14 @@ class ResourceManager:
                             tag_response = sns.list_tags_for_resource(ResourceArn=topic_arn_str)
                             tags = self._extract_tags(tag_response.get('Tags', []))
                         except Exception:
-                            pass
+                            self._record_discovery_issue('metadata_read_failed')
                         
                         # Extract region from ARN
                         arn_parts = topic_arn_str.split(':')
                         region = arn_parts[3] if len(arn_parts) > 3 else sns.meta.region_name
                         
                         # Creation time may not be available in attributes
-                        creation_date = datetime.now(UTC)
+                        creation_date = None
                         
                         resources.append(Resource(
                             resource_id=topic_arn_str,
@@ -792,12 +990,14 @@ class ResourceManager:
                             region=region,
                             tags=tags,
                             state='Active',
-                            creation_date=creation_date.isoformat()
+                            creation_date=self._observed_timestamp(creation_date)
                         ))
                     except Exception as e:
+                        self._record_discovery_issue('discovery_operation_failed')
                         logger.warning(f"Failed to get attributes for SNS topic {topic_arn_str}: {e}")
                         continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering SNS topics: {e}")
         
         return resources
@@ -813,7 +1013,7 @@ class ResourceManager:
         resources = []
         try:
             # List all queues
-            response = sqs.list_queues()
+            response = self._list_all(sqs, 'list_queues', 'QueueUrls', MaxResults=1000)
             queue_urls = response.get('QueueUrls', [])
             
             for queue_url in queue_urls:
@@ -834,7 +1034,7 @@ class ResourceManager:
                         tag_response = sqs.list_queue_tags(QueueUrl=queue_url)
                         tags = tag_response.get('Tags', {})
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
                     # Extract region from queue URL
                     # Queue URL format: https://sqs.region.amazonaws.com/account/queue-name
@@ -846,7 +1046,7 @@ class ResourceManager:
                     if created_timestamp:
                         creation_date = datetime.fromtimestamp(int(created_timestamp), tz=UTC)
                     else:
-                        creation_date = datetime.now(UTC)
+                        creation_date = None
                     
                     resources.append(Resource(
                         resource_id=queue_url,
@@ -855,12 +1055,14 @@ class ResourceManager:
                         region=region,
                         tags=tags,
                         state='Active',
-                        creation_date=creation_date.isoformat()
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
                 except Exception as e:
+                    self._record_discovery_issue('discovery_operation_failed')
                     logger.warning(f"Failed to get attributes for SQS queue {queue_url}: {e}")
                     continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering SQS queues: {e}")
         
         return resources
@@ -878,7 +1080,7 @@ class ResourceManager:
             # List REST APIs
             paginator = apigateway.get_paginator('get_rest_apis')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('items',), 'get_rest_apis'):
                 for api in page.get('items', []):
                     api_id = api.get('id', '')
                     api_name = api.get('name', '')
@@ -889,9 +1091,9 @@ class ResourceManager:
                         tag_response = apigateway.get_tags(resourceArn=f"arn:aws:apigateway:{apigateway.meta.region_name}::/restapis/{api_id}")
                         tags = tag_response.get('tags', {})
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = api.get('createdDate', datetime.now(UTC))
+                    creation_date = api.get('createdDate')
                     
                     resources.append(Resource(
                         resource_id=api_id,
@@ -900,9 +1102,10 @@ class ResourceManager:
                         region=apigateway.meta.region_name,
                         tags=tags,
                         state=api.get('endpointConfiguration', {}).get('types', ['EDGE'])[0],
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering API Gateway APIs: {e}")
         
         return resources
@@ -919,7 +1122,7 @@ class ResourceManager:
         try:
             paginator = stepfunctions.get_paginator('list_state_machines')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('stateMachines',), 'list_state_machines'):
                 for state_machine in page.get('stateMachines', []):
                     state_machine_arn = state_machine.get('stateMachineArn', '')
                     state_machine_name = state_machine.get('name', '')
@@ -930,9 +1133,9 @@ class ResourceManager:
                         tag_response = stepfunctions.list_tags_for_resource(resourceArn=state_machine_arn)
                         tags = self._extract_tags(tag_response.get('tags', []))
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = state_machine.get('creationDate', datetime.now(UTC))
+                    creation_date = state_machine.get('creationDate')
                     
                     resources.append(Resource(
                         resource_id=state_machine_arn,
@@ -941,9 +1144,10 @@ class ResourceManager:
                         region=stepfunctions.meta.region_name,
                         tags=tags,
                         state=state_machine.get('status', 'ACTIVE'),
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering Step Functions state machines: {e}")
         
         return resources
@@ -960,7 +1164,7 @@ class ResourceManager:
         try:
             paginator = glue.get_paginator('get_jobs')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('Jobs',), 'get_jobs'):
                 for job in page.get('Jobs', []):
                     job_name = job.get('Name', '')
                     
@@ -970,9 +1174,9 @@ class ResourceManager:
                         tag_response = glue.get_tags(ResourceArn=f"arn:aws:glue:{glue.meta.region_name}:{job_name}")
                         tags = tag_response.get('Tags', {})
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = job.get('CreatedOn', datetime.now(UTC))
+                    creation_date = job.get('CreatedOn')
                     
                     resources.append(Resource(
                         resource_id=job_name,
@@ -981,9 +1185,10 @@ class ResourceManager:
                         region=glue.meta.region_name,
                         tags=tags,
                         state=job.get('LastRun', {}).get('JobRunState', 'UNKNOWN') if job.get('LastRun') else 'IDLE',
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering Glue jobs: {e}")
         
         return resources
@@ -1001,7 +1206,7 @@ class ResourceManager:
             # Discover SageMaker endpoints
             paginator = sagemaker.get_paginator('list_endpoints')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('Endpoints',), 'list_endpoints'):
                 for endpoint in page.get('Endpoints', []):
                     endpoint_name = endpoint.get('EndpointName', '')
                     
@@ -1016,9 +1221,9 @@ class ResourceManager:
                             tag_response = sagemaker.list_tags(ResourceArn=endpoint_details.get('EndpointArn', ''))
                             tags = {tag.get('Key', ''): tag.get('Value', '') for tag in tag_response.get('Tags', [])}
                         except Exception:
-                            pass
+                            self._record_discovery_issue('metadata_read_failed')
                         
-                        creation_date = endpoint_details.get('CreationTime', datetime.now(UTC))
+                        creation_date = endpoint_details.get('CreationTime')
                         
                         resources.append(Resource(
                             resource_id=endpoint_name,
@@ -1027,12 +1232,14 @@ class ResourceManager:
                             region=sagemaker.meta.region_name,
                             tags=tags,
                             state=endpoint_details.get('EndpointStatus', 'Unknown'),
-                            creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                            creation_date=self._observed_timestamp(creation_date)
                         ))
                     except Exception as e:
+                        self._record_discovery_issue('discovery_operation_failed')
                         logger.warning(f"Failed to describe SageMaker endpoint {endpoint_name}: {e}")
                         continue
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering SageMaker endpoints: {e}")
         
         return resources
@@ -1049,7 +1256,7 @@ class ResourceManager:
         try:
             paginator = cloudfront.get_paginator('list_distributions')
             
-            for page in paginator.paginate():
+            for page in self._bounded_pages(paginator.paginate(), ('DistributionList', 'Items'), 'list_distributions'):
                 distribution_list = page.get('DistributionList', {})
                 
                 for distribution in distribution_list.get('Items', []):
@@ -1062,9 +1269,9 @@ class ResourceManager:
                         tag_list = tag_response.get('Tags', {}).get('Items', [])
                         tags = {tag.get('Key', ''): tag.get('Value', '') for tag in tag_list}
                     except Exception:
-                        pass
+                        self._record_discovery_issue('metadata_read_failed')
                     
-                    creation_date = distribution.get('LastModifiedTime', datetime.now(UTC))
+                    creation_date = None  # LastModifiedTime is not a creation timestamp
                     status = distribution.get('Status', 'Unknown')
                     
                     # CloudFront is global, but we'll use the client's region for consistency
@@ -1075,9 +1282,10 @@ class ResourceManager:
                         region='global',  # CloudFront is global
                         tags=tags,
                         state=status,
-                        creation_date=creation_date.isoformat() if isinstance(creation_date, datetime) else creation_date
+                        creation_date=self._observed_timestamp(creation_date)
                     ))
         except Exception as e:
+            self._record_discovery_issue('discovery_operation_failed')
             logger.error(f"Error discovering CloudFront distributions: {e}")
         
         return resources
@@ -1166,126 +1374,67 @@ class ResourceManager:
             logger.warning(f"Error getting CloudWatch metrics for {resource.resource_id}: {e}")
             return {}
     
-    def _estimate_resource_cost(self, resource) -> float:
-        """
-        Estimate hourly cost for a resource using Pricing API.
-        
-        Args:
-            resource: Resource object
-            
-        Returns:
-            Estimated hourly cost in USD
-        """
+    def _estimate_resource_cost(self, resource) -> Optional[float]:
+        """Return only a matching Linux/shared on-demand EC2 compute hourly rate."""
+        import math
+        properties = resource.properties or {}
+        if (resource.service != 'ec2' or properties.get('platform_details') != 'Linux/UNIX'
+                or properties.get('tenancy') != 'default' or properties.get('lifecycle')
+                or not properties.get('instance_type')):
+            return None
         try:
-            from ..pricing_manager import PricingManager
-            import os
-            
-            region = resource.region if hasattr(resource, 'region') else os.environ.get('AWS_REGION', 'us-east-1')
-            pricing_manager = PricingManager(region=region)
-            
-            # Get pricing for the service
-            pricing_data = pricing_manager.get_pricing_data(resource.service, region)
-            
-            # Service-specific cost estimation
-            if resource.service == 'ec2':
-                # Try to get instance type from resource metadata or tags
-                instance_type = None
-                if hasattr(resource, 'tags') and resource.tags:
-                    instance_type = resource.tags.get('InstanceType')
-                
-                if instance_type and instance_type in pricing_data.prices:
-                    return float(pricing_data.prices[instance_type])
-            
-            elif resource.service == 'rds':
-                # RDS pricing is more complex, use average or default
-                if pricing_data.prices:
-                    # Use average of available prices
-                    avg_price = sum(float(p) for p in pricing_data.prices.values()) / len(pricing_data.prices)
-                    return avg_price
-            
-            elif resource.service == 'nat_gateway':
-                # NAT Gateway has fixed pricing
-                return 0.045  # $0.045/hour
-            
-            # Default: use first available price or 0.10/hour
-            if pricing_data.prices:
-                return float(list(pricing_data.prices.values())[0])
-            
-            return 0.10  # Default fallback
-            
-        except Exception as e:
-            logger.warning(f"Error estimating cost for {resource.resource_id}: {e}")
-            return 0.0
-    
-    def _get_last_activity(self, resource, metrics: Dict[str, float]) -> str:
-        """
-        Get last activity timestamp for a resource based on metrics.
-        
-        Args:
-            resource: Resource object
-            metrics: Dictionary of CloudWatch metrics
-            
-        Returns:
-            ISO timestamp string of last activity
-        """
+            from .pricing_manager import PricingManager
+            pricing = PricingManager(region=resource.region).get_pricing_data('ec2', resource.region)
+            if pricing.source != 'aws_pricing' or pricing.currency != 'USD' or pricing.region != resource.region:
+                return None
+            rate = pricing.prices.get(properties['instance_type'])
+            if rate is None or isinstance(rate, bool): return None
+            rate = float(rate)
+            return rate if math.isfinite(rate) and rate >= 0 else None
+        except Exception as error:
+            logger.debug('Resource compute rate unavailable: %s', type(error).__name__)
+            return None
+
+    def _get_last_activity(self, resource, metrics: Dict[str, float]) -> Optional[str]:
+        """Latest positive metric bucket in seven days, not a proven last activity time."""
+        import math
+        from datetime import timedelta
+        from .time_values import parse_utc_timestamp
+        profiles = {'ec2': ('AWS/EC2', 'NetworkIn', 'InstanceId'),
+                    'lambda': ('AWS/Lambda', 'Invocations', 'FunctionName')}
+        if resource.service not in profiles: return None
         try:
-            import boto3
-            from datetime import timedelta
-            
             cloudwatch = self._get_client('cloudwatch')
-            if not cloudwatch:
-                cloudwatch = boto3.client('cloudwatch')
-            
-            end_time = datetime.now(UTC)
-            start_time = end_time - timedelta(days=7)  # Check last 7 days
-            
-            # Service-specific activity detection
-            if resource.service == 'ec2':
-                try:
-                    response = cloudwatch.get_metric_statistics(
-                        Namespace='AWS/EC2',
-                        MetricName='NetworkIn',
-                        Dimensions=[{'Name': 'InstanceId', 'Value': resource.resource_id}],
-                        StartTime=start_time,
-                        EndTime=end_time,
-                        Period=3600,
-                        Statistics=['Sum']
-                    )
-                    if response.get('Datapoints'):
-                        # Get most recent datapoint with activity
-                        active_points = [dp for dp in response['Datapoints'] if dp['Sum'] > 0]
-                        if active_points:
-                            latest = max(active_points, key=lambda x: x['Timestamp'])
-                            return latest['Timestamp'].isoformat()
-                except Exception as e:
-                    logger.debug(f"Could not get activity timestamp for {resource.resource_id}: {e}")
-            
-            elif resource.service == 'lambda':
-                try:
-                    response = cloudwatch.get_metric_statistics(
-                        Namespace='AWS/Lambda',
-                        MetricName='Invocations',
-                        Dimensions=[{'Name': 'FunctionName', 'Value': resource.resource_id}],
-                        StartTime=start_time,
-                        EndTime=end_time,
-                        Period=3600,
-                        Statistics=['Sum']
-                    )
-                    if response.get('Datapoints'):
-                        active_points = [dp for dp in response['Datapoints'] if dp['Sum'] > 0]
-                        if active_points:
-                            latest = max(active_points, key=lambda x: x['Timestamp'])
-                            return latest['Timestamp'].isoformat()
-                except Exception as e:
-                    logger.debug(f"Could not get Lambda activity timestamp: {e}")
-            
-            # Fallback: use current time if no activity found
-            return datetime.now(UTC).isoformat()
-            
-        except Exception as e:
-            logger.warning(f"Error getting last activity for {resource.resource_id}: {e}")
-            return datetime.now(UTC).isoformat()
-    
+            if cloudwatch is None or cloudwatch.meta.region_name != resource.region: return None
+            namespace, metric, dimension = profiles[resource.service]
+            identity = (resource.properties or {}).get('function_name') if resource.service == 'lambda' else resource.resource_id
+            if not identity: return None
+            end = datetime.now(UTC)
+            start = end-timedelta(days=7)
+            response = cloudwatch.get_metric_statistics(Namespace=namespace, MetricName=metric,
+                Dimensions=[{'Name': dimension, 'Value': identity}],
+                StartTime=start, EndTime=end, Period=3600, Statistics=['Sum'])
+            active = []
+            for point in response.get('Datapoints', []):
+                value = float(point['Sum'])
+                stamp = parse_utc_timestamp(point['Timestamp'])
+                if not math.isfinite(value) or value < 0: return None
+                if value > 0 and start <= stamp <= end: active.append(stamp)
+            return max(active).isoformat() if active else None
+        except Exception as error:
+            logger.debug('Observed activity bucket unavailable: %s', type(error).__name__)
+            return None
+
+    @staticmethod
+    def _observed_timestamp(value) -> Optional[str]:
+        """Normalize a supplied aware timestamp without inventing missing dates."""
+        from .time_values import parse_utc_timestamp
+        try:
+            moment = parse_utc_timestamp(value)
+            return moment.isoformat() if moment <= datetime.now(UTC) else None
+        except (ValueError, TypeError):
+            return None
+
     def _extract_tags(self, tag_list: List[Dict[str, str]]) -> Dict[str, str]:
         """Extract tags from AWS tag list format."""
         return {tag['Key']: tag['Value'] for tag in tag_list}

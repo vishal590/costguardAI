@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 import boto3
 import json
 import time
+import math
 from datetime import datetime, UTC, timedelta
 from src.utils.types import (
     ProcessedData,
@@ -64,14 +65,15 @@ class BedrockClient:
         
         # Prepare request body
         request_body = {
+            "schemaVersion": "messages-v1",
             "messages": [
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": [{"text": prompt}]
                 }
             ],
             "inferenceConfig": {
-                "maxTokens": 1024,  # Enough for 30-day forecast JSON; lower helps stay under API Gateway 29s
+                "maxTokens": min(4096, max(1024, forecast_horizon * 100)),  # Bound output while allowing complete horizons
                 "temperature": 0.1,  # Low temperature for consistent predictions
                 "topP": 0.9
             }
@@ -93,6 +95,7 @@ class BedrockClient:
             confidence_lower=forecast_data['confidence_lower'],
             confidence_upper=forecast_data['confidence_upper'],
             dates=forecast_data['dates'],
+            range_method=forecast_data['range_method'],
             model_id=self.model_id,
             latency_ms=latency_ms
         )
@@ -165,10 +168,12 @@ class BedrockClient:
 Historical Cost Data ({historical_data.total_days} days):
 {json.dumps(data_points, indent=2)}
 
+Forecast starts on {historical_data.forecast_start_date or (datetime.now(UTC).date()+timedelta(days=1)).isoformat()} (UTC). Missing history dates were not observed; do not treat them as zero.
+
 Task:
 1. Analyze the time series pattern (trend, seasonality, anomalies)
-2. Generate predictions for the next {forecast_horizon} days
-3. Calculate {int(confidence_level * 100)}% confidence intervals (upper and lower bounds)
+2. Return exactly {forecast_horizon} predictions for consecutive future days in order
+3. Provide lower and upper uncertainty estimates; do not claim statistical calibration
 
 Requirements:
 - All predicted costs must be non-negative
@@ -180,7 +185,6 @@ Output Format (JSON only, no explanation):
 {{
   "forecasts": [
     {{
-      "date": "YYYY-MM-DD",
       "predicted_cost": <float>,
       "confidence_lower": <float>,
       "confidence_upper": <float>
@@ -214,16 +218,11 @@ Generate the forecast now:"""
             BedrockInvalidResponseError: Invalid JSON response
         """
         try:
-            # Extract content from response
-            if 'content' in response and len(response['content']) > 0:
-                content = response['content'][0]
-                if 'text' in content:
-                    text = content['text']
-                else:
-                    raise BedrockInvalidResponseError("No text in response content")
-            else:
-                raise BedrockInvalidResponseError("No content in response")
-            
+            blocks = response.get('output', {}).get('message', {}).get('content') if isinstance(response.get('output'), dict) else None
+            if blocks is None: blocks = response.get('content')
+            if not isinstance(blocks, list): raise BedrockInvalidResponseError('No response text blocks')
+            text = ''.join(block['text'] for block in blocks if isinstance(block, dict) and isinstance(block.get('text'), str))
+            if not text.strip(): raise BedrockInvalidResponseError('No forecast text in response')
             # Parse JSON from text
             # Handle potential markdown code blocks
             text = text.strip()
@@ -242,62 +241,32 @@ Generate the forecast now:"""
                 raise BedrockInvalidResponseError("Missing 'forecasts' key in response")
             
             forecasts = forecast_data['forecasts']
-            
-            if len(forecasts) != forecast_horizon:
-                # If Bedrock returned different number, adjust or raise error
-                # For now, we'll take what we got and pad/truncate if needed
-                pass
-            
-            # Extract data
-            predictions = []
-            confidence_lower = []
-            confidence_upper = []
-            dates = []
-            
-            # Calculate forecast start date (day after last historical date)
-            last_date = datetime.fromisoformat(historical_data.timestamps[-1]).date()
-            
-            for i, forecast in enumerate(forecasts[:forecast_horizon]):
-                # Calculate date
-                forecast_date = last_date + timedelta(days=i + 1)
-                dates.append(forecast_date.isoformat())
-                
-                # Extract values with validation
-                pred = float(forecast.get('predicted_cost', 0))
-                # Fallback: If Bedrock doesn't provide confidence intervals, use ±20% ranges
-                # Note: This is NOT a true 95% confidence interval, just a simple range
-                lower = float(forecast.get('confidence_lower', pred * 0.8))
-                upper = float(forecast.get('confidence_upper', pred * 1.2))
-                
-                # Ensure non-negative
-                pred = max(0, pred)
-                lower = max(0, lower)
-                upper = max(0, upper)
-                
-                # Ensure proper ordering
-                if lower > pred:
-                    lower = pred * 0.9
-                if upper < pred:
-                    upper = pred * 1.1
-                
-                predictions.append(pred)
-                confidence_lower.append(lower)
-                confidence_upper.append(upper)
-            
-            # If we got fewer forecasts than requested, pad with last value
-            while len(predictions) < forecast_horizon:
-                last_date = datetime.fromisoformat(dates[-1]).date()
-                next_date = last_date + timedelta(days=1)
-                dates.append(next_date.isoformat())
-                predictions.append(predictions[-1] if predictions else 0)
-                confidence_lower.append(confidence_lower[-1] if confidence_lower else 0)
-                confidence_upper.append(confidence_upper[-1] if confidence_upper else 0)
-            
+            if not isinstance(forecasts, list) or len(forecasts) != forecast_horizon:
+                raise BedrockInvalidResponseError('Model must return exactly the requested number of forecast points')
+            predictions, confidence_lower, confidence_upper, dates = [], [], [], []
+            forecast_start = datetime.fromisoformat(historical_data.forecast_start_date).date() if historical_data.forecast_start_date else datetime.now(UTC).date()+timedelta(days=1)
+            used_heuristic = False
+            for index, point in enumerate(forecasts):
+                if not isinstance(point, dict) or 'predicted_cost' not in point or isinstance(point['predicted_cost'], bool):
+                    raise BedrockInvalidResponseError('Missing or invalid predicted_cost')
+                pred = float(point['predicted_cost'])
+                if not math.isfinite(pred) or pred < 0: raise BedrockInvalidResponseError('Predicted cost must be finite and nonnegative')
+                missing_bounds = 'confidence_lower' not in point or 'confidence_upper' not in point
+                used_heuristic = used_heuristic or missing_bounds
+                if isinstance(point.get('confidence_lower'), bool) or isinstance(point.get('confidence_upper'), bool):
+                    raise BedrockInvalidResponseError('Invalid forecast range')
+                lower = float(point.get('confidence_lower', pred*0.8))
+                upper = float(point.get('confidence_upper', pred*1.2))
+                if not math.isfinite(lower) or not math.isfinite(upper) or not 0 <= lower <= pred <= upper:
+                    raise BedrockInvalidResponseError('Forecast bounds must be finite, nonnegative and ordered')
+                predictions.append(pred); confidence_lower.append(lower); confidence_upper.append(upper)
+                dates.append((forecast_start+timedelta(days=index)).isoformat())
             return {
                 'predictions': predictions,
                 'confidence_lower': confidence_lower,
                 'confidence_upper': confidence_upper,
-                'dates': dates
+                'dates': dates,
+                'range_method': 'includes_heuristic_20pct' if used_heuristic else 'model_provided_uncalibrated'
             }
             
         except json.JSONDecodeError as e:

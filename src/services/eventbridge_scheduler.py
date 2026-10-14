@@ -11,7 +11,7 @@ Requirements:
 import json
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class EventBridgeScheduler:
             if event.get('type') == 'budget-monitoring':
                 return {
                     'event_type': 'budget-monitoring',
-                    'time': event.get('time', datetime.utcnow().isoformat()),
+                    'time': event.get('time', datetime.now(UTC).isoformat()),
                     'dry_run': event.get('dry_run', False)
                 }
             
@@ -102,10 +102,12 @@ class EventBridgeScheduler:
             # Trigger budget monitoring workflow
             result = self.prevention_engine.monitor_budgets()
             
+            if not isinstance(result, dict): raise ValueError('Monitoring result is unavailable')
             logger.info(f"Budget monitoring completed: {result.get('status')}")
             
             return {
-                'success': True,
+                'success': result.get('success') is True,
+                'error': None if result.get('success') is True else result.get('error', 'Monitoring could not complete'),
                 'event_type': parsed_event['event_type'],
                 'event_time': parsed_event['time'],
                 'monitoring_result': result

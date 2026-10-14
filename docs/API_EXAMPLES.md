@@ -1,5 +1,7 @@
 # API Examples
 
+> **Source review note (October 3, 2026):** Use [current API contracts](technical/api-design.md) and [known limitations](technical/documentation-code-sync.md) for stack URLs, routing and current behavior. Sample responses, timing and savings below are illustrative or historical; this pass did not execute requests or verify frontend/live AWS behavior.
+
 This document provides comprehensive examples of API requests and responses for CostGuard AI.
 
 **For Phase 5 & Phase 6 Examples:** See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
@@ -16,10 +18,10 @@ This document provides comprehensive examples of API requests and responses for 
 - [Phase 2: AI-Powered Cost Forecasting](#phase-2-ai-powered-cost-forecasting)
   - [GET /api/cost-forecast Examples](#get-apicost-forecast-examples)
   - [GET /api/cost-forecast/service/{service} Examples](#get-apicost-forecastserviceservice-examples)
-- [Phase 3: Automated Cost Prevention](#phase-3-automated-cost-prevention) - See main README
-- [Phase 4: AI Cost Advisor](#phase-4-ai-cost-advisor) - Included below
-- [Phase 5: Multi-Account Cost Management](#phase-5-multi-account-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
-- [Phase 6: AI/ML Workload Cost Management](#phase-6-aiml-workload-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
+- [Phase 3: Monitoring and restoration](#phase-3-monitoring-and-restoration)
+- Phase 4: AI Cost Advisor - Included below
+- [Phase 5: Multi-Account Cost Management](API_EXAMPLES_PHASE5_PHASE6.md#phase-5-multi-account-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
+- [Phase 6: AI/ML Workload Cost Management](API_EXAMPLES_PHASE5_PHASE6.md#phase-6-aiml-workload-cost-management) - See [API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)
 - [Error Examples](#error-examples)
 
 ## Setup
@@ -2201,8 +2203,8 @@ for forecast_point in forecast_data["forecast"]:
 
 **Field Descriptions:**
 - `estimated_cost`: Estimated cost for the service in the time period
-- `confidence_lower`: Lower bound of 95% confidence interval
-- `confidence_upper`: Upper bound of 95% confidence interval
+- `confidence_lower`: Lower forecast bound (model-provided or +/-20% fallback)
+- `confidence_upper`: Upper forecast bound (model-provided or +/-20% fallback)
 - `metrics_count`: Number of metric data points used for estimation
 - `period`: Human-readable time period (e.g., "1 hour", "24 hours")
 
@@ -2234,8 +2236,8 @@ for forecast_point in forecast_data["forecast"]:
 
 **Field Descriptions:**
 - `predicted_cost`: AI-predicted cost for the date
-- `confidence_lower`: Lower bound of 95% confidence interval
-- `confidence_upper`: Upper bound of 95% confidence interval
+- `confidence_lower`: Lower forecast bound (model-provided or +/-20% fallback)
+- `confidence_upper`: Upper forecast bound (model-provided or +/-20% fallback)
 - `days`: Forecast horizon (7, 14, or 30 days)
 - `granularity`: Time resolution (daily or weekly)
 - `service`: Service name or "total" for all services
@@ -2338,7 +2340,7 @@ aws cloudwatch get-metric-statistics \
 ### Issue: Forecast returns error "Insufficient historical data"
 
 **Possible Causes:**
-1. Less than 30 days of historical data available
+1. Less than 7 days of historical data available
 2. Historical data not fetched yet (Phase 1)
 3. Data gaps in historical records
 
@@ -2350,12 +2352,12 @@ aws cloudwatch get-metric-statistics \
 ### Issue: Forecast accuracy is poor
 
 **Possible Causes:**
-1. Insufficient historical data (< 90 days)
+1. Insufficient historical data (< 7 days)
 2. Unusual cost patterns (spikes, anomalies)
 3. Recent infrastructure changes
 
 **Solutions:**
-- Wait for more historical data to accumulate (90 days recommended)
+- Fetch at least 7 days of usable historical data; forecast generation requests 30 days
 - Review historical costs for anomalies
 - Consider using shorter forecast horizons (7 days vs 30 days)
 
@@ -2382,7 +2384,6 @@ aws cloudwatch get-metric-statistics \
 - Verify API key: `aws apigateway get-api-keys`
 - Check usage plan association
 - Regenerate API key if needed
-```
 
 ---
 
@@ -2395,1517 +2396,159 @@ aws cloudwatch get-metric-statistics \
 
 ---
 
-## Phase 3: Automated Cost Prevention
+## Phase 3: Monitoring and Restoration
 
-Phase 3 adds automated cost prevention capabilities with budget monitoring, idle resource detection, and automated actions with safety guards.
+**October 14, 2026 source contract:** Examples are illustrative, not responses observed from AWS. New source is unvalidated and undeployed. All further testing/cloud validation is deferred. Use the main API through BFF with a Cognito access token and current grant; backend keys remain server-side.
 
-### GET /api/prevention/status Examples
+### Read current monitoring settings
 
-#### Example 1: Get Prevention System Status
-
-**Request:**
 ```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/status"
+curl "$BFF_URL/api/prevention/status" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN"
 ```
 
-**Response (Success):**
+Selected response fields:
+
 ```json
 {
   "success": true,
   "status": {
     "enabled": false,
-    "dry_run_mode": true,
-    "approval_required": true,
-    "last_budget_check": "2025-01-15T10:00:00Z",
-    "budgets_monitored": 2,
-    "resources_discovered": 45,
-    "actions_executed_today": 0,
-    "actions_pending_approval": 0
-  }
-}
-```
-
-### POST /api/prevention/enable Examples
-
-#### Example 1: Enable Prevention System
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/enable"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "message": "Prevention system enabled",
-  "status": {
-    "enabled": true,
-    "dry_run_mode": true,
-    "approval_required": true
-  }
-}
-```
-
-### POST /api/prevention/disable Examples
-
-#### Example 1: Disable Prevention System
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/disable"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "message": "Prevention system disabled",
-  "status": {
-    "enabled": false,
-    "dry_run_mode": true,
-    "approval_required": true
-  }
-}
-```
-
-### GET /api/prevention/resources Examples
-
-#### Example 1: Get All Resources
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/resources"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "resources": [
-    {
-      "resource_id": "i-1234567890abcdef0",
-      "resource_type": "instance",
-      "service": "ec2",
-      "region": "us-east-1",
-      "state": "running",
-      "tags": {
-        "Name": "dev-server",
-        "Environment": "development"
-      },
-      "creation_date": "2025-01-01T00:00:00Z",
-      "idle_status": {
-        "is_idle": true,
-        "idle_duration_hours": 48,
-        "reason": "CPU utilization < 5% for 2 hours"
-      },
-      "estimated_monthly_cost": 73.00
+    "config_version": 7,
+    "execution_enabled": false,
+    "execution_configured": false,
+    "effective_dry_run_mode": true,
+    "budget_thresholds": {"warning": 80, "action": 90},
+    "schedule": {
+      "configured_interval_minutes": 5,
+      "source": "deployment_configuration",
+      "live_schedule_verified": false,
+      "runtime_preference_applied": false
     },
-    {
-      "resource_id": "vol-0123456789abcdef0",
-      "resource_type": "volume",
-      "service": "ebs",
-      "region": "us-east-1",
-      "state": "available",
-      "tags": {},
-      "creation_date": "2024-12-15T00:00:00Z",
-      "idle_status": {
-        "is_idle": true,
-        "idle_duration_hours": 168,
-        "reason": "Unattached for 7 days"
-      },
-      "estimated_monthly_cost": 8.00
-    }
-  ],
-  "count": 2
-}
-```
-
-#### Example 2: Filter Resources by Service
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/resources?service=ec2&limit=10"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "resources": [
-    {
-      "resource_id": "i-1234567890abcdef0",
-      "resource_type": "instance",
-      "service": "ec2",
-      "region": "us-east-1",
-      "state": "running",
-      "tags": {
-        "Name": "dev-server"
-      },
-      "creation_date": "2025-01-01T00:00:00Z",
-      "idle_status": {
-        "is_idle": true,
-        "idle_duration_hours": 48
-      },
-      "estimated_monthly_cost": 73.00
-    }
-  ],
-  "count": 1
-}
-```
-
-#### Example 3: Filter Resources by State
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/resources?state=stopped"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "resources": [
-    {
-      "resource_id": "i-0987654321fedcba0",
-      "resource_type": "instance",
-      "service": "ec2",
-      "region": "us-east-1",
-      "state": "stopped",
-      "tags": {
-        "Name": "test-server"
-      },
-      "creation_date": "2024-11-01T00:00:00Z",
-      "idle_status": {
-        "is_idle": true,
-        "idle_duration_hours": 720
-      },
-      "estimated_monthly_cost": 0.00
-    }
-  ],
-  "count": 1
-}
-```
-
-### POST /api/prevention/rollback Examples
-
-#### Example 1: Rollback a Prevention Action
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action_id": "action-20250115-123456-abc123"
-  }' \
-  "$API_ENDPOINT/api/prevention/rollback"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "action_id": "action-20250115-123456-abc123",
-  "resource_id": "i-1234567890abcdef0",
-  "service": "ec2",
-  "action_type": "stop_instance",
-  "rollback_action": "start_instance",
-  "message": "Rollback successful - instance restarted",
-  "timestamp": "2025-01-15T14:30:00Z"
-}
-```
-
-#### Example 2: Rollback Failed - Action Not Found
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action_id": "action-invalid"
-  }' \
-  "$API_ENDPOINT/api/prevention/rollback"
-```
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ACTION_NOT_FOUND",
-    "message": "Action not found or rollback window expired (24 hours)"
+    "inventory_read_mode": "fresh_discovery",
+    "latest_cycle": null,
+    "latest_cycle_read_status": "not_recorded",
+    "last_cycle_summary": null
   }
 }
 ```
 
-#### Example 3: Rollback Failed - Missing Action ID
+`enabled` controls monitoring, while independent execution gates remain disabled. `latest_cycle_read_status` can be available, not_recorded or unavailable. A saved successful summary may predate a newer failed/skipped cycle; it is not live progress or proof of delivery/resource outcomes.
 
-**Request:**
+### Save administrator settings
+
+Read the current config_version, then send it as expected_version. The number below is illustrative; do not reuse a stale version.
+
 ```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
+curl -X POST "$BFF_URL/api/prevention/config" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{}' \
-  "$API_ENDPOINT/api/prevention/rollback"
+  -d '{"expected_version":7,"budget_thresholds":{"warning":75,"action":90},"enabled_services":["ec2","rds","lambda"]}'
 ```
 
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "MISSING_PARAMETER",
-    "message": "Missing required parameter: action_id"
-  }
-}
-```
+This administrator-only route accepts thresholds and/or known discovery services. It rejects unknown fields and cannot change enablement, execution, approval or schedule. A stale version/concurrent save returns 409; invalid values return 400 and storage failure 503. Scheduled observations do not advance settings versions. The route must be deployed before the frontend form can use it.
 
-### GET /api/prevention/history Examples
+Operators can POST an empty object to `/api/prevention/enable` or `/api/prevention/disable`. Success requires durable settings persistence. Enabling monitoring does not authorize resource execution.
 
-#### Example 1: Get Recent Action History
+### Review observed resources
 
-**Request:**
 ```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/history?limit=5"
+curl "$BFF_URL/api/prevention/resources?service=ec2" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN"
 ```
 
-**Response (Success):**
-```json
-{
-  "success": true,
-  "history": [
-    {
-      "action_id": "action-20250115-123456-abc123",
-      "timestamp": "2025-01-15T12:00:00Z",
-      "resource_id": "i-1234567890abcdef0",
-      "service": "ec2",
-      "action_type": "stop_instance",
-      "reason": "Idle for 48 hours (CPU < 5%)",
-      "status": "completed",
-      "estimated_savings": 73.00,
-      "dry_run": false,
-      "approval_required": true,
-      "approved_by": "admin@example.com",
-      "approved_at": "2025-01-15T11:55:00Z"
-    },
-    {
-      "action_id": "action-20250115-100000-def456",
-      "timestamp": "2025-01-15T10:00:00Z",
-      "resource_id": "vol-0123456789abcdef0",
-      "service": "ebs",
-      "action_type": "snapshot_and_delete",
-      "reason": "Unattached for 7 days",
-      "status": "completed",
-      "estimated_savings": 8.00,
-      "dry_run": false,
-      "approval_required": true,
-      "approved_by": "admin@example.com",
-      "approved_at": "2025-01-15T09:58:00Z",
-      "snapshot_id": "snap-0123456789abcdef0"
-    }
-  ],
-  "count": 2
-}
-```
+Resources carry service/region/state/tags/properties and nullable creation_date. Response provenance includes result_scope=observed_inventory, inventory_completeness=unverified, idle_evidence_included=false and discovery_report. That report records requested adapters, raw/unique/duplicate/conflicting observations, reported issues and bounded examples. Empty results and zero reported issues do not prove complete account coverage.
 
-#### Example 2: Get History with Date Range
+Active observed-window low-usage rules support EC2, RDS and Lambda only. Missing/sparse metrics remain unknown and confidence is null. Listed resources are not classified as idle. Classic/application/network load-balancer selections use elb/alb/nlb, with ALB/NLB ARN identity; gateway load balancers are outside this selection. Existing inventory rows are not migrated.
 
-**Request:**
+The frontend can export the current returned/client-filtered selection as CSV with filter/read-time/coverage provenance. It does not export a certified complete account inventory or verified savings. Resource responses above 2 MiB return 413; narrow discovery configuration.
+
+### Review history and submit restoration
+
+GET `/api/prevention/history?limit=50` returns retained audit records with has_more. Limit must be 1-1000; optional start_date/end_date accept aware timestamps, finite UNIX seconds or inclusive UTC calendar dates. A successful empty history differs from an unavailable read. Oversized responses return 413.
+
 ```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/prevention/history?start_date=2025-01-01&end_date=2025-01-31&limit=100"
+curl -X POST "$BFF_URL/api/prevention/rollback" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action_id":"EXISTING_ACTION_ID"}'
 ```
 
-**Response (Success):**
-```json
-{
-  "success": true,
-  "history": [
-    {
-      "action_id": "action-20250115-123456-abc123",
-      "timestamp": "2025-01-15T12:00:00Z",
-      "resource_id": "i-1234567890abcdef0",
-      "service": "ec2",
-      "action_type": "stop_instance",
-      "reason": "Idle for 48 hours",
-      "status": "completed",
-      "estimated_savings": 73.00
-    }
-  ],
-  "count": 1
-}
-```
+A supported request with a valid matching snapshot inside the restoration window can return 202 with status=rollback_submitted, verification_status=unverified, target_state and restored_state=null. Submission does not prove the target state was reached. Missing/invalid/future/expired snapshots cannot establish restoration. The legacy approval workflow still lacks a public response receiver and durable resume; no production-ready approval guarantee is implied.
 
----
-
-## Phase 3 Python Examples
-
-### Example 1: Check Prevention Status
-
-```python
-import requests
-
-API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
-API_KEY = "your-api-key-here"
-
-headers = {
-    "x-api-key": API_KEY
-}
-
-response = requests.get(f"{API_ENDPOINT}/api/prevention/status", headers=headers)
-data = response.json()
-
-if data["success"]:
-    status = data["status"]
-    print(f"Prevention Enabled: {status['enabled']}")
-    print(f"Dry Run Mode: {status['dry_run_mode']}")
-    print(f"Resources Discovered: {status['resources_discovered']}")
-    print(f"Actions Today: {status['actions_executed_today']}")
-else:
-    print(f"Error: {data['error']['message']}")
-```
-
-### Example 2: Get Idle Resources
-
-```python
-import requests
-
-API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
-API_KEY = "your-api-key-here"
-
-headers = {
-    "x-api-key": API_KEY
-}
-
-# Get all EC2 instances
-response = requests.get(
-    f"{API_ENDPOINT}/api/prevention/resources",
-    headers=headers,
-    params={"service": "ec2", "limit": 50}
-)
-
-data = response.json()
-
-if data["success"]:
-    idle_resources = [r for r in data["resources"] if r["idle_status"]["is_idle"]]
-    
-    print(f"Found {len(idle_resources)} idle EC2 instances:")
-    for resource in idle_resources:
-        print(f"  - {resource['resource_id']}: {resource['idle_status']['reason']}")
-        print(f"    Estimated savings: ${resource['estimated_monthly_cost']:.2f}/month")
-else:
-    print(f"Error: {data['error']['message']}")
-```
-
-### Example 3: Rollback an Action
-
-```python
-import requests
-
-API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
-API_KEY = "your-api-key-here"
-
-headers = {
-    "x-api-key": API_KEY,
-    "Content-Type": "application/json"
-}
-
-action_id = "action-20250115-123456-abc123"
-
-response = requests.post(
-    f"{API_ENDPOINT}/api/prevention/rollback",
-    headers=headers,
-    json={"action_id": action_id}
-)
-
-data = response.json()
-
-if data["success"]:
-    print(f"Rollback successful!")
-    print(f"Resource: {data['resource_id']}")
-    print(f"Action: {data['rollback_action']}")
-    print(f"Message: {data['message']}")
-else:
-    print(f"Rollback failed: {data['error']['message']}")
-```
-
-### Example 4: Monitor Prevention History
-
-```python
-import requests
-from datetime import datetime, timedelta
-
-API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
-API_KEY = "your-api-key-here"
-
-headers = {
-    "x-api-key": API_KEY
-}
-
-# Get last 7 days of history
-end_date = datetime.now().strftime("%Y-%m-%d")
-start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-
-response = requests.get(
-    f"{API_ENDPOINT}/api/prevention/history",
-    headers=headers,
-    params={
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": 100
-    }
-)
-
-data = response.json()
-
-if data["success"]:
-    history = data["history"]
-    total_savings = sum(action["estimated_savings"] for action in history)
-    
-    print(f"Prevention actions in last 7 days: {len(history)}")
-    print(f"Total estimated savings: ${total_savings:.2f}/month")
-    
-    # Group by service
-    by_service = {}
-    for action in history:
-        service = action["service"]
-        by_service[service] = by_service.get(service, 0) + 1
-    
-    print("\nActions by service:")
-    for service, count in by_service.items():
-        print(f"  {service}: {count} actions")
-else:
-    print(f"Error: {data['error']['message']}")
-```
-
----
-
-## Phase 3 Configuration Examples
-
-### Safety Configuration
-
-The prevention system includes multiple safety mechanisms:
-
-1. **Dry Run Mode** (default: enabled)
-   - Actions are logged but not executed
-   - Monitor dry run reports for 24-48 hours before disabling
-
-2. **Approval Required** (default: enabled)
-   - All actions require approval via SNS notification
-   - 30-minute timeout for approval
-   - Gradually disable after confidence is built
-
-3. **Tag-Based Protection**
-   - Resources with `Environment=production` are protected
-   - Resources with `CostGuard=protected` are protected
-   - Resources with `CostGuard=exclude` are excluded
-
-4. **Whitelist**
-   - Specific resource IDs can be whitelisted
-   - Whitelisted resources are never modified
-
-5. **Active Usage Checks**
-   - Resources with active connections are protected
-   - Resources with recent traffic are protected
-
-6. **Minimum Idle Duration**
-   - Resources must be idle for minimum duration before action
-   - EC2: 2 hours, RDS: 1 hour, Lambda: 24 hours, EBS: 7 days
-
-### Supported Services
-
-Phase 3 supports idle detection and automated actions for 22 AWS services (20 with idle detection):
-
-- **Compute:** EC2, Lambda, ECS, EKS
-- **Database:** RDS, DynamoDB, ElastiCache, Redshift
-- **Storage:** EBS, S3
-- **Networking:** NAT Gateway, Load Balancers
-- **Messaging:** SNS, SQS
-- **Analytics:** Kinesis, Elasticsearch
-- **CDN:** CloudFront
-- **API:** API Gateway
-
-### Automated Actions
-
-- **EC2:** Stop idle instances
-- **RDS:** Stop idle databases
-- **Lambda:** Limit concurrency to 0
-- **EBS:** Snapshot and delete unattached volumes
-- **DynamoDB:** Switch to on-demand billing
-- **NAT Gateway:** Delete unused gateways
-
-All actions are reversible within 24 hours via the rollback endpoint.
-
----
-
-## Error Handling
-
-Phase 3 includes comprehensive error handling:
-
-### Common Error Codes
-
-- `INVALID_REQUEST` - Invalid request format or parameters
-- `MISSING_PARAMETER` - Required parameter missing
-- `ACTION_NOT_FOUND` - Action ID not found or expired
-- `PREVENTION_DISABLED` - Prevention system is disabled
-- `INSUFFICIENT_PERMISSIONS` - IAM permissions insufficient
-- `RESOURCE_PROTECTED` - Resource is protected by safety guards
-- `APPROVAL_TIMEOUT` - Approval request timed out
-- `ROLLBACK_EXPIRED` - Rollback window (24 hours) expired
-
-### Error Response Format
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable error message",
-    "details": {
-      "additional": "context"
-    }
-  }
-}
-```
-
-
----
+See the [current Phase 3 overview](technical/phase3-automated-prevention/README.md) and [feature boundaries](technical/access-and-feature-contracts.md).
 
 ## Phase 4: AI Cost Advisor
 
-Phase 4 provides a conversational AI interface for cost analysis powered by Amazon Bedrock Nova Lite. Ask natural language questions about your AWS costs and get context-aware responses with recommendations.
+**Current source contract (October 14, 2026):** These examples describe local unvalidated source. All further tests/builds/browser/AWS validation remain deferred. Use the configured BFF URL with a Cognito access token and an active server-managed grant. Backend keys remain server-side. See [current API contracts](technical/api-design.md) and [access/feature contracts](technical/access-and-feature-contracts.md).
 
-### POST /api/advisor/query Examples
+### Ask a question
 
-#### Example 1: Simple Cost Query
-
-**Request:**
 ```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
+curl -X POST "$BFF_URL/api/advisor/query" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "query": "What were my EC2 costs last month?",
-    "user_id": "user123",
-    "session_id": "session456"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
+  -d '{"query":"What were my EC2 costs last week?","session_id":"conversation-1"}'
 ```
 
-**Response (Success):**
+The client session is namespaced by verified identity. A supplied user_id never chooses ownership. Session IDs contain 1-128 characters. Model text depends on actual available context; the following response is illustrative, not account data:
+
 ```json
 {
   "success": true,
-  "response": "Your **EC2 costs last month** were **$150.25**.\n\n| Service | Cost | % of Total |\n|---------|------|------------|\n| EC2 | $150.25 | 100% |\n\nThis represents a **15% increase** compared to the previous month ($130.50).",
-  "recommendations": [
-    {
-      "action": "Stop 3 idle EC2 instances that have been running for >7 days with <5% CPU utilization",
-      "rationale": "These instances are consuming resources without providing value",
-      "estimated_savings": 45.00,
-      "priority": 5,
-      "safe": true
-    }
-  ],
-  "cost_data": {
-    "ec2": 150.25,
-    "previous_month": 130.50,
-    "change_percent": 15.0
-  },
-  "confidence": 0.95,
-  "cached": false
-}
-```
-
-#### Example 2: Optimization Query
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "How can I reduce my Lambda costs?",
-    "user_id": "user123",
-    "session_id": "session456"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "response": "Here are **3 ways to reduce your Lambda costs**:\n\n1. **Optimize memory allocation** - Your functions are using 1024 MB but only consuming 512 MB on average\n2. **Reduce execution time** - Functions taking >3s could be optimized\n3. **Use Lambda Power Tuning** - Find the optimal memory/performance balance\n\n**Estimated monthly savings: $25-40**",
-  "recommendations": [
-    {
-      "action": "Reduce memory allocation for 5 Lambda functions from 1024 MB to 512 MB",
-      "rationale": "Functions are only using 50% of allocated memory",
-      "estimated_savings": 25.00,
-      "priority": 4,
-      "safe": true
-    },
-    {
-      "action": "Optimize function code to reduce execution time by 30%",
-      "rationale": "Faster execution = lower costs",
-      "estimated_savings": 15.00,
-      "priority": 3,
-      "safe": true
-    }
-  ],
-  "cost_data": {
-    "lambda": 80.00,
-    "potential_savings": 40.00
-  },
-  "confidence": 0.90,
-  "cached": false
-}
-```
-
-#### Example 3: Forecast Query
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "What will my costs be next week?",
-    "user_id": "user123",
-    "session_id": "session456"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "response": "Based on your current usage patterns, **next week's costs are forecasted at $285-315** (95% confidence interval).\n\n**Breakdown by service:**\n- EC2: $150-165\n- Lambda: $80-90\n- DynamoDB: $35-40\n- S3: $20-20\n\nThis is **10% higher** than last week due to increased EC2 usage.",
+  "query": "What were my EC2 costs last week?",
+  "response": "The available observations and any missing dates are described here.",
   "recommendations": [],
   "cost_data": {
-    "forecast_total": 300.00,
-    "confidence_lower": 285.00,
-    "confidence_upper": 315.00,
-    "services": {
-      "ec2": 157.50,
-      "lambda": 85.00,
-      "dynamodb": 37.50,
-      "s3": 20.00
+    "data_quality": {
+      "historical_status": "observed",
+      "historical_cost_metric": "BlendedCost",
+      "estimated_dates": [],
+      "unknown_estimate_dates": [],
+      "missing_data_rule": "Missing or empty context never establishes zero spending, no actions, or no risk."
     }
   },
-  "confidence": 0.95,
+  "confidence": null,
+  "confidence_method": "unavailable",
   "cached": false
 }
 ```
 
-#### Example 4: Follow-up Query (Conversation Context)
+The active formatter does not promise structured recommendation/savings extraction from generated text. Confidence has no calibrated score. Model/heuristic forecast ranges do not establish a probability guarantee. Missing source data remains unavailable.
 
-**First Query:**
+### Read or clear owned conversation history
+
 ```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Show me my EC2 costs",
-    "user_id": "user123",
-    "session_id": "session789"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
+curl -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$BFF_URL/api/advisor/history?session_id=conversation-1"
+
+curl -X DELETE -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$BFF_URL/api/advisor/history?session_id=conversation-1"
 ```
 
-**Follow-up Query:**
+History returns the latest ten live matching turns in chronological order. Chat turns have a 24-hour logical TTL, enforced during reads. Clear advances the session generation and deletes older turns through all pages; stale in-flight replies cannot write against a different/expired generation. State metadata has separate renewable retention. No history migration was applied.
+
+### Read observed insights
+
 ```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Which instances are the most expensive?",
-    "user_id": "user123",
-    "session_id": "session789"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
+curl -H "Authorization: Bearer $ACCESS_TOKEN" "$BFF_URL/api/advisor/suggestions"
 ```
 
-**Response (Success - Context-Aware):**
-```json
-{
-  "success": true,
-  "response": "Looking at your **EC2 instances**, the top 3 most expensive are:\n\n1. **i-1234567890abcdef0** (m5.2xlarge) - $120/month\n2. **i-0987654321fedcba0** (m5.xlarge) - $60/month\n3. **i-abcdef1234567890** (t3.large) - $30/month\n\nThe m5.2xlarge instance accounts for **40% of your EC2 costs**.",
-  "recommendations": [
-    {
-      "action": "Consider downsizing i-1234567890abcdef0 to m5.xlarge if CPU utilization is consistently <50%",
-      "rationale": "Right-sizing can reduce costs by 50% while maintaining performance",
-      "estimated_savings": 60.00,
-      "priority": 5,
-      "safe": true
-    }
-  ],
-  "cost_data": {
-    "instances": {
-      "i-1234567890abcdef0": 120.00,
-      "i-0987654321fedcba0": 60.00,
-      "i-abcdef1234567890": 30.00
-    }
-  },
-  "confidence": 0.92,
-  "cached": false
-}
-```
+Daily/service comparisons require eight observed completed UTC dates and disclose the seven-date baseline, metric and provider-estimate status. Increase detection is heuristic. Budget alerts use the USD COST budget's own optional AWS projection. Idle-resource monetary impact is nullable; supported EC2 opportunities are hypothetical compute components, not verified savings. Empty results mean no observed insights are available, not proof of no risk or no waste.
 
-#### Example 5: Cached Response
+### Unavailable responses
 
-**Request (Same as Previous):**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "What were my EC2 costs last month?",
-    "user_id": "user123",
-    "session_id": "session456"
-  }' \
-  "$API_ENDPOINT/api/advisor/query"
-```
+Model failure/no answer returns 503 with ADVISOR_UNAVAILABLE. Response deadline returns 504 with ADVISOR_TIMEOUT. Neither is a successful advisor answer, and no numeric confidence is invented. A timeout does not create a durable job or guarantee cancellation of already-started work. Missing history storage/persistence failures are errors, not successful storage/clearing.
 
-**Response (Cached - Fast):**
-```json
-{
-  "success": true,
-  "response": "Your **EC2 costs last month** were **$150.25**...",
-  "recommendations": [...],
-  "cost_data": {...},
-  "confidence": 0.95,
-  "cached": true
-}
-```
-
-**Note:** Cached responses return in <500ms vs <5s for non-cached queries.
-
-### GET /api/advisor/history Examples
-
-#### Example 1: Get Conversation History
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/advisor/history?session_id=session456"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "history": [
-    {
-      "query": "What were my EC2 costs last month?",
-      "response": "Your **EC2 costs last month** were **$150.25**...",
-      "timestamp": "2026-02-23T10:00:00Z"
-    },
-    {
-      "query": "How can I reduce my Lambda costs?",
-      "response": "Here are **3 ways to reduce your Lambda costs**...",
-      "timestamp": "2026-02-23T10:05:00Z"
-    }
-  ],
-  "count": 2
-}
-```
-
-#### Example 2: Empty History
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/advisor/history?session_id=new_session"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "history": [],
-  "count": 0
-}
-```
-
-### DELETE /api/advisor/history Examples
-
-#### Example 1: Clear Conversation History
-
-**Request:**
-```bash
-curl -X DELETE \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "session456"}' \
-  "$API_ENDPOINT/api/advisor/history"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "message": "Conversation history cleared",
-  "session_id": "session456"
-}
-```
-
-### GET /api/advisor/suggestions Examples
-
-#### Example 1: Get Proactive Insights
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/advisor/suggestions?user_id=user123"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "insights": [
-    {
-      "insight_type": "summary",
-      "title": "Daily Cost Summary",
-      "description": "Yesterday's costs: $50.25 (5% increase from average)",
-      "severity": "info",
-      "action_required": false,
-      "related_services": ["ec2", "lambda"],
-      "estimated_impact": 0.0
-    },
-    {
-      "insight_type": "anomaly",
-      "title": "Cost Spike Detected",
-      "description": "EC2 costs increased 60% compared to last week",
-      "severity": "warning",
-      "action_required": true,
-      "related_services": ["ec2"],
-      "estimated_impact": 30.00
-    },
-    {
-      "insight_type": "optimization",
-      "title": "Idle Resources Found",
-      "description": "3 EC2 instances idle for >7 days. Potential savings: $45/month",
-      "severity": "info",
-      "action_required": true,
-      "related_services": ["ec2"],
-      "estimated_impact": 45.00
-    },
-    {
-      "insight_type": "forecast_alert",
-      "title": "Budget Overrun Predicted",
-      "description": "Forecast shows 95% probability of exceeding budget by $50 next week",
-      "severity": "critical",
-      "action_required": true,
-      "related_services": ["ec2", "lambda", "dynamodb"],
-      "estimated_impact": 50.00
-    }
-  ],
-  "count": 4
-}
-```
-
-#### Example 2: No Insights Available
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/advisor/suggestions?user_id=new_user"
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "insights": [],
-  "count": 0
-}
-```
-
----
-
-## Python Examples
-
-### Phase 4: AI Cost Advisor
-
-```python
-import requests
-import json
-
-# Configuration
-API_ENDPOINT = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
-API_KEY = "your-api-key-here"
-
-headers = {
-    "x-api-key": API_KEY,
-    "Content-Type": "application/json"
-}
-
-# Example 1: Ask a cost question
-def ask_cost_question(query, user_id="default", session_id="default"):
-    """Ask a natural language cost question."""
-    url = f"{API_ENDPOINT}/api/advisor/query"
-    payload = {
-        "query": query,
-        "user_id": user_id,
-        "session_id": session_id
-    }
-    
-    response = requests.post(url, headers=headers, json=payload)
-    data = response.json()
-    
-    if data["success"]:
-        print(f"Response: {data['response']}")
-        print(f"Cached: {data['cached']}")
-        
-        if data["recommendations"]:
-            print("\nRecommendations:")
-            for rec in data["recommendations"]:
-                print(f"  - {rec['action']}")
-                print(f"    Savings: ${rec['estimated_savings']:.2f}/month")
-    else:
-        print(f"Error: {data['error']['message']}")
-    
-    return data
-
-# Example 2: Get conversation history
-def get_conversation_history(session_id="default"):
-    """Get conversation history for a session."""
-    url = f"{API_ENDPOINT}/api/advisor/history"
-    params = {"session_id": session_id}
-    
-    response = requests.get(url, headers=headers, params=params)
-    data = response.json()
-    
-    if data["success"]:
-        print(f"Found {data['count']} conversation turns:")
-        for turn in data["history"]:
-            print(f"\nQ: {turn['query']}")
-            print(f"A: {turn['response'][:100]}...")
-            print(f"Time: {turn['timestamp']}")
-    
-    return data
-
-# Example 3: Clear conversation history
-def clear_conversation_history(session_id="default"):
-    """Clear conversation history for a session."""
-    url = f"{API_ENDPOINT}/api/advisor/history"
-    payload = {"session_id": session_id}
-    
-    response = requests.delete(url, headers=headers, json=payload)
-    data = response.json()
-    
-    if data["success"]:
-        print(f"Cleared history for session: {data['session_id']}")
-    
-    return data
-
-# Example 4: Get proactive insights
-def get_proactive_insights(user_id="default"):
-    """Get proactive cost insights."""
-    url = f"{API_ENDPOINT}/api/advisor/suggestions"
-    params = {"user_id": user_id}
-    
-    response = requests.get(url, headers=headers, params=params)
-    data = response.json()
-    
-    if data["success"]:
-        print(f"Found {data['count']} insights:")
-        for insight in data["insights"]:
-            print(f"\n[{insight['severity'].upper()}] {insight['title']}")
-            print(f"  {insight['description']}")
-            if insight['estimated_impact']:
-                print(f"  Impact: ${insight['estimated_impact']:.2f}")
-    
-    return data
-
-# Example 5: Conversational flow
-def conversational_example():
-    """Example of a multi-turn conversation."""
-    session_id = "demo_session"
-    
-    # First question
-    print("=== Question 1 ===")
-    ask_cost_question(
-        "What were my costs last month?",
-        session_id=session_id
-    )
-    
-    # Follow-up question (uses conversation context)
-    print("\n=== Question 2 (Follow-up) ===")
-    ask_cost_question(
-        "Which service was the most expensive?",
-        session_id=session_id
-    )
-    
-    # Another follow-up
-    print("\n=== Question 3 (Follow-up) ===")
-    ask_cost_question(
-        "How can I reduce those costs?",
-        session_id=session_id
-    )
-    
-    # View conversation history
-    print("\n=== Conversation History ===")
-    get_conversation_history(session_id)
-    
-    # Clear history
-    print("\n=== Clear History ===")
-    clear_conversation_history(session_id)
-
-# Run examples
-if __name__ == "__main__":
-    # Simple query
-    ask_cost_question("What were my EC2 costs last month?")
-    
-    # Get insights
-    get_proactive_insights()
-    
-    # Conversational flow
-    conversational_example()
-```
-
-### Example Query Formats
-
-The AI advisor understands various query formats:
-
-**Cost Analysis:**
-- "What were my costs last month?"
-- "Show me EC2 spending for January"
-- "How much did I spend on Lambda?"
-- "What's my total AWS bill?"
-
-**Optimization:**
-- "How can I reduce costs?"
-- "What resources are idle?"
-- "Show me optimization opportunities"
-- "Which instances should I downsize?"
-
-**Forecasting:**
-- "What will my costs be next week?"
-- "Forecast my EC2 spending"
-- "Will I exceed my budget?"
-- "Show me cost trends"
-
-**Prevention:**
-- "What prevention actions were taken?"
-- "Show me stopped resources"
-- "What savings did prevention achieve?"
-- "Which resources are protected?"
-
-**Trends:**
-- "Show me cost trends"
-- "Compare this month to last month"
-- "What's my spending pattern?"
-- "Are costs increasing?"
-
----
-
-## Error Examples
-
-### Phase 4 Errors
-
-#### Missing Query Parameter
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "user123"}' \
-  "$API_ENDPOINT/api/advisor/query"
-```
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "MISSING_PARAMETER",
-    "message": "query is required"
-  }
-}
-```
-
-#### Bedrock Service Unavailable
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SERVICE_UNAVAILABLE",
-    "message": "Bedrock API is currently unavailable. Please try again later.",
-    "details": {
-      "retry_after": "30"
-    }
-  }
-}
-```
-
-#### Rate Limit Exceeded
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Bedrock API rate limit exceeded. Please try again later.",
-    "details": {
-      "retry_after": "60"
-    }
-  }
-}
-```
-
----
-
-## Performance Notes
-
-### Phase 4 Response Times
-
-- **Cached queries:** <500ms (P95)
-- **Non-cached queries:** <5s (P95)
-- **Cache hit rate target:** 40%+
-- **Cache TTL:** 24 hours
-
-### Optimization Tips
-
-1. **Reuse session IDs** for related questions to maintain conversation context
-2. **Cache warming:** Common queries are automatically cached
-3. **Batch insights:** Use `/api/advisor/suggestions` for multiple insights at once
-4. **Clear old sessions:** Delete conversation history when no longer needed
-
----
-
-## Additional Resources
-
-- [README.md](../README.md) - Project overview and setup
-- [Phase 4 Technical Documentation](./technical/phase4-ai-advisor/) - Detailed Phase 4 design
-- [Competition Documentation](./competition/) - AWS 10,000 AIdeas competition info
-
+See [Phase 4 design](technical/phase4-ai-advisor/), with historical claims subordinate to the current contracts above.
 
 ---
 
 ## Phase 5: Multi-Account Cost Management
 
-### Organizations API
+Use `MultiAccountAPIEndpoint` for the eleven organization/cost/allocation/budget methods. The main API's compatibility routes return stub data. There is no `/api/multi-account` prefix, and report/forecast/advisor/prevention service modules do not all have REST routes.
 
-#### List Organizations
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/organizations"
-```
-
-**Response:**
-```json
-{
-  "organizations": [
-    {
-      "id": "o-abc123xyz",
-      "arn": "arn:aws:organizations::123456789012:organization/o-abc123xyz",
-      "master_account_id": "123456789012",
-      "feature_set": "ALL",
-      "account_count": 15
-    }
-  ]
-}
-```
-
-#### List Accounts in Organization
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/organizations/o-abc123xyz/accounts?status=ACTIVE"
-```
-
-**Response:**
-```json
-{
-  "organization_id": "o-abc123xyz",
-  "accounts": [
-    {
-      "id": "123456789012",
-      "name": "Production Account",
-      "email": "prod@example.com",
-      "status": "ACTIVE",
-      "ou_id": "ou-xyz-12345678",
-      "ou_name": "Production"
-    }
-  ],
-  "total_count": 15
-}
-```
-
-### Consolidated Costs API
-
-#### Get Consolidated Costs
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/costs/consolidated?start_date=2026-01-01&end_date=2026-01-31&granularity=DAILY"
-```
-
-**Response:**
-```json
-{
-  "start_date": "2026-01-01",
-  "end_date": "2026-01-31",
-  "total_cost": 15234.56,
-  "currency": "USD",
-  "costs_by_account": {
-    "123456789012": 8500.00,
-    "234567890123": 4234.56,
-    "345678901234": 2500.00
-  },
-  "costs_by_service": {
-    "EC2": 6000.00,
-    "S3": 3000.00,
-    "RDS": 2500.00,
-    "Lambda": 1500.00
-  }
-}
-```
-
-#### Get Costs by Account
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/costs/by-account?start_date=2026-01-01&end_date=2026-01-31&top_n=5"
-```
-
-**Response:**
-```json
-{
-  "accounts": [
-    {
-      "account_id": "123456789012",
-      "account_name": "Production Account",
-      "total_cost": 8500.00,
-      "percentage_of_total": 55.8,
-      "trend": {
-        "previous_period": 7800.00,
-        "change_percentage": 8.97
-      }
-    }
-  ],
-  "total_cost": 15234.56
-}
-```
-
-### Cost Allocation API
-
-#### Get Allocated Costs by Tag
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/allocation/by-tag?tag_key=Team&start_date=2026-01-01&end_date=2026-01-31"
-```
-
-**Response:**
-```json
-{
-  "tag_key": "Team",
-  "total_allocated": 12500.00,
-  "total_unallocated": 2734.56,
-  "allocation_percentage": 82.05,
-  "allocations": [
-    {
-      "tag_value": "Engineering",
-      "cost": 7500.00,
-      "percentage": 60.00
-    },
-    {
-      "tag_value": "Marketing",
-      "cost": 3000.00,
-      "percentage": 24.00
-    }
-  ]
-}
-```
-
-#### Get Unallocated Costs
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/allocation/unallocated?start_date=2026-01-01&end_date=2026-01-31"
-```
-
-**Response:**
-```json
-{
-  "total_cost": 15234.56,
-  "unallocated_cost": 2734.56,
-  "unallocated_percentage": 17.95,
-  "unallocated_by_service": {
-    "EC2": 1000.00,
-    "S3": 800.00,
-    "RDS": 500.00
-  }
-}
-```
-
-#### Create Allocation Rule
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Split VPC Costs 50/50",
-    "priority": 10,
-    "rule_type": "PERCENTAGE",
-    "conditions": {"service": "VPC"},
-    "allocations": [
-      {"target": "Team-A", "percentage": 50},
-      {"target": "Team-B", "percentage": 50}
-    ]
-  }' \
-  "$API_ENDPOINT/api/allocation/rules"
-```
-
-**Response:**
-```json
-{
-  "rule_id": "rule-abc123xyz",
-  "name": "Split VPC Costs 50/50",
-  "status": "ACTIVE",
-  "created_at": "2026-02-24T10:30:00Z"
-}
-```
-
-### Budgets API
-
-#### Get Budget Hierarchy
-
-**Request:**
-```bash
-curl -H "x-api-key: $API_KEY" \
-  "$API_ENDPOINT/api/budgets/hierarchy"
-```
-
-**Response:**
-```json
-{
-  "organization": {
-    "budget_amount": 50000.00,
-    "current_spend": 42500.00,
-    "utilization_percentage": 85.00,
-    "status": "WARNING"
-  },
-  "organizational_units": [
-    {
-      "ou_name": "Production",
-      "budget_amount": 30000.00,
-      "current_spend": 25000.00,
-      "utilization_percentage": 83.33
-    }
-  ]
-}
-```
-
-#### Create Organization Budget
-
-**Request:**
-```bash
-curl -X POST \
-  -H "x-api-key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "budget_amount": 50000.00,
-    "period": "MONTHLY",
-    "alert_thresholds": [80, 100]
-  }' \
-  "$API_ENDPOINT/api/budgets/organization"
-```
-
-**Response:**
-```json
-{
-  "budget_id": "budget-org-123",
-  "budget_amount": 50000.00,
-  "period": "MONTHLY",
-  "status": "ACTIVE",
-  "created_at": "2026-02-24T10:30:00Z"
-}
-```
-
-### Python Examples for Phase 5
-
-```python
-import requests
-
-API_KEY = "your-api-key"
-BASE_URL = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod/api"
-
-headers = {"x-api-key": API_KEY}
-
-# Get consolidated costs
-response = requests.get(
-    f"{BASE_URL}/costs/consolidated",
-    headers=headers,
-    params={
-        "start_date": "2026-01-01",
-        "end_date": "2026-01-31"
-    }
-)
-costs = response.json()
-print(f"Total organizational cost: ${costs['total_cost']:.2f}")
-
-# Get allocated costs by team
-response = requests.get(
-    f"{BASE_URL}/allocation/by-tag",
-    headers=headers,
-    params={
-        "tag_key": "Team",
-        "start_date": "2026-01-01",
-        "end_date": "2026-01-31"
-    }
-)
-allocation = response.json()
-for team in allocation['allocations']:
-    print(f"{team['tag_value']}: ${team['cost']:.2f}")
-
-# Create allocation rule
-rule_data = {
-    "name": "Split VPC Costs",
-    "priority": 10,
-    "rule_type": "PERCENTAGE",
-    "conditions": {"service": "VPC"},
-    "allocations": [
-        {"target": "Team-A", "percentage": 50},
-        {"target": "Team-B", "percentage": 50}
-    ]
-}
-response = requests.post(
-    f"{BASE_URL}/allocation/rules",
-    headers=headers,
-    json=rule_data
-)
-rule = response.json()
-print(f"Created rule: {rule['rule_id']}")
-```
+[Current multi-account reference](technical/phase5-multi-account/API_DOCUMENTATION.md) lists exact request fields and authentication requirements. [Current Phase 5/6 examples](API_EXAMPLES_PHASE5_PHASE6.md) cover organization/account listing, cost queries, allocation and GPU requests. Earlier allocation-rule examples omitted the required `allocation_target`; use the current reference for write payloads.
 
 ---
 
@@ -3916,10 +2559,28 @@ For comprehensive Phase 5 (Multi-Account Cost Management) and Phase 6 (AI/ML Wor
 **[API_EXAMPLES_PHASE5_PHASE6.md](./API_EXAMPLES_PHASE5_PHASE6.md)**
 
 This includes:
-- **Phase 5:** Organizations, accounts, multi-account costs, tag-based allocation, chargeback reports, hierarchical budgets
+- **Phase 5:** Current organization/account, cost, allocation and budget routes; report services have no dedicated REST routes
 - **Phase 6:** GPU costs, workload classification, cost-per-inference, spot recommendations, SageMaker/Bedrock tracking, multi-account GPU aggregation
 
 ---
+
+## SageMaker observed costs and low usage
+
+**October 14, 2026 source examples; not executed.** Use BFF identity/current grants and the AI/ML backend configured behind it. Runtime validation and deployment are deferred.
+
+```bash
+curl "$BFF_URL/api/ai-ml/sagemaker-costs?start_date=2026-10-01&end_date=2026-10-14" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN"
+
+curl "$BFF_URL/api/ai-ml/sagemaker-idle-endpoints?threshold=10" \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN"
+```
+
+Cost dates are illustrative and use an exclusive end, at most 31 completed DAILY dates. The observed_v2 contract includes nullable cost categories/currency, unclassified usage, missing/provider-estimated dates and unverified invoice coverage. Job rows are bounded creation-window metadata, with nullable attributed charges and explicit omission/truncation. Legacy cached contracts are not current evidence.
+
+Low-usage reads inspect a recent completed hour independently of report dates. They cover at most 20 unique endpoints/five list pages, expose has_more and do not prove inactivity or complete inventory. Only fully observed single-variant real-time endpoints can become review candidates. A matching regional on-demand compute component may be present with SKU provenance; total charges and savings remain unavailable. Missing/sparse metrics are unknown. Provider listing failures return 503; oversized report/evidence responses return 413.
+
+See [current SageMaker contracts](technical/sagemaker-observed-contracts.md) for profile, currency, time, scope and validation limits.
 
 ## Complete Documentation
 
@@ -3929,5 +2590,7 @@ For complete API documentation including all endpoints, parameters, and response
 - **Phase 5 README**: [README.md](./technical/phase5-multi-account/README.md)
 - **Phase 6 API Documentation**: [phase6-api-documentation.md](./api/phase6-api-documentation.md)
 - **Phase 6 User Guide**: [PHASE6_AI_ML_USER_GUIDE.md](./user-guide/PHASE6_AI_ML_USER_GUIDE.md)
-- **Deployment Guide**: [DEPLOYMENT_SCRIPTS.md](../DEPLOYMENT_SCRIPTS.md)
+- **Deployment Guide**: [DEPLOYMENT_SCRIPTS.md](deployment/DEPLOYMENT_SCRIPTS.md)
 - **Cross-Account Setup**: [CROSS_ACCOUNT_SETUP.md](../infrastructure/CROSS_ACCOUNT_SETUP.md)
+
+Current workload label API: see [declaration examples and contracts](technical/workload-label-observed-contracts.md). Manual writes now require expected_version; automatic identity/confidence and unversioned examples are superseded. All validation remains deferred.

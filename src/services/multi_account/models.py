@@ -1,7 +1,7 @@
 """
 Data models for multi-account cost management
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Dict, List, Any
@@ -13,6 +13,9 @@ class AccountStatus(Enum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
     PENDING_CLOSURE = "PENDING_CLOSURE"
+    PENDING_ACTIVATION = "PENDING_ACTIVATION"
+    CLOSED = "CLOSED"
+    UNKNOWN = "UNKNOWN"
 
 
 class EntityType(Enum):
@@ -48,7 +51,11 @@ class Account:
     email: str
     status: str
     joined_method: str
-    joined_timestamp: datetime
+    joined_timestamp: Optional[datetime]
+
+    @property
+    def state(self):
+        return self.status
 
 
 @dataclass
@@ -79,6 +86,8 @@ class AccountCostData:
     costs_by_day: Dict[str, Decimal]
     collection_timestamp: datetime
     status: str
+    costs_by_tag_service: Optional[Dict[str, Dict[str, Decimal]]] = None
+    is_estimated: Optional[bool] = None
 
 
 @dataclass
@@ -103,6 +112,8 @@ class AggregatedCosts:
     costs_by_account: Dict[str, Decimal]
     costs_by_service: Dict[str, Decimal]
     costs_by_day: Dict[str, Decimal]
+    complete: bool = True
+    missing_dates_by_account: Dict[str, List[str]] = field(default_factory=dict)
 
 
 @dataclass

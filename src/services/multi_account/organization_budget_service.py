@@ -41,7 +41,8 @@ class OrganizationBudgetService:
         self,
         org_id: str,
         budget_amount: Decimal,
-        period: str = "MONTHLY"
+        period: str = "MONTHLY",
+        budget_name: str = None, currency: str = "USD"
     ) -> str:
         """
         Create budget at organization level
@@ -56,6 +57,12 @@ class OrganizationBudgetService:
             
         Validates: Requirements 11.1, 11.4
         """
+        from boto3.dynamodb.types import DYNAMODB_CONTEXT
+        if not budget_amount.is_finite() or budget_amount <= 0 or currency != 'USD' or period not in ('MONTHLY', 'QUARTERLY', 'ANNUAL'):
+            raise ValueError('Use a positive finite USD limit and MONTHLY, QUARTERLY or ANNUAL period')
+        DYNAMODB_CONTEXT.create_decimal(budget_amount)
+        if budget_name is not None and (not isinstance(budget_name, str) or not 1 <= len(budget_name.strip()) <= 128):
+            raise ValueError('Budget name must contain 1-128 characters')
         budget_id = f"budget-{uuid.uuid4()}"
         
         self.budget_repo.save(
@@ -63,7 +70,7 @@ class OrganizationBudgetService:
             entity_id=org_id,
             entity_type=EntityType.ORGANIZATION.value,
             budget_amount=budget_amount,
-            period=period
+            period=period, budget_name=budget_name.strip() if budget_name else None, currency=currency
         )
         
         logger.info(f"Created organization budget: {budget_id} for {org_id}")
@@ -73,7 +80,8 @@ class OrganizationBudgetService:
         self,
         ou_id: str,
         budget_amount: Decimal,
-        period: str = "MONTHLY"
+        period: str = "MONTHLY",
+        budget_name: str = None, currency: str = "USD"
     ) -> str:
         """
         Create budget at OU level
@@ -88,6 +96,12 @@ class OrganizationBudgetService:
             
         Validates: Requirements 11.2, 11.5
         """
+        from boto3.dynamodb.types import DYNAMODB_CONTEXT
+        if not budget_amount.is_finite() or budget_amount <= 0 or currency != 'USD' or period not in ('MONTHLY', 'QUARTERLY', 'ANNUAL'):
+            raise ValueError('Use a positive finite USD limit and MONTHLY, QUARTERLY or ANNUAL period')
+        DYNAMODB_CONTEXT.create_decimal(budget_amount)
+        if budget_name is not None and (not isinstance(budget_name, str) or not 1 <= len(budget_name.strip()) <= 128):
+            raise ValueError('Budget name must contain 1-128 characters')
         budget_id = f"budget-{uuid.uuid4()}"
         
         self.budget_repo.save(
@@ -95,7 +109,7 @@ class OrganizationBudgetService:
             entity_id=ou_id,
             entity_type=EntityType.OU.value,
             budget_amount=budget_amount,
-            period=period
+            period=period, budget_name=budget_name.strip() if budget_name else None, currency=currency
         )
         
         logger.info(f"Created OU budget: {budget_id} for {ou_id}")
@@ -105,7 +119,8 @@ class OrganizationBudgetService:
         self,
         account_id: str,
         budget_amount: Decimal,
-        period: str = "MONTHLY"
+        period: str = "MONTHLY",
+        budget_name: str = None, currency: str = "USD"
     ) -> str:
         """
         Create budget at account level
@@ -120,6 +135,12 @@ class OrganizationBudgetService:
             
         Validates: Requirements 11.3
         """
+        from boto3.dynamodb.types import DYNAMODB_CONTEXT
+        if not budget_amount.is_finite() or budget_amount <= 0 or currency != 'USD' or period not in ('MONTHLY', 'QUARTERLY', 'ANNUAL'):
+            raise ValueError('Use a positive finite USD limit and MONTHLY, QUARTERLY or ANNUAL period')
+        DYNAMODB_CONTEXT.create_decimal(budget_amount)
+        if budget_name is not None and (not isinstance(budget_name, str) or not 1 <= len(budget_name.strip()) <= 128):
+            raise ValueError('Budget name must contain 1-128 characters')
         budget_id = f"budget-{uuid.uuid4()}"
         
         self.budget_repo.save(
@@ -127,7 +148,7 @@ class OrganizationBudgetService:
             entity_id=account_id,
             entity_type=EntityType.ACCOUNT.value,
             budget_amount=budget_amount,
-            period=period
+            period=period, budget_name=budget_name.strip() if budget_name else None, currency=currency
         )
         
         logger.info(f"Created account budget: {budget_id} for {account_id}")

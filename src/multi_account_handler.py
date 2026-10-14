@@ -10,7 +10,7 @@ This handler processes various multi-account operations including:
 import json
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime, UTC
+from datetime import datetime, UTC, date, timedelta
 
 from .services.multi_account.organization_discovery import OrganizationDiscoveryService
 from .services.multi_account.multi_account_cost_collector import MultiAccountCostCollector
@@ -48,7 +48,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     try:
         # Log incoming event
-        logger.info(f"Received multi-account operation event: {json.dumps(event)}")
+        logger.info("Multi-account operation=%s", event.get("operation"))
         
         # Extract operation and parameters
         operation = event.get('operation')
@@ -119,6 +119,7 @@ def handle_discover_organization(parameters: Dict[str, Any]) -> Dict[str, Any]:
                     'name': acc.name,
                     'email': acc.email,
                     'status': acc.status,
+                    'state': acc.state,
                     'joined_method': acc.joined_method,
                     'joined_timestamp': acc.joined_timestamp.isoformat() if acc.joined_timestamp else None
                 }
@@ -164,41 +165,19 @@ def handle_collect_costs(parameters: Dict[str, Any]) -> Dict[str, Any]:
         
         logger.info(f"Starting cost collection: accounts={account_ids}, start={start_date}, end={end_date}")
         
-        # Initialize services
-        cost_collector = _get_cost_collector()
-        
-        # Collect costs
-        if account_ids:
-            # Collect for specific accounts
-            results = []
-            for account_id in account_ids:
-                result = cost_collector.collect_account(
-                    account_id=account_id,
-                    start_date=start_date,
-                    end_date=end_date
-                )
-                results.append({
-                    'account_id': account_id,
-                    'success': result.success,
-                    'cost_data_points': len(result.cost_data) if result.success else 0,
-                    'error': result.error_message if not result.success else None
-                })
-        else:
-            # Collect for all accounts
-            results = cost_collector.collect_all_accounts(
-                start_date=start_date,
-                end_date=end_date
-            )
-            results = [
-                {
-                    'account_id': result.account_id,
-                    'success': result.success,
-                    'cost_data_points': len(result.cost_data) if result.success else 0,
-                    'error': result.error_message if not result.success else None
-                }
-                for result in results
-            ]
-        
+        discovery = _get_organization_service()
+        organization = discovery.discover_organization()
+        permitted = {account.id for account in discovery.get_all_accounts(organization.id)}
+        account_ids = account_ids or sorted(permitted)
+        if not isinstance(account_ids, list) or not set(account_ids).issubset(permitted): raise ValueError('Accounts must belong to the discovered organization')
+        end_date = date.fromisoformat(end_date) if end_date else datetime.now(UTC).date()
+        start_date = date.fromisoformat(start_date) if start_date else end_date-timedelta(days=7)
+        collection = _get_cost_collector().collect_all_accounts(org_id=organization.id, account_ids=account_ids,
+            start_date=start_date, end_date=end_date, external_id=parameters.get('external_id'))
+        results = [{'account_id': result.account_id, 'success': result.status == 'SUCCESS',
+            'cost_data_points': len(result.costs_by_day) if result.status == 'SUCCESS' else 0,
+            'error': result.error_message if result.status != 'SUCCESS' else None} for result in collection.account_data]
+
         # Calculate summary
         successful_accounts = sum(1 for r in results if r['success'])
         failed_accounts = len(results) - successful_accounts

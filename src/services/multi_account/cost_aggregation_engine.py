@@ -55,6 +55,7 @@ class CostAggregationEngine:
         self.org_repository = org_repository or OrganizationRepository()
         self.cache_ttl_seconds = cache_ttl_seconds
         self._cache: Dict[str, CacheEntry] = {}
+        self._coverage = {}
     
     def aggregate_organization_costs(
         self,
@@ -83,7 +84,7 @@ class CostAggregationEngine:
         )
         
         # Check cache
-        cache_key = f"org:{org_id}:{start_date}:{end_date}"
+        cache_key = f"org:{org_id}:{start_date}:{end_date}:" + ",".join(sorted(set(account_ids)))
         if use_cache:
             cached = self._get_from_cache(cache_key)
             if cached:
@@ -127,7 +128,9 @@ class CostAggregationEngine:
             account_count=len(account_ids),
             costs_by_account=costs_by_account,
             costs_by_service=costs_by_service,
-            costs_by_day=costs_by_day
+            costs_by_day=costs_by_day,
+            complete=all(not self._coverage.get(account, ["unavailable"]) for account in account_ids),
+            missing_dates_by_account={account: self._coverage.get(account, ["unavailable"]) for account in account_ids}
         )
         
         # Store in cache
@@ -168,7 +171,7 @@ class CostAggregationEngine:
         )
         
         # Check cache
-        cache_key = f"ou:{ou_id}:{start_date}:{end_date}"
+        cache_key = f"ou:{ou_id}:{start_date}:{end_date}:" + ",".join(sorted(set(account_ids)))
         if use_cache:
             cached = self._get_from_cache(cache_key)
             if cached:
@@ -212,7 +215,9 @@ class CostAggregationEngine:
             account_count=len(account_ids),
             costs_by_account=costs_by_account,
             costs_by_service=costs_by_service,
-            costs_by_day=costs_by_day
+            costs_by_day=costs_by_day,
+            complete=all(not self._coverage.get(account, ["unavailable"]) for account in account_ids),
+            missing_dates_by_account={account: self._coverage.get(account, ["unavailable"]) for account in account_ids}
         )
         
         # Store in cache
@@ -341,7 +346,8 @@ class CostAggregationEngine:
             Dictionary with service costs (not daily costs to avoid double counting)
         """
         try:
-            cost_data = self.cost_repository.get_cost_data(account_id, start_date)
+            cost_data = self.cost_repository.get_period(account_id, start_date, end_date)
+            self._coverage[account_id] = cost_data["missing_dates"]
             
             if not cost_data:
                 return {}
@@ -357,8 +363,8 @@ class CostAggregationEngine:
             return all_costs
             
         except Exception as e:
-            logger.error(f"Error getting costs for account {account_id}: {e}")
-            return {}
+            logger.error("Cost aggregation unavailable for account %s", account_id)
+            raise
     
     def _get_account_daily_costs(
         self,
@@ -378,7 +384,8 @@ class CostAggregationEngine:
             Dictionary mapping date to cost
         """
         try:
-            cost_data = self.cost_repository.get_cost_data(account_id, start_date)
+            cost_data = self.cost_repository.get_period(account_id, start_date, end_date)
+            self._coverage[account_id] = cost_data["missing_dates"]
             
             if not cost_data:
                 return {}
@@ -393,8 +400,8 @@ class CostAggregationEngine:
             return daily_costs
             
         except Exception as e:
-            logger.error(f"Error getting daily costs for account {account_id}: {e}")
-            return {}
+            logger.error("Daily cost aggregation unavailable for account %s", account_id)
+            raise
     
     def _get_account_name(self, account_id: str) -> str:
         """

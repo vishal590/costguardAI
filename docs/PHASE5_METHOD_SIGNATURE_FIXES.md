@@ -1,5 +1,8 @@
 # Phase 5 Method Signature Fixes Report
 
+> **Historical report.** This records an earlier implementation, deployment or test run. Its counts, pending tasks, timing and savings are not current verification. Use [current project status](PROJECT_STATUS.md) and [current source limitations](technical/documentation-code-sync.md) for the checked-in backend (reviewed October 3, 2026).
+
+
 **Date**: March 2, 2026  
 **Status**: ✅ PARTIALLY COMPLETE - 2/3 Method Signature Issues Fixed
 

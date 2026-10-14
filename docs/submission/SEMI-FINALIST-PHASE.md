@@ -442,7 +442,7 @@ AIdeas: CostGuard AI
 - **[requirements.md](./requirements.md)** - Overall submission requirements
 - **[process.md](./process.md)** - Submission process stages
 - **[../project/planning.md](../project/planning.md)** - Project planning details
-- **[../technical/phase1-kiro-spec.md](../technical/phase1-kiro-spec.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
+- **[../technical/phase1-kiro-spec.md](../technical/phase1-cost-pipeline/specification.md)** - 🚀 **Phase 1 Kiro Specification - Ready for code generation**
 - **[../technical/architecture.md](../technical/architecture.md)** - Technical architecture
 - **[../technical/aws-services.md](../technical/aws-services.md)** - AWS services documentation
 

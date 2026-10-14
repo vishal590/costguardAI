@@ -150,7 +150,7 @@
 
 ### 3. Tag Search
 **Best for:** Finding related content  
-**Location:** [Search by Tag](./DOCUMENTATION_INDEX.md#-search-by-tag)  
+**Location:** [Search by Tag](./DOCUMENTATION_INDEX.md#️-search-by-tag)
 **Example:** `phase-5` + `critical` → Python import error
 
 ### 4. Phase Search

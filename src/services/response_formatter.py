@@ -55,8 +55,8 @@ class ResponseFormatter:
         return AdvisorResponse(
             response_text=formatted_text,
             recommendations=[],  # Populated by Bedrock client
-            cost_data={},  # Populated by Bedrock client
-            confidence=0.8,
+            cost_data={'evidence': context.prompt_metadata} if context.prompt_metadata else {},
+            confidence=None,
             cached=False
         )
     
@@ -73,40 +73,38 @@ class ResponseFormatter:
         if not costs:
             return ""
         
-        # Calculate totals for each service
-        service_totals = {}
-        for service, cost_list in costs.items():
-            total = sum(c.get('blended_cost', 0) for c in cost_list)
-            service_totals[service] = total
-        
-        # Sort by cost (highest first)
-        sorted_services = sorted(
-            service_totals.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        
-        # Build table
-        table_lines = [
-            "## Cost Breakdown",
-            "",
-            "| Service | Total Cost | Percentage |",
-            "|---------|------------|------------|"
-        ]
-        
-        total_cost = sum(service_totals.values())
-        
-        for service, cost in sorted_services[:10]:  # Top 10 services
-            percentage = (cost / total_cost * 100) if total_cost > 0 else 0
-            table_lines.append(
-                f"| {service} | ${cost:.2f} | {percentage:.1f}% |"
-            )
-        
-        # Add total row
-        table_lines.append(f"| **Total** | **${total_cost:.2f}** | **100%** |")
-        
-        return "\n".join(table_lines)
-    
+        import math
+        totals = {}
+        for service, rows in costs.items():
+            values = [row.get('blended_cost') for row in rows if isinstance(row, dict)]
+            valid = bool(rows) and len(values) == len(rows) and all(
+                type(value) in (int, float) and math.isfinite(value) for value in values)
+            valid = valid and all(row.get('currency') == 'USD' for row in rows)
+            total = sum(values) if valid else None
+            totals[service] = total if total is not None and math.isfinite(total) else None
+        known = [value for value in totals.values() if value is not None]
+        subtotal = sum(known) if known else None
+        if subtotal is not None and not math.isfinite(subtotal): subtotal = None
+        all_available = len(known) == len(totals) and subtotal is not None
+        ordered = sorted(totals.items(), key=lambda pair: (pair[1] is not None, pair[1] if pair[1] is not None else 0), reverse=True)
+        table = ['## Observed Cost Context', '',
+            'USD BlendedCost across returned rows; date and invoice completeness remain unverified.', '',
+            '| Service | Observed amount | Share of returned subtotal |',
+            '|---------|----------------|----------------------------|']
+        for service, value in ordered[:10]:
+            label = str(service).replace('|', '/').replace('\n', ' ').replace('\r', ' ')
+            amount = f'${value:.2f}' if value is not None else 'Unavailable'
+            share = f'{value/subtotal*100:.1f}%' if value is not None and all_available and subtotal > 0 else 'Unavailable'
+            table.append(f'| {label} | {amount} | {share} |')
+        if len(ordered) > 10:
+            table.extend(['', f'{len(ordered)-10} additional returned services are omitted from this table.'])
+        if all_available:
+            table.extend(['', f'Observed subtotal across all {len(totals)} returned services: ${subtotal:.2f}. This is not a verified account invoice total.'])
+        else:
+            partial = f'${subtotal:.2f}' if subtotal is not None else 'Unavailable'
+            table.extend(['', f'Known observed subtotal: {partial}. {len(totals)-len(known)} service amounts unavailable; full returned subtotal and shares remain unavailable.'])
+        return '\n'.join(table)
+
     def highlight_numbers(self, text: str) -> str:
         """
         Highlight costs and percentages in text.

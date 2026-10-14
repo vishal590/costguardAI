@@ -1,11 +1,16 @@
 # AWS 10,000 AIdeas Hackathon - Documentation Index
 
+> EC2 model-state restoration: [Training resume](./technical/ec2-training-resume.md). Current autonomous resource behavior and deployment opt-in: [Execution and rollback](./technical/autonomous-execution.md). See [source synchronization](./technical/documentation-code-sync.md) for fresh test evidence and remaining limits.
+
+> **Current backend references (October 3, 2026):** [Project status](PROJECT_STATUS.md), [architecture](technical/architecture.md), [API contracts](technical/api-design.md), [database schemas](technical/database-design.md), and [known limitations](technical/documentation-code-sync.md). Historical deployment/test/planning reports preserve their original results; they do not certify present live operation.
+
+
 > **Central Navigation Hub** - Start here to find any documentation or code  
 > **Keywords:** index, documentation, navigation, CostGuardAI, backend, frontend, app complete, semantic search, cross-reference, discoverability
 
 ## ✅ App status
 
-**CostGuardAI backend and React web frontend are complete** for the demo scope. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) (Phases 1–6 + Autonomous + Phase 8 Web). Frontend repo: **client-aws-ideas** (Dashboard, Cost, Forecast, Prevention, Advisor, Multi-account, AI/ML, Demo, Auth).
+**Backend source includes Phases 1-6 and the autonomous extension; known limitations remain. Frontend completion was reported in earlier work and was not checked in this review.** See [PROJECT_STATUS.md](./PROJECT_STATUS.md) (Phases 1–6 + Autonomous + Phase 8 Web). Frontend repo: **client-aws-ideas** (Dashboard, Cost, Forecast, Prevention, Advisor, Multi-account, AI/ML, Demo, Auth).
 
 ## 🗺️ NEW: Complete Documentation Map
 
@@ -91,12 +96,12 @@
 ### Technical Documentation
 
 **🚀 Deployment Documentation (NEW):**
-- **[../DEPLOYMENT_INDEX.md](../DEPLOYMENT_INDEX.md)** - 📋 **Central hub for all deployment documentation**
+- **[../DEPLOYMENT_INDEX.md](deployment/DOCUMENTATION_INDEX.md)** - 📋 **Central hub for all deployment documentation**
 - **[../DEPLOYMENT_STATUS.md](../DEPLOYMENT_STATUS.md)** - ✅ **Current deployment status (Phase 1-3 LIVE)**
-- **[../DEPLOYMENT_PLAN.md](../DEPLOYMENT_PLAN.md)** - 📖 **Complete phase-by-phase deployment guide**
-- **[../DEPLOYMENT_TROUBLESHOOTING.md](../DEPLOYMENT_TROUBLESHOOTING.md)** - 🔧 **Solutions to all deployment issues (CRITICAL)**
-- **[../DEPLOYMENT_SUMMARY.md](../DEPLOYMENT_SUMMARY.md)** - 📝 **Quick deployment summary and key learnings**
-- **[../COST_MONITORING_GUIDE.md](../COST_MONITORING_GUIDE.md)** - 💰 **Cost tracking and monitoring guide**
+- **[../DEPLOYMENT_PLAN.md](deployment/DEPLOYMENT_PLAN.md)** - 📖 **Complete phase-by-phase deployment guide**
+- **[../DEPLOYMENT_TROUBLESHOOTING.md](deployment/DEPLOYMENT_TROUBLESHOOTING.md)** - 🔧 **Solutions to all deployment issues (CRITICAL)**
+- **[../DEPLOYMENT_SUMMARY.md](deployment/DEPLOYMENT_SUMMARY.md)** - 📝 **Quick deployment summary and key learnings**
+- **[../COST_MONITORING_GUIDE.md](user-guide/COST_MONITORING_GUIDE.md)** - 💰 **Cost tracking and monitoring guide**
 
 **Phase Documentation:**
 - **[technical/phase1-cost-pipeline/](./technical/phase1-cost-pipeline/)** - ✅ **Phase 1: Cost Data Pipeline (COMPLETE)**
@@ -124,7 +129,7 @@
   - **[specification.md](./technical/phase3-automated-prevention/specification.md)** - Complete Phase 3 specification
   - **[implementation-summary.md](./technical/phase3-automated-prevention/implementation-summary.md)** - Test results (724/724 passing, 87%+ coverage)
   - **[infrastructure-updates.md](./technical/phase3-automated-prevention/infrastructure-updates.md)** - CDK infrastructure changes for prevention system
-- **[technical/phase4-ai-advisor/](./technical/phase4-ai-advisor/)** - ✅ **Phase 4: AI Cost Advisor (CODE COMPLETE - PENDING DEPLOYMENT)**
+- **[technical/phase4-ai-advisor/](./technical/phase4-ai-advisor/)** - ✅ **Phase 4: AI Cost Advisor (CODE AND CDK INFRASTRUCTURE IMPLEMENTED)**
   - **[README.md](./technical/phase4-ai-advisor/README.md)** - Overview, features, architecture, and getting started
   - **[specification.md](./technical/phase4-ai-advisor/specification.md)** - Complete Phase 4 Kiro specification
   - **[implementation-summary.md](./technical/phase4-ai-advisor/implementation-summary.md)** - Test results (971/971 passing, 88% coverage, 270 Phase 4 tests)
@@ -147,7 +152,7 @@
 - **[technical/phase-review-summary.md](./technical/phase-review-summary.md)** - ✅ **Complete Phase Review Summary (All Phases 1-6 Extension)** - `phase review` `all phases` `misleading claims` `fixes` `code review` `Phase 1` `Phase 1.5` `Phase 2` `Phase 3` `Phase 4` `Phase 5` `Phase 6` `Phase 6 Extension`
 - **[technical/final-review-complete.md](./technical/final-review-complete.md)** - ✅ **Final Review - Complete Project Verification** - `final review` `verification` `complete` `all phases` `test verification` `documentation consistency` `code quality` `1621 tests`
 - **[technical/FINAL_PROJECT_COMPLETION_SUMMARY.md](./technical/FINAL_PROJECT_COMPLETION_SUMMARY.md)** - ✅ **FINAL PROJECT COMPLETION SUMMARY** - `final completion` `all phases verified` `no misleading claims` `project complete` `ready for deployment` `1621 tests` `production ready`
-- **[DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)** - 📋 **Phase 4 deployment checklist with step-by-step instructions, testing procedures, and monitoring guide**
+- **[DEPLOYMENT_CHECKLIST.md](deployment/DEPLOYMENT_CHECKLIST.md)** - 📋 **Phase 4 deployment checklist with step-by-step instructions, testing procedures, and monitoring guide**
 - **[PHASE4_STATUS.md](./PHASE4_STATUS.md)** - ⚡ **Phase 4 quick status reference**
 - **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - 📊 **Complete project status across all phases**
 - **[API_EXAMPLES.md](./API_EXAMPLES.md)** - ✅ **Complete API usage examples for Phase 1, 1.5, 2, 3, and 4**
@@ -193,7 +198,7 @@
 - **CostGuard AI Stack:** [technical/architecture.md](./technical/architecture.md) (Lambda, API Gateway, DynamoDB, Bedrock, SNS, S3)
 
 ### Kiro Development
-- **Phase 1 Kiro Spec:** [technical/phase1-kiro-spec.md](./technical/phase1-kiro-spec.md) ✅ **COMPLETE**
+- **Phase 1 Kiro Spec:** [technical/phase1-kiro-spec.md](technical/phase1-cost-pipeline/specification.md) ✅ **COMPLETE**
 - **Phase 1 Progress:** [technical/development-notes.md](./technical/development-notes.md) ✅ **Phase 1 Complete (70% Kiro usage)**
 - **Kiro Usage:** [technical/aws-services.md](./technical/aws-services.md), [technical/architecture.md](./technical/architecture.md)
 - **Kiro Integration:** [technical/development-notes.md](./technical/development-notes.md), [resources/learning-notes.md](./resources/learning-notes.md)
@@ -251,7 +256,7 @@
 - **...see Phase 4 implementation** → [technical/phase4-ai-advisor/implementation-summary.md](./technical/phase4-ai-advisor/implementation-summary.md) ✅ **88% coverage, 270 tests**
 - **...see Phase 4 setup guide** → [technical/phase4-ai-advisor/README.md](./technical/phase4-ai-advisor/README.md)
 - **...see Phase 4 deployment guide** → [technical/phase4-ai-advisor/infrastructure-updates.md](./technical/phase4-ai-advisor/infrastructure-updates.md)
-- **...see Phase 4 deployment checklist** → [DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md) 📋 **Step-by-step deployment**
+- **...see Phase 4 deployment checklist** → [DEPLOYMENT_CHECKLIST.md](deployment/DEPLOYMENT_CHECKLIST.md) 📋 **Step-by-step deployment**
 - **...see Phase 4 status** → [PHASE4_STATUS.md](./PHASE4_STATUS.md) ⚡ **Quick reference**
 - **...see Phase 6 API documentation** → [api/phase6-api-documentation.md](./api/phase6-api-documentation.md) ✅ **GPU costs, workload classification, spot recommendations**
 - **...see Phase 6 deployment guide** → [deployment/phase6-deployment-guide.md](./deployment/phase6-deployment-guide.md) ✅ **Infrastructure setup, IAM, Lambda, DynamoDB**
@@ -278,9 +283,9 @@
 - **...understand hackathon competition** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md) 📋 **Official competition rules, prizes, timeline**
 - **...develop winning strategy** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md) 🏆 **Complete strategy for winning**
 - **...see important questions to win** → [HACKATHON_WINNING_QUESTIONS.md](./HACKATHON_WINNING_QUESTIONS.md) ❓ **Quick list + where to find answers**
-- **...prepare article submission** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#article-strategy-march-13-deadline) 📝 **Article structure and content plan**
+- **...prepare article submission** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#4-article-strategy-march-13-deadline) 📝 **Article structure and content plan**
 - **...see how to write the article** → [submission/HOW_TO_WRITE_ARTICLE.md](./submission/HOW_TO_WRITE_ARTICLE.md) 📝 **Step-by-step: title, tags, sections, template, checklist**
-- **...understand judging criteria** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#what-judges-are-looking-for) 🎯 **Community voting and expert review criteria**
+- **...understand judging criteria** → [HACKATHON_WINNING_STRATEGY.md](./HACKATHON_WINNING_STRATEGY.md#-what-judges-are-looking-for) 🎯 **Community voting and expert review criteria**
 - **...see competition timeline** → [HACKATHON_COMPETITION_INFO.md](./HACKATHON_COMPETITION_INFO.md#timeline) ⏰ **8 days to article deadline**
 - **...research AWS services** → [technical/aws-services.md](./technical/aws-services.md) (CostGuard AI services)
 - **...understand CostGuard AI** → [project/ideas.md](./project/ideas.md), [technical/architecture.md](./technical/architecture.md)
@@ -425,12 +430,12 @@ For more advanced navigation features:
   - Comprehensive search tags
   - Documentation metrics
 
-## 📊 Quick Stats
+## 📊 Historical Quick Stats (February 2026)
 
 **Project Status:**
-- ✅ Phases 1-6: COMPLETE & DEPLOYED
-- ✅ Phase 6 Extension (Autonomous): COMPLETE & OPERATIONAL
-- ⏸️ Phase 4-5: PENDING DEPLOYMENT
+- Phases 1-6: implemented in backend source; prior deployments reported
+- Autonomous extension: implemented with approved EC2 execution and rollback; deployment execution defaults to disabled
+- ⏸️ Phase 4-5: implemented in CDK; live deployment not reverified
 - 📋 Phases 7-8: PLANNED
 
 **Test Coverage:**
@@ -462,3 +467,34 @@ For more advanced navigation features:
 
 **Last Updated:** February 2026  
 **Maintained By:** CostGuard AI Team
+
+## Active Development Queue
+
+See the [ordered implementation backlog](technical/development-backlog.md) for current tasks, completed source changes and deferred testing.
+
+Active feature references: [access/API contracts](technical/access-and-feature-contracts.md), [unit economics](technical/phase7-unit-economics.md), [commitment analytics](technical/commitment-analytics.md). These implementations remain unvalidated.
+
+
+## Current Observed AI/ML Contracts
+
+- [Configured GPU evidence, aggregate charges and unverified history](technical/gpu-observed-contracts.md)
+- [SageMaker observed costs and low-usage review](technical/sagemaker-observed-contracts.md)
+- [Bedrock service charges and separate runtime counters](technical/bedrock-observed-contracts.md)
+
+These local source implementations are unvalidated. Tests, builds, browser/account checks and deployment remain deferred.
+
+- [Explicit inference counters and training/resource metadata](technical/inference-training-observed-contracts.md)
+
+- [Scoped EC2 spot quote observations](technical/spot-quote-observed-contracts.md)
+
+Tasks 178-179: [current workload declaration and pattern contracts](technical/workload-label-observed-contracts.md). Versioned reads/edits/clear use a retained MANUAL row; clear returns to tag/unknown source. Source implementation only; testing/deployment remain deferred.
+
+- [Current advisor evidence/prompt contracts](technical/advisor-evidence-prompt-contracts.md) - tasks 189-191; source only, validation deferred.
+
+- [Current prevention audit history contracts](technical/prevention-history-observed-contracts.md) - bounded summary selection, coverage quality and deferred validation.
+
+- [Scoped inventory persistence contracts](technical/inventory-persistence-contracts.md) - identity namespaces, legacy coexistence, write diagnostics and deferred validation.
+
+- [Direct known-resource inspection](technical/resource-inspection-contracts.md) - configured EC2/RDS/Lambda metadata, current-observation export and deferred validation.
+
+- [Autonomous recorded-outcome observations](technical/autonomous-action-observation-contracts.md) - known/unknown denominators, heuristic scope, bounded scans and current type-summary CSV.

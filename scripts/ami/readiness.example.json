@@ -1,0 +1,32 @@
+{
+  "region": "us-east-1",
+  "execution_enabled": false,
+  "image_architecture": "x86_64",
+  "instance_architecture": "x86_64",
+  "stack_outputs": {
+    "TrainingInstanceProfileArn": null,
+    "TrainingDocumentName": null,
+    "CheckpointsBucketName": null
+  },
+  "launch_template_data": {
+    "ImageId": null,
+    "InstanceType": "t3.micro",
+    "IamInstanceProfile": {
+      "Arn": null
+    }
+  },
+  "launch_template_tags": {
+    "CostGuardManaged": "true",
+    "CostGuardProtected": "false",
+    "Environment": "test"
+  },
+  "network": {
+    "method": "vpc_endpoints",
+    "ssm_endpoint": false,
+    "ssmmessages_endpoint": false,
+    "s3_route": false,
+    "private_dns_enabled": false,
+    "https_egress": false,
+    "endpoint_https_ingress": false
+  }
+}

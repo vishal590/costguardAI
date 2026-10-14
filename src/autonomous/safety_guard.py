@@ -24,7 +24,9 @@ from typing import Any, Dict, List, Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
+from autonomous.action_executor import validate_parameters
 from autonomous.utils.cloudwatch_metrics import get_metrics_publisher
 from autonomous.utils.audit_logger import log_action, get_current_user, get_source_ip
 
@@ -36,7 +38,7 @@ APPROVAL_SNS_TOPIC = os.environ.get("APPROVAL_SNS_TOPIC", "")
 DRY_RUN_MODE = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
 APPROVAL_TIMEOUT_MINUTES = int(os.environ.get("APPROVAL_TIMEOUT_MINUTES", "15"))
 FREE_TIER_BUDGET_LIMIT = float(os.environ.get("FREE_TIER_BUDGET_LIMIT", "5.0"))
-APPROVAL_REQUIRED_ACTIONS = os.environ.get("APPROVAL_REQUIRED_ACTIONS", "migration,ondemand_fallback").split(",")
+APPROVAL_REQUIRED_ACTIONS = ["schedule", "spot_migration", "right_sizing", "ondemand_fallback"]
 APPROVAL_SECRET_KEY = os.environ.get("APPROVAL_SECRET_KEY", "default-secret-key-change-in-production")
 
 # AWS clients
@@ -117,7 +119,7 @@ def execute_dry_run(action: ActionRequest, event: Dict[str, Any] = None) -> None
             "timestamp": action.timestamp.isoformat(),
             "action_type": action.action_type,
             "status": "dry_run",
-            "parameters": action.parameters,
+            "parameters": json.loads(json.dumps(action.parameters, default=float), parse_float=Decimal),
             "confidence_score": Decimal(str(action.confidence_score)),
             "expected_cost_impact": Decimal(str(action.expected_cost_impact)),
             "dry_run": True,
@@ -280,8 +282,12 @@ def generate_approval_signature(request_id: str, action_id: str) -> str:
         HMAC signature
     """
     message = f"{request_id}:{action_id}".encode('utf-8')
+    secret = APPROVAL_SECRET_KEY
+    if os.environ.get("APPROVAL_SECRET_ARN"):
+        secret = boto3.client("secretsmanager").get_secret_value(
+            SecretId=os.environ["APPROVAL_SECRET_ARN"])["SecretString"]
     signature = hmac.new(
-        APPROVAL_SECRET_KEY.encode('utf-8'),
+        secret.encode('utf-8'),
         message,
         hashlib.sha256
     ).hexdigest()
@@ -331,15 +337,49 @@ Expected Cost Impact: ${action.expected_cost_impact:.2f}
 Parameters:
 {json.dumps(action.parameters, indent=2)}
 
-To approve this action, reply with:
-APPROVE {action.request_id} {signature}
+Submit POST /api/autonomous/approve-action with this JSON body:
+{{"request_id": "{action.request_id}", "action_id": "{action.action_id}", "signature": "{signature}", "approved": true}}
 
-To reject this action, reply with:
-REJECT {action.request_id}
+To reject this action, use the same body with "approved": false.
 
 This request will expire in {APPROVAL_TIMEOUT_MINUTES} minutes.
 """
         
+        # Store approval request in DynamoDB
+        ttl = int(time.time()) + APPROVAL_TIMEOUT_MINUTES * 60
+        
+        item = {
+            "action_id": action.action_id,
+            "timestamp": action.timestamp.isoformat(),
+            "action_type": action.action_type,
+            "status": "pending_approval",
+            "parameters": json.loads(json.dumps(action.parameters, default=float), parse_float=Decimal),
+            "confidence_score": Decimal(str(action.confidence_score)),
+            "expected_cost_impact": Decimal(str(action.expected_cost_impact)),
+            "approval_required": True,
+            "approval_request_id": action.request_id,
+            "approval_signature": signature,
+            "approval_expires_at": ttl,
+            "ttl": int(time.time()) + 90 * 86400,
+        }
+        
+        # Producer IDs and timestamps are stable across EventBridge retries.
+        try:
+            action_history_table.put_item(Item=item, ConditionExpression="attribute_not_exists(action_id)")
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            existing = action_history_table.get_item(Key={"action_id": action.action_id,
+                "timestamp": action.timestamp.isoformat()}, ConsistentRead=True)["Item"]
+            if existing.get("approval_request_id") != action.request_id:
+                raise ValueError("Action already has a different approval request")
+            if existing.get("action_type") != action.action_type or existing.get("parameters") != item["parameters"]:
+                raise ValueError("Approval request replay changed the action parameters")
+            if existing.get("status") != "pending_approval":
+                return action.request_id
+            # A failed SNS publish must be retryable even after storing the row.
+
+        # Persist the request before a recipient can respond to the notification.
         # Send SNS notification
         if APPROVAL_SNS_TOPIC:
             sns_client.publish(
@@ -347,30 +387,12 @@ This request will expire in {APPROVAL_TIMEOUT_MINUTES} minutes.
                 Subject=f"CostGuard Approval Required: {action.action_type}",
                 Message=message,
             )
-            
+
             print(f"Approval request sent: {action.request_id}")
         else:
             print(f"WARNING: No SNS topic configured for approval requests")
-        
-        # Store approval request in DynamoDB
-        ttl = int((datetime.utcnow() + timedelta(minutes=APPROVAL_TIMEOUT_MINUTES)).timestamp())
-        
-        item = {
-            "action_id": action.action_id,
-            "timestamp": action.timestamp.isoformat(),
-            "action_type": action.action_type,
-            "status": "pending_approval",
-            "parameters": action.parameters,
-            "confidence_score": Decimal(str(action.confidence_score)),
-            "expected_cost_impact": Decimal(str(action.expected_cost_impact)),
-            "approval_required": True,
-            "approval_request_id": action.request_id,
-            "approval_signature": signature,
-            "ttl": ttl,
-        }
-        
-        action_history_table.put_item(Item=item)
-        
+
+
         return action.request_id
         
     except Exception as e:
@@ -431,21 +453,27 @@ def create_rollback_capability(action: ActionRequest) -> str:
     try:
         rollback_id = f"rollback_{action.action_id}_{int(time.time())}"
         
-        # Store rollback metadata
-        ttl = int((datetime.utcnow() + timedelta(days=7)).timestamp())
-        
-        item = {
-            "action_id": action.action_id,
-            "timestamp": action.timestamp.isoformat(),
-            "rollback_id": rollback_id,
-            "action_type": action.action_type,
-            "parameters": action.parameters,
-            "rollback_created": True,
-            "ttl": ttl,
-        }
-        
-        action_history_table.put_item(Item=item)
-        
+        # Add rollback metadata without replacing a pending approval stored under
+        # the same action/timestamp key or extending its approval deadline.
+        ttl = int(time.time()) + 7 * 24 * 60 * 60
+        action_history_table.update_item(
+            Key={"action_id": action.action_id, "timestamp": action.timestamp.isoformat()},
+            UpdateExpression=(
+                "SET rollback_id = if_not_exists(rollback_id, :rollback_id), rollback_created = :created, "
+                "action_type = if_not_exists(action_type, :action_type), "
+                "#parameters = if_not_exists(#parameters, :parameters), "
+                "#ttl = if_not_exists(#ttl, :ttl)"
+            ),
+            ExpressionAttributeNames={"#parameters": "parameters", "#ttl": "ttl"},
+            ExpressionAttributeValues={
+                ":rollback_id": rollback_id,
+                ":created": True,
+                ":action_type": action.action_type,
+                ":parameters": json.loads(json.dumps(action.parameters, default=float), parse_float=Decimal),
+                ":ttl": ttl,
+            },
+        )
+
         print(f"Rollback capability created: {rollback_id}")
         
         return rollback_id
@@ -456,69 +484,26 @@ def create_rollback_capability(action: ActionRequest) -> str:
 
 
 def execute_rollback(action_id: str) -> bool:
-    """
-    Execute rollback to restore previous state.
-    
-    Args:
-        action_id: Action ID to rollback
-        
-    Returns:
-        True if rollback successful
-    """
-    try:
-        # Query action from history
-        response = action_history_table.query(
-            KeyConditionExpression=Key("action_id").eq(action_id),
-            Limit=1,
-        )
-        
-        if not response.get("Items"):
-            print(f"ERROR: Action not found: {action_id}")
+    """Submit resource restoration to the executor; never mark metadata restored."""
+    query = {"KeyConditionExpression": Key("action_id").eq(action_id), "ConsistentRead": True}
+    while True:
+        page = action_history_table.query(**query)
+        for item in page.get("Items", []):
+            if item.get("approval_decision") == "approved" and item.get("rollback_created"):
+                publish_execution(item, "ExecuteRollback")
+                return True
+        if not page.get("LastEvaluatedKey"):
             return False
-        
-        action_item = response["Items"][0]
-        
-        # Verify rollback capability exists
-        if not action_item.get("rollback_created"):
-            print(f"ERROR: No rollback capability for action: {action_id}")
-            return False
-        
-        # Execute rollback (simplified)
-        # In production, would restore previous state based on action type
-        print(f"Executing rollback for action: {action_id}")
-        
-        # Update action status
-        action_history_table.update_item(
-            Key={"action_id": action_id, "timestamp": action_item["timestamp"]},
-            UpdateExpression="SET #status = :status, rolled_back_at = :timestamp",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={
-                ":status": "rolled_back",
-                ":timestamp": datetime.utcnow().isoformat(),
-            },
-        )
-        
-        # Publish rollback event
-        events_client.put_events(
-            Entries=[{
-                "Source": "costguard.autonomous.safetyguard",
-                "DetailType": "RollbackExecuted",
-                "Detail": json.dumps({
-                    "action_id": action_id,
-                    "rollback_id": action_item.get("rollback_id"),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }),
-                "EventBusName": EVENT_BUS_NAME,
-            }]
-        )
-        
-        print(f"Rollback completed for action: {action_id}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"ERROR: Failed to execute rollback: {e}")
-        return False
+        query["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+
+def publish_execution(item, detail_type="ExecuteAction"):
+    response = events_client.put_events(Entries=[{
+        "Source": "costguard.autonomous.safetyguard", "DetailType": detail_type,
+        "Detail": json.dumps({"action_id": item["action_id"], "action_timestamp": item["timestamp"]}),
+        "EventBusName": EVENT_BUS_NAME}])
+    if response.get("FailedEntryCount", 0):
+        raise RuntimeError("Execution event was not accepted")
 
 
 def publish_approval_decision(action: ActionRequest, approved: bool) -> None:
@@ -553,6 +538,81 @@ def publish_approval_decision(action: ActionRequest, approved: bool) -> None:
         print(f"ERROR: Failed to publish approval decision: {e}")
 
 
+def handle_approval_response(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply a signed API decision to its pending request, at most once."""
+    detail = event.get("detail", {})
+    request_id = detail.get("request_id")
+    action_id = detail.get("action_id")
+    signature = detail.get("signature")
+    approved = detail.get("approved")
+
+    def response(code, message):
+        return {"statusCode": code, "body": json.dumps({"error": message})}
+
+    expected_decision = event.get("detail-type") == "ActionApproved"
+    if event.get("source") != "costguard.autonomous.api":
+        return response(400, "Approval decisions must originate from the API")
+    if not (isinstance(request_id, str) and request_id.strip()
+            and isinstance(action_id, str) and action_id.strip()
+            and isinstance(signature, str) and signature.strip()
+            and isinstance(approved, bool) and approved == expected_decision):
+        return response(400, "Invalid approval decision")
+
+    # Audit entries share the action partition. Find the request rather than
+    # assuming the first or newest item is the pending approval.
+    query = {"KeyConditionExpression": Key("action_id").eq(action_id),
+             "ConsistentRead": True, "ScanIndexForward": False}
+    item = None
+    while True:
+        page = action_history_table.query(**query)
+        item = next((record for record in page.get("Items", [])
+                     if record.get("approval_request_id") == request_id), None)
+        if item or not page.get("LastEvaluatedKey"):
+            break
+        query["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+    if item is None:
+        return response(404, "Approval request not found")
+    stored_signature = item.get("approval_signature")
+    if not (isinstance(stored_signature, str)
+            and hmac.compare_digest(signature.encode("utf-8"), stored_signature.encode("utf-8"))
+            and validate_approval_signature(request_id, action_id, signature)):
+        return response(403, "Invalid approval signature")
+
+    decision = "approved" if approved else "rejected"
+    # EventBridge can deliver a decision again. Never reverse an applied decision.
+    if item.get("approval_decision", item.get("status")) == decision:
+        if approved:
+            publish_execution(item)
+        return {"statusCode": 200, "body": json.dumps({"status": decision,
+                "action_id": action_id, "request_id": request_id, "duplicate": True})}
+    if item.get("status") != "pending_approval":
+        return response(409, "Approval request is no longer pending")
+    now = int(time.time())
+    if int(item.get("approval_expires_at", item.get("ttl", 0))) <= now:
+        return response(410, "Approval request expired")
+    try:
+        action_history_table.update_item(
+            Key={"action_id": action_id, "timestamp": item["timestamp"]},
+            UpdateExpression="SET #status = :decision, approval_decision = :decision, approval_decided_at = :decided_at",
+            ConditionExpression=("#status = :pending AND approval_request_id = :request_id "
+                                 "AND approval_signature = :signature AND approval_expires_at > :now"),
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":decision": decision, ":pending": "pending_approval",
+                ":request_id": request_id, ":signature": signature, ":now": now,
+                ":decided_at": datetime.utcnow().isoformat()},
+        )
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            return response(409, "Approval request changed before the decision was applied")
+        raise
+    if approved:
+        publish_execution(item)
+    log_action(action_id=action_id, action_type=item.get("action_type"),
+               parameters=item.get("parameters", {}), outcome=decision, event=event)
+    return {"statusCode": 200, "body": json.dumps({"status": decision,
+            "action_id": action_id, "request_id": request_id})}
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Lambda handler for Safety Guard.
@@ -570,7 +630,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         Response with approval/rejection decision
     """
     try:
-        print(f"Safety Guard invoked with event: {json.dumps(event, default=str)}")
+        print(f"Safety Guard event: {event.get('detail-type')}")
         
         # Get metrics publisher
         metrics = get_metrics_publisher()
@@ -578,6 +638,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Determine event type
         detail_type = event.get("detail-type", "")
         
+        if detail_type in ("ActionApproved", "ActionRejected"):
+            return handle_approval_response(event)
+
+        if detail_type == "ScheduleRecommendation":
+            detail = event["detail"]
+            workload = detail.get("workload")
+            if not workload:
+                return {"statusCode": 200, "body": json.dumps({"status": "recommendation_only"})}
+            action_id = "act_" + detail["recommendation_id"]
+            event = dict(event, **{"detail-type": "ActionRequest", "detail": {
+                "request_id": "req_" + detail["recommendation_id"], "action_id": action_id,
+                "action_type": "schedule", "parameters": workload,
+                "timestamp": detail["timestamp"], "approval_required": True,
+                "confidence_score": detail["confidence_score"],
+                "expected_cost_impact": -detail["expected_savings_dollars"]}})
+            detail_type = "ActionRequest"
+
         if detail_type == "ActionRequest":
             # Handle action request
             detail = event.get("detail", {})
@@ -593,6 +670,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 approval_required=detail.get("approval_required", False),
             )
             
+            if detail.get("timestamp"):
+                action.timestamp = datetime.fromisoformat(detail["timestamp"].replace("Z", "+00:00"))
+            if not action.action_id or not action.request_id:
+                return {"statusCode": 400, "body": json.dumps({"error": "Action and request IDs are required"})}
             # Check dry-run mode
             dry_run = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
             
@@ -609,6 +690,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }),
                 }
             
+            # Validate the executable contract before requesting approval.
+            try:
+                validate_parameters(action.action_type, action.parameters)
+            except (ValueError, KeyError, TypeError) as error:
+                return {"statusCode": 400, "body": json.dumps({"status": "rejected", "error": str(error)})}
+
             # Validate action request
             validation = validate_action_request(action)
             
@@ -650,6 +737,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Create rollback capability
                 rollback_id = create_rollback_capability(action)
                 
+                stored = action_history_table.get_item(Key={"action_id": action.action_id,
+                    "timestamp": action.timestamp.isoformat()}, ConsistentRead=True).get("Item")
+                if isinstance(stored, dict) and stored.get("status") != "pending_approval":
+                    return {"statusCode": 200, "body": json.dumps({"status": stored.get("status"),
+                        "action_id": action.action_id, "request_id": request_id})}
+
                 # Log approval request
                 log_action(
                     action_id=action.action_id,
@@ -716,14 +809,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 action_id=action_id,
                 action_type="rollback",
                 parameters={"original_action_id": action_id},
-                outcome="rolled_back" if success else "rollback_failed",
+                outcome="rollback_submitted" if success else "rollback_failed",
                 event=event,
             )
             
             return {
-                "statusCode": 200 if success else 500,
+                "statusCode": 202 if success else 404,
                 "body": json.dumps({
-                    "status": "rolled_back" if success else "rollback_failed",
+                    "status": "rollback_submitted" if success else "rollback_failed",
                     "action_id": action_id,
                 }),
             }
@@ -739,7 +832,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         import traceback
         traceback.print_exc()
         
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)}),
-        }
+        if event.get("detail-type"):
+            raise
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}

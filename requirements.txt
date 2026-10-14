@@ -1,5 +1,5 @@
 # AWS SDK
-boto3>=1.34.0  # Includes Organizations, Cost Explorer, STS APIs
+boto3>=1.42.19  # Includes Organizations State, Bedrock Converse and commitment analytics APIs
 
 # Testing
 pytest>=7.4.0
